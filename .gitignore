@@ -5,3 +5,4 @@
 /frontend/e2e/.tmp
 /frontend/test-results
 /frontend/playwright-report
+/frontend/storybook-static

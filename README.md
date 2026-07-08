@@ -70,6 +70,17 @@ $ cd frontend && pnpm test:e2e  # Playwright E2E（フィクスチャ生成＋�
   リポジトリ追加/削除を実ブラウザで検証。フィクスチャリポジトリ生成と gitreant
   サーバ起動は `frontend/e2e/global-setup.ts` が行う。
 
+## UIパーツの確認（Storybook）
+
+```console
+$ cd frontend
+$ pnpm storybook          # 開発サーバ（:6006）
+$ pnpm build-storybook    # 静的ビルド
+```
+
+`Drawer`（一覧・折りたたみ・空）と `RepoCard`（マージ履歴・単線・読み取りエラー）を
+モックデータで単体確認できる。
+
 ## オプション
 
 ```
