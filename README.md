@@ -38,7 +38,9 @@ main (CLI) ──▶ server (axum) ──▶ app (session) ──▶ domain (gra
 | GET    | `/api/ping`    | 稼働マーカー（単一インスタンス検知用）      |
 | GET    | `/api/repos`   | 表示中リポジトリのグラフ JSON               |
 | POST   | `/api/repos`   | `{ "path": "..." }` をセッションに追加      |
-| GET    | `/api/events`  | SSE。リポジトリ追加時に `update` を通知     |
+| DELETE | `/api/repos`   | `{ "path": "<id>" }` をセッションから削除   |
+| POST   | `/api/pick`    | サーバ機でネイティブのフォルダ選択を開く    |
+| GET    | `/api/events`  | SSE。リポジトリ追加/削除時に `update` を通知 |
 
 ## ビルド
 

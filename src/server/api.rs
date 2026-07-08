@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::sse::{Event, KeepAlive, Sse};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
@@ -39,9 +39,10 @@ impl AppState {
     }
 
     /// Add a repository; returns whether it was newly added. Notifies SSE
-    /// listeners on a successful, non-duplicate add.
-    fn add_repo(&self, path: &str) -> Result<bool, String> {
-        let added = self
+    /// listeners on a successful, non-duplicate add. Returns the repository id
+    /// and whether it was newly added.
+    fn add_repo(&self, path: &str) -> Result<(String, bool), String> {
+        let (id, added) = self
             .session
             .lock()
             .expect("session mutex")
@@ -49,7 +50,7 @@ impl AppState {
         if added {
             let _ = self.updates.send(());
         }
-        Ok(added)
+        Ok((id, added))
     }
 
     /// Remove a repository by id. Notifies SSE listeners when one was removed.
@@ -71,6 +72,7 @@ pub fn router(state: AppState) -> Router {
             get(list_repos).post(add_repo).delete(remove_repo),
         )
         .route("/api/events", get(events))
+        .route("/api/pick", post(pick_folder))
         .fallback(assets::static_handler)
         .with_state(state)
 }
@@ -90,6 +92,8 @@ struct AddRepoRequest {
 
 #[derive(Serialize)]
 struct AddRepoResponse {
+    /// The id of the repository the path resolved to (whether or not it was new).
+    id: String,
     added: bool,
     repos: Vec<RepoView>,
 }
@@ -99,7 +103,8 @@ async fn add_repo(
     Json(req): Json<AddRepoRequest>,
 ) -> Result<Json<AddRepoResponse>, (StatusCode, String)> {
     match state.add_repo(&req.path) {
-        Ok(added) => Ok(Json(AddRepoResponse {
+        Ok((id, added)) => Ok(Json(AddRepoResponse {
+            id,
             added,
             repos: state.views(),
         })),
@@ -119,6 +124,27 @@ async fn remove_repo(
 ) -> Json<Vec<RepoView>> {
     state.remove_repo(&req.path);
     Json(state.views())
+}
+
+#[derive(Serialize)]
+struct PickResponse {
+    /// The chosen directory, or `null` if the dialog was cancelled.
+    path: Option<String>,
+}
+
+/// Open a native folder-picker on the machine running the server (the user's own
+/// machine, since gitreant is a local tool) and return the chosen path.
+async fn pick_folder() -> Json<PickResponse> {
+    let picked = tokio::task::spawn_blocking(|| {
+        rfd::FileDialog::new()
+            .set_title("Select a git repository")
+            .pick_folder()
+    })
+    .await
+    .ok()
+    .flatten()
+    .map(|p| p.to_string_lossy().into_owned());
+    Json(PickResponse { path: picked })
 }
 
 async fn events(

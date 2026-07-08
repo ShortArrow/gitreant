@@ -108,4 +108,24 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("repo-item")).toHaveCount(2);
     await expect(page.locator('[data-repo-name="repoC"]')).toHaveCount(0);
   });
+
+  test("browse button adds the folder returned by the picker", async ({
+    page,
+  }) => {
+    // The native folder dialog can't be driven in a headless run, so stub the
+    // pick endpoint and verify the browse -> add wiring end to end.
+    await page.route("**/api/pick", (route) =>
+      route.fulfill({ json: { path: fixtures.repoC } }),
+    );
+
+    await page.getByTestId("add-browse").click();
+    await expect(page.locator('[data-repo-name="repoC"]')).toBeVisible();
+    await expect(page.locator('[data-tab-name="repoC"]')).toBeVisible();
+
+    // Restore the served set.
+    const repoC = page.locator('[data-repo-name="repoC"]');
+    await repoC.hover();
+    await repoC.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoC"]')).toHaveCount(0);
+  });
 });

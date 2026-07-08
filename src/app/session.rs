@@ -20,15 +20,17 @@ impl Session {
     }
 
     /// Add the repository containing `path`. Returns `Ok(true)` if it was newly
-    /// added, `Ok(false)` if it was already present.
-    pub fn add(&mut self, path: &Path) -> Result<bool, String> {
+    /// added, `Ok(false)` if it was already present. Either way the returned id
+    /// (canonical path string, matching `RepoView::id`) identifies the repository.
+    pub fn add(&mut self, path: &Path) -> Result<(String, bool), String> {
         let root = discover_repo(path)?;
         let key = canonical(&root);
+        let id = key.to_string_lossy().into_owned();
         if self.paths.iter().any(|p| p == &key) {
-            return Ok(false);
+            return Ok((id, false));
         }
         self.paths.push(key);
-        Ok(true)
+        Ok((id, true))
     }
 
     /// Remove the repository identified by `id` (its canonical path string, as
@@ -84,9 +86,9 @@ mod tests {
         init_repo(tmp.path());
 
         let mut session = Session::new();
-        assert_eq!(session.add(tmp.path()).unwrap(), true);
+        assert_eq!(session.add(tmp.path()).unwrap().1, true);
         // Adding a subpath resolves to the same repository root.
-        assert_eq!(session.add(tmp.path()).unwrap(), false);
+        assert_eq!(session.add(tmp.path()).unwrap().1, false);
         assert_eq!(session.paths().len(), 1);
     }
 

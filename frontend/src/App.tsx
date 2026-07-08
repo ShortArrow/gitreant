@@ -79,13 +79,11 @@ export function App() {
 
   const handleAdd = useCallback(
     async (path: string) => {
-      const before = new Set(repos.map((r) => r.id));
-      const { repos: next } = await addRepo(path);
+      const { id, repos: next } = await addRepo(path);
       applyRepos(next);
-      const added = next.find((r) => !before.has(r.id));
-      if (added) openTab(added.id);
+      openTab(id);
     },
-    [repos, applyRepos, openTab],
+    [applyRepos, openTab],
   );
 
   const activeRepo = activeId ? repoById.get(activeId) : undefined;

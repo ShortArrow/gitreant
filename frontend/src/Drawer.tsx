@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { RepoView } from "./api";
+import { pickFolder, type RepoView } from "./api";
 
 interface DrawerProps {
   repos: RepoView[];
@@ -24,10 +24,7 @@ export function Drawer({
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const value = path.trim();
-    if (!value) return;
+  const runAdd = async (value: string) => {
     setAdding(true);
     setError(null);
     try {
@@ -37,6 +34,22 @@ export function Drawer({
       setError(String(err));
     } finally {
       setAdding(false);
+    }
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = path.trim();
+    if (value) await runAdd(value);
+  };
+
+  const browse = async () => {
+    setError(null);
+    try {
+      const picked = await pickFolder();
+      if (picked) await runAdd(picked);
+    } catch (err) {
+      setError(String(err));
     }
   };
 
@@ -79,6 +92,16 @@ export function Drawer({
           value={path}
           onChange={(e) => setPath(e.target.value)}
         />
+        <button
+          type="button"
+          className="browse"
+          title="Choose a folder…"
+          data-testid="add-browse"
+          onClick={browse}
+          disabled={adding}
+        >
+          📁
+        </button>
         <button type="submit" data-testid="add-submit" disabled={adding}>
           {adding ? "…" : "Add"}
         </button>

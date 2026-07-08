@@ -43,6 +43,8 @@ export async function fetchRepos(): Promise<RepoView[]> {
 }
 
 export interface AddRepoResponse {
+  /** Id of the repository the path resolved to (whether or not it was new). */
+  id: string;
   added: boolean;
   repos: RepoView[];
 }
@@ -58,6 +60,17 @@ export async function addRepo(path: string): Promise<AddRepoResponse> {
     throw new Error((await response.text()) || `add failed: ${response.status}`);
   }
   return response.json();
+}
+
+/** Open a native folder picker on the server machine; returns the chosen path
+ *  (or null if cancelled). */
+export async function pickFolder(): Promise<string | null> {
+  const response = await fetch("/api/pick", { method: "POST" });
+  if (!response.ok) {
+    throw new Error(`pick failed: ${response.status}`);
+  }
+  const data = (await response.json()) as { path: string | null };
+  return data.path;
 }
 
 /** Remove a repository. Returns the authoritative updated repo list. */
