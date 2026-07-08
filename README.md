@@ -72,6 +72,17 @@ $ cd frontend && pnpm test:e2e  # Playwright E2E（フィクスチャ生成＋�
   リポジトリ追加/削除を実ブラウザで検証。フィクスチャリポジトリ生成と gitreant
   サーバ起動は `frontend/e2e/global-setup.ts` が行う。
 
+### CI
+
+`.github/workflows/ci.yml` で以下を実行する。
+
+- **rust**: Linux / macOS / Windows で `cargo build` + `cargo test`
+- **web**: フロントの `pnpm build`（型チェック込み）と `pnpm build-storybook`
+- **e2e**: Ubuntu で Playwright E2E
+
+Linux ビルドは `rfd` がシステムの libwayland にリンクするため `libwayland-dev`
+を導入する。
+
 ## UIパーツの確認（Storybook）
 
 ```console
