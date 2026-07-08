@@ -101,3 +101,12 @@ gitreant [PATH...]
   -p, --port <PORT>   待受/接続ポート（既定 4000）
       --no-open       ブラウザを自動で開かない
 ```
+
+## License
+
+以下のいずれかを選択して利用できる（デュアルライセンス）。
+
+- MIT License（[LICENSE-MIT](LICENSE-MIT)）
+- Apache License 2.0（[LICENSE-APACHE](LICENSE-APACHE)）
+
+`SPDX-License-Identifier: MIT OR Apache-2.0`
