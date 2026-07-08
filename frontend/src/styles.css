@@ -1,0 +1,368 @@
+:root {
+  --bg: #0d1117;
+  --bg-elev: #161b22;
+  --bg-drawer: #10151c;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --accent: #4f9cff;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+/* ---- Layout ---- */
+.layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Drawer ---- */
+.drawer {
+  flex: none;
+  width: 260px;
+  background: var(--bg-drawer);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.drawer-collapsed {
+  width: 36px;
+  align-items: center;
+  padding-top: 8px;
+}
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.drawer-title {
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.icon-btn {
+  margin-left: auto;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  line-height: 1;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.icon-btn:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.drawer-add {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.drawer-add input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.drawer-add input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.drawer-add button {
+  flex: none;
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.drawer-add button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.drawer-error {
+  color: #ff7b72;
+  font-size: 12px;
+  margin: 8px 12px 0;
+  word-break: break-word;
+}
+
+.repo-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+.repo-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "name remove" "path remove";
+  align-items: center;
+  gap: 0 6px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.repo-item:hover {
+  background: rgba(79, 156, 255, 0.08);
+}
+
+.repo-item.active {
+  background: rgba(79, 156, 255, 0.16);
+}
+
+.repo-item-name {
+  grid-area: name;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.repo-item-path {
+  grid-area: path;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+.repo-remove {
+  grid-area: remove;
+  margin: 0;
+  opacity: 0;
+}
+
+.repo-item:hover .repo-remove {
+  opacity: 1;
+}
+
+.repo-empty {
+  color: var(--muted);
+  padding: 10px 8px;
+  font-size: 12px;
+}
+
+/* ---- Tabs ---- */
+.tabbar {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  min-height: 38px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: var(--bg-drawer);
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab.active {
+  background: var(--bg-elev);
+  color: var(--text);
+}
+
+.tab-close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.6;
+}
+
+.tab-close:hover {
+  opacity: 1;
+}
+
+/* ---- Pane ---- */
+.pane {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 16px;
+}
+
+.pane-empty {
+  color: var(--muted);
+  padding: 32px;
+  text-align: center;
+}
+
+.app-error {
+  color: #ff7b72;
+  padding: 8px 16px;
+}
+
+/* ---- Repo card (pane content) ---- */
+.repo {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.repo-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.repo-header h2 {
+  font-size: 15px;
+  margin: 0;
+}
+
+.repo-path {
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repo-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.repo-error {
+  color: #ff7b72;
+  padding: 12px 14px;
+}
+
+.graph-and-list {
+  display: flex;
+  align-items: flex-start;
+  overflow-x: auto;
+}
+
+.graph {
+  flex: none;
+  display: block;
+}
+
+.commits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.commit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-bottom: 1px solid rgba(48, 54, 61, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.commit:last-child {
+  border-bottom: none;
+}
+
+.commit-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.commit-meta {
+  margin-left: auto;
+  color: var(--muted);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12px;
+  padding-left: 12px;
+}
+
+.badge {
+  flex: none;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.badge-ref {
+  color: var(--accent);
+  border-color: rgba(79, 156, 255, 0.4);
+  background: rgba(79, 156, 255, 0.1);
+}
+
+.badge-head {
+  color: #3fbf7f;
+  border-color: rgba(63, 191, 127, 0.4);
+  background: rgba(63, 191, 127, 0.1);
+}
