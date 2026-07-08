@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addRepo, fetchRepos, removeRepo, type RepoView } from "./api";
 import { Drawer } from "./Drawer";
 import { RepoCard } from "./RepoCard";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function App() {
   const [repos, setRepos] = useState<RepoView[]>([]);
@@ -10,12 +11,29 @@ export function App() {
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
+  // Concurrent updates (initial load, SSE refreshes, add/remove) can resolve out
+  // of order. A monotonic sequence marks the newest state; older results that
+  // resolve late are ignored so they can't clobber a fresher repo list.
+  const fetchSeq = useRef(0);
+
+  // Apply an authoritative repo list (from an add/remove response). Bumping the
+  // sequence invalidates any older in-flight fetch so it cannot overwrite this.
+  const applyRepos = useCallback((data: RepoView[]) => {
+    fetchSeq.current += 1;
+    setRepos(data);
+    setError(null);
+  }, []);
+
   const reload = useCallback(async () => {
+    const seq = ++fetchSeq.current;
     try {
-      setRepos(await fetchRepos());
-      setError(null);
+      const data = await fetchRepos();
+      if (seq === fetchSeq.current) {
+        setRepos(data);
+        setError(null);
+      }
     } catch (e) {
-      setError(String(e));
+      if (seq === fetchSeq.current) setError(String(e));
     }
   }, []);
 
@@ -54,22 +72,20 @@ export function App() {
 
   const handleRemove = useCallback(
     async (id: string) => {
-      await removeRepo(id);
-      await reload();
+      applyRepos(await removeRepo(id));
     },
-    [reload],
+    [applyRepos],
   );
 
   const handleAdd = useCallback(
     async (path: string) => {
       const before = new Set(repos.map((r) => r.id));
-      await addRepo(path);
-      const next = await fetchRepos();
-      setRepos(next);
+      const { repos: next } = await addRepo(path);
+      applyRepos(next);
       const added = next.find((r) => !before.has(r.id));
       if (added) openTab(added.id);
     },
-    [repos, openTab],
+    [repos, applyRepos, openTab],
   );
 
   const activeRepo = activeId ? repoById.get(activeId) : undefined;
@@ -87,7 +103,8 @@ export function App() {
       />
 
       <main className="main">
-        <div className="tabbar">
+        <div className="topbar">
+          <div className="tabbar">
           {openTabs.map((id) => {
             const repo = repoById.get(id);
             if (!repo) return null;
@@ -115,6 +132,8 @@ export function App() {
               </div>
             );
           })}
+          </div>
+          <ThemeToggle />
         </div>
 
         {error && <p className="app-error">{error}</p>}

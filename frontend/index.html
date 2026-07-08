@@ -4,6 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>gitreant</title>
+    <script>
+      // Set the theme before first paint to avoid a flash.
+      (function () {
+        var stored = localStorage.getItem("gitreant-theme");
+        var prefersDark = matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.dataset.theme =
+          stored === "light" || stored === "dark"
+            ? stored
+            : prefersDark
+              ? "dark"
+              : "light";
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

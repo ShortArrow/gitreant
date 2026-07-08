@@ -69,6 +69,17 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("pane-empty")).toBeVisible();
   });
 
+  test("theme toggle flips the document theme", async ({ page }) => {
+    const html = page.locator("html");
+    const before = await html.getAttribute("data-theme");
+    expect(before === "light" || before === "dark").toBe(true);
+
+    await page.getByTestId("theme-toggle").click();
+
+    const expected = before === "dark" ? "light" : "dark";
+    await expect(html).toHaveAttribute("data-theme", expected);
+  });
+
   test("collapsing the drawer hides the repository list", async ({ page }) => {
     await expect(page.getByTestId("repo-item").first()).toBeVisible();
 

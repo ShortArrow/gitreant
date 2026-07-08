@@ -71,12 +71,11 @@ export function RepoCard({ repo }: { repo: RepoView }) {
           {repo.commits.map((commit) => (
             <circle
               key={commit.id}
+              className="node"
               cx={nodeX(commit.lane)}
               cy={nodeY(commit.row)}
               r={NODE_RADIUS}
               fill={laneColor(commit.color)}
-              stroke="#0d1117"
-              strokeWidth={1.5}
             />
           ))}
         </svg>

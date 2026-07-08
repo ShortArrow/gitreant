@@ -42,7 +42,13 @@ export async function fetchRepos(): Promise<RepoView[]> {
   return response.json();
 }
 
-export async function addRepo(path: string): Promise<void> {
+export interface AddRepoResponse {
+  added: boolean;
+  repos: RepoView[];
+}
+
+/** Add a repository. The response carries the authoritative updated repo list. */
+export async function addRepo(path: string): Promise<AddRepoResponse> {
   const response = await fetch("/api/repos", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -51,9 +57,11 @@ export async function addRepo(path: string): Promise<void> {
   if (!response.ok) {
     throw new Error((await response.text()) || `add failed: ${response.status}`);
   }
+  return response.json();
 }
 
-export async function removeRepo(id: string): Promise<void> {
+/** Remove a repository. Returns the authoritative updated repo list. */
+export async function removeRepo(id: string): Promise<RepoView[]> {
   const response = await fetch("/api/repos", {
     method: "DELETE",
     headers: { "content-type": "application/json" },
@@ -62,4 +70,5 @@ export async function removeRepo(id: string): Promise<void> {
   if (!response.ok) {
     throw new Error(`remove failed: ${response.status}`);
   }
+  return response.json();
 }
