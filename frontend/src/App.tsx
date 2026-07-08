@@ -95,12 +95,15 @@ export function App() {
               <div
                 key={id}
                 className={`tab${id === activeId ? " active" : ""}`}
+                data-testid="tab"
+                data-tab-name={repo.name}
                 onClick={() => setActiveId(id)}
               >
                 <span className="tab-name">{repo.name}</span>
                 <button
                   className="tab-close"
                   title="Close tab"
+                  data-testid="tab-close"
                   onClick={(e) => {
                     e.stopPropagation();
                     closeTab(id);
@@ -120,7 +123,7 @@ export function App() {
           {activeRepo ? (
             <RepoCard repo={activeRepo} />
           ) : (
-            <div className="pane-empty">
+            <div className="pane-empty" data-testid="pane-empty">
               左のドロワーからリポジトリを選択してください。
             </div>
           )}

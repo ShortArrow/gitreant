@@ -59,12 +59,16 @@ $ cd frontend && pnpm dev              # フロント（Vite、/api を :4000 �
 ## テスト
 
 ```console
-$ cargo test
+$ cargo test                    # Rust: domain / git / server
+$ cd frontend && pnpm test:e2e  # Playwright E2E（フィクスチャ生成＋サーバ起動込み）
 ```
 
 - `domain`: レーン割当のユニットテスト（空・単線・分岐/合流・レーン再利用）。
 - `git`: 実リポジトリを生成しての特性テスト。
-- `server`: 実ソケット経由での ping / 追加 / 重複排除 / 404 フォールバック。
+- `server`: 実ソケット経由での ping / 追加 / 削除 / 重複排除 / 404 フォールバック。
+- `e2e` (Playwright): ドロワー一覧・タブ開閉・グラフ描画（ノード/レーン）・
+  リポジトリ追加/削除を実ブラウザで検証。フィクスチャリポジトリ生成と gitreant
+  サーバ起動は `frontend/e2e/global-setup.ts` が行う。
 
 ## オプション
 

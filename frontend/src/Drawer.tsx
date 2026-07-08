@@ -43,7 +43,13 @@ export function Drawer({
   if (collapsed) {
     return (
       <aside className="drawer drawer-collapsed">
-        <button className="icon-btn" title="Expand" onClick={onToggle} type="button">
+        <button
+          className="icon-btn"
+          title="Expand"
+          data-testid="drawer-expand"
+          onClick={onToggle}
+          type="button"
+        >
           ›
         </button>
       </aside>
@@ -54,7 +60,13 @@ export function Drawer({
     <aside className="drawer">
       <div className="drawer-head">
         <span className="drawer-title">Repositories</span>
-        <button className="icon-btn" title="Collapse" onClick={onToggle} type="button">
+        <button
+          className="icon-btn"
+          title="Collapse"
+          data-testid="drawer-collapse"
+          onClick={onToggle}
+          type="button"
+        >
           ‹
         </button>
       </div>
@@ -63,10 +75,11 @@ export function Drawer({
         <input
           type="text"
           placeholder="Add repository path…"
+          data-testid="add-input"
           value={path}
           onChange={(e) => setPath(e.target.value)}
         />
-        <button type="submit" disabled={adding}>
+        <button type="submit" data-testid="add-submit" disabled={adding}>
           {adding ? "…" : "Add"}
         </button>
       </form>
@@ -77,6 +90,8 @@ export function Drawer({
           <li
             key={repo.id}
             className={`repo-item${repo.id === activeId ? " active" : ""}`}
+            data-testid="repo-item"
+            data-repo-name={repo.name}
             onClick={() => onSelect(repo.id)}
           >
             <span className="repo-item-name">{repo.name}</span>
@@ -86,6 +101,7 @@ export function Drawer({
             <button
               className="icon-btn repo-remove"
               title="Remove from view"
+              data-testid="repo-remove"
               onClick={(e) => {
                 e.stopPropagation();
                 onRemove(repo.id);

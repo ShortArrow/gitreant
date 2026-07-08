@@ -54,6 +54,7 @@ export function RepoCard({ repo }: { repo: RepoView }) {
       <div className="graph-and-list">
         <svg
           className="graph"
+          data-testid="graph"
           width={width}
           height={height}
           viewBox={`0 0 ${width} ${height}`}
@@ -85,7 +86,12 @@ export function RepoCard({ repo }: { repo: RepoView }) {
             const refs = refMap.get(commit.id) ?? [];
             const isHead = repo.head === commit.id;
             return (
-              <li key={commit.id} className="commit" style={{ height: ROW_HEIGHT }}>
+              <li
+                key={commit.id}
+                className="commit"
+                data-testid="commit-row"
+                style={{ height: ROW_HEIGHT }}
+              >
                 {isHead && <span className="badge badge-head">HEAD</span>}
                 {refs.map((name) => (
                   <span key={name} className="badge badge-ref">
