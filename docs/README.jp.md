@@ -6,6 +6,11 @@
 Web アプリ。[k1LoW/mo](https://github.com/k1LoW/mo) の体験を参考に、Rust 単一
 バイナリに React 製 SPA を埋め込んで配布する。
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/screenshot-dark.png">
+  <img alt="ローカルリポジトリのコミットグラフを表示する gitreant" src="images/screenshot-light.png">
+</picture>
+
 ```console
 $ gitreant                 # カレントの .git を探して表示
 $ gitreant ../foo ../bar   # 複数リポジトリをまとめて表示

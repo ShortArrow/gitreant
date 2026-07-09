@@ -81,6 +81,17 @@ $ pnpm build-storybook    # static build
 `Drawer` (list / collapsed / empty) and `RepoCard` (merge history / linear /
 read error) can be checked in isolation with mock data.
 
+## README screenshots
+
+```console
+$ cd frontend
+$ pnpm screenshot    # regenerates docs/images/screenshot-{dark,light}.png
+```
+
+The screenshots are taken from fixture repositories described declaratively in
+`frontend/screenshot/scenario.ts` — edit its branch/commit/merge steps to
+change the graph topology shown in the README, then regenerate.
+
 ## Architecture decisions
 
 Design decisions and their rationale are recorded as ADRs under

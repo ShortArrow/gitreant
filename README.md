@@ -6,6 +6,11 @@ A web app that shows commit graphs of local git repositories side by side in a
 single-page app. Inspired by [k1LoW/mo](https://github.com/k1LoW/mo), it ships
 as a single Rust binary with an embedded React SPA.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/screenshot-dark.png">
+  <img alt="gitreant showing the commit graph of a local repository" src="docs/images/screenshot-light.png">
+</picture>
+
 ```console
 $ gitreant                 # discover .git from the current directory
 $ gitreant ../foo ../bar   # show multiple repositories at once

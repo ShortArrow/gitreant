@@ -3,6 +3,7 @@
 /frontend/dist
 *.tsbuildinfo
 /frontend/e2e/.tmp
+/frontend/screenshot/.tmp
 /frontend/test-results
 /frontend/playwright-report
 /frontend/storybook-static
