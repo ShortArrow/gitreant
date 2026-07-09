@@ -1,58 +1,17 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { type ChildProcess } from "node:child_process";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { FullConfig } from "@playwright/test";
+import { atTime, commit, git, initRepo as initRepoAt } from "./git";
+import { buildAndServe } from "./server";
 
 const PORT = 4599;
-const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 const frontendDir = process.cwd();
-const projectRoot = path.resolve(frontendDir, "..");
 const tmpDir = path.join(frontendDir, "e2e", ".tmp");
-const binary = path.join(
-  projectRoot,
-  "target",
-  "debug",
-  process.platform === "win32" ? "gitreant.exe" : "gitreant",
-);
-
-/** Run a git command in `dir` with a fixed identity and no signing. */
-function git(dir: string, args: string[], env: Record<string, string> = {}) {
-  execFileSync("git", args, {
-    cwd: dir,
-    stdio: "ignore",
-    env: {
-      ...process.env,
-      GIT_AUTHOR_NAME: "Tester",
-      GIT_AUTHOR_EMAIL: "tester@example.com",
-      GIT_COMMITTER_NAME: "Tester",
-      GIT_COMMITTER_EMAIL: "tester@example.com",
-      ...env,
-    },
-  });
-}
-
-/** Env pinning both git dates to `epoch`, for deterministic topological order. */
-function atTime(epoch: number): Record<string, string> {
-  const date = `@${epoch} +0000`;
-  return { GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date };
-}
-
-function commit(dir: string, message: string, epoch?: number) {
-  git(
-    dir,
-    ["commit", "--allow-empty", "-q", "-m", message],
-    epoch === undefined ? {} : atTime(epoch),
-  );
-}
 
 function initRepo(name: string): string {
-  const dir = path.join(tmpDir, name);
-  mkdirSync(dir, { recursive: true });
-  git(dir, ["init", "-q", "-b", "main"]);
-  git(dir, ["config", "commit.gpgsign", "false"]);
-  return dir;
+  return initRepoAt(path.join(tmpDir, name));
 }
 
 /** repoA: a branch that is merged back -> two lanes and a merge node. */
@@ -109,20 +68,6 @@ function makeRepoD(): string {
   return dir; // 13 commits
 }
 
-async function waitForServer(timeoutMs: number) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(`${BASE_URL}/api/ping`);
-      if (res.ok) return;
-    } catch {
-      // not up yet
-    }
-    await new Promise((r) => setTimeout(r, 150));
-  }
-  throw new Error("gitreant server did not start in time");
-}
-
 let server: ChildProcess | undefined;
 
 export default async function globalSetup(_config: FullConfig) {
@@ -135,29 +80,8 @@ export default async function globalSetup(_config: FullConfig) {
   const repoC = makeRepoC();
   const repoD = makeRepoD();
 
-  // Build the current frontend and the debug binary that serves it.
-  execFileSync("pnpm", ["run", "build"], {
-    cwd: frontendDir,
-    stdio: "inherit",
-    shell: process.platform === "win32",
-  });
-  execFileSync("cargo", ["build", "-q"], {
-    cwd: projectRoot,
-    stdio: "inherit",
-    shell: process.platform === "win32",
-  });
-  if (!existsSync(binary)) {
-    throw new Error(`gitreant binary not found at ${binary}`);
-  }
-
-  // Serve repoA and repoB; repoC is added by a test. --foreground keeps the
-  // server a direct child so the teardown kill() reaches it.
-  server = spawn(
-    binary,
-    ["--foreground", "--no-open", "--port", String(PORT), repoA, repoB],
-    { stdio: "ignore" },
-  );
-  await waitForServer(15_000);
+  // Serve repoA and repoB; repoC is added by a test.
+  server = await buildAndServe(PORT, [repoA, repoB]);
 
   // Expose the extra fixture paths to the specs.
   writeFileSync(
