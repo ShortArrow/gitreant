@@ -7,7 +7,7 @@ use std::path::Path;
 use std::process::Command;
 
 use gitreant::app::Session;
-use gitreant::server::{bind, ping, post_repo, serve, AppState};
+use gitreant::server::{bind, ping, post_repo, post_shutdown, serve, AppState};
 
 fn init_repo_with_commit(dir: &Path) {
     let run = |args: &[&str]| {
@@ -101,4 +101,35 @@ async fn ping_add_dedupe_and_serve_spa() {
         .await
         .unwrap();
     assert!(spa.contains("<!doctype html"), "SPA fallback missing: {spa}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn shutdown_endpoint_stops_the_server() {
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    let server = tokio::spawn(serve(listener, AppState::new(Session::new())));
+
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    tokio::task::spawn_blocking(move || post_shutdown(port))
+        .await
+        .unwrap()
+        .expect("shutdown request");
+
+    let result = tokio::time::timeout(std::time::Duration::from_secs(5), server)
+        .await
+        .expect("server did not stop after shutdown request")
+        .unwrap();
+    assert!(result.is_ok(), "serve returned an error: {result:?}");
 }

@@ -10,7 +10,7 @@ use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, watch};
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 
@@ -23,15 +23,23 @@ use super::{assets, PING_MARKER};
 pub struct AppState {
     session: Arc<Mutex<Session>>,
     updates: broadcast::Sender<()>,
+    shutdown: watch::Sender<bool>,
 }
 
 impl AppState {
     pub fn new(session: Session) -> Self {
         let (updates, _) = broadcast::channel(16);
+        let (shutdown, _) = watch::channel(false);
         Self {
             session: Arc::new(Mutex::new(session)),
             updates,
+            shutdown,
         }
+    }
+
+    /// Watch for a shutdown requested via `POST /api/shutdown`.
+    pub(super) fn shutdown_requested(&self) -> watch::Receiver<bool> {
+        self.shutdown.subscribe()
     }
 
     fn views(&self) -> Vec<RepoView> {
@@ -73,6 +81,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/events", get(events))
         .route("/api/pick", post(pick_folder))
+        .route("/api/shutdown", post(shutdown))
         .fallback(assets::static_handler)
         .with_state(state)
 }
@@ -145,6 +154,11 @@ async fn pick_folder() -> Json<PickResponse> {
     .flatten()
     .map(|p| p.to_string_lossy().into_owned());
     Json(PickResponse { path: picked })
+}
+
+async fn shutdown(State(state): State<AppState>) -> &'static str {
+    let _ = state.shutdown.send(true);
+    "shutting down"
 }
 
 async fn events(

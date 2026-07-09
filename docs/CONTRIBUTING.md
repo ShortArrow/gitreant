@@ -38,6 +38,7 @@ main (CLI) ──▶ server (axum) ──▶ app (session) ──▶ domain (gra
 | POST   | `/api/repos`   | Add `{ "path": "..." }` to the session                |
 | DELETE | `/api/repos`   | Remove `{ "path": "<id>" }` from the session          |
 | POST   | `/api/pick`    | Open a native folder picker on the server machine     |
+| POST   | `/api/shutdown` | Stop the running server (used by `gitreant --shutdown`) |
 | GET    | `/api/events`  | SSE; emits `update` when repositories are added/removed |
 
 ## Tests
@@ -50,7 +51,9 @@ $ cd frontend && pnpm test:e2e  # Playwright E2E (generates fixtures, starts ser
 - `domain`: unit tests for lane assignment (empty, linear, branch/merge,
   freed-lane reuse).
 - `git`: characterization tests against generated real repositories.
-- `server`: ping / add / remove / dedup / 404 fallback over a real socket.
+- `server`: ping / add / remove / dedup / shutdown / 404 fallback over a real
+  socket.
+- `detach`: runs the real binary to verify detach-by-default and `--shutdown`.
 - `e2e` (Playwright): drawer listing, tab open/close, graph rendering
   (nodes/lanes), and repository add/remove in a real browser. Fixture
   repository generation and server startup are handled by

@@ -116,10 +116,13 @@ export default async function globalSetup(_config: FullConfig) {
     throw new Error(`gitreant binary not found at ${binary}`);
   }
 
-  // Serve repoA and repoB; repoC is added by a test.
-  server = spawn(binary, ["--no-open", "--port", String(PORT), repoA, repoB], {
-    stdio: "ignore",
-  });
+  // Serve repoA and repoB; repoC is added by a test. --foreground keeps the
+  // server a direct child so the teardown kill() reaches it.
+  server = spawn(
+    binary,
+    ["--foreground", "--no-open", "--port", String(PORT), repoA, repoB],
+    { stdio: "ignore" },
+  );
   await waitForServer(15_000);
 
   // Expose the extra fixture path to the specs.

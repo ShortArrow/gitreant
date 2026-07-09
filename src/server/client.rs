@@ -24,6 +24,14 @@ pub fn post_repo(port: u16, path: &str) -> Result<(), String> {
     }
 }
 
+/// Ask the running server to stop itself.
+pub fn post_shutdown(port: u16) -> Result<(), String> {
+    match request(port, "POST", "/api/shutdown", None)? {
+        (200, _) => Ok(()),
+        (status, body) => Err(format!("server returned {status}: {body}")),
+    }
+}
+
 fn request(
     port: u16,
     method: &str,
