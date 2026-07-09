@@ -64,7 +64,20 @@ impl Session {
 /// Best-effort canonical form for de-duplication; falls back to the input when
 /// the path cannot be canonicalized.
 fn canonical(path: &Path) -> PathBuf {
-    fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+    strip_verbatim(fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf()))
+}
+
+/// On Windows `fs::canonicalize` returns verbatim paths (`\\?\C:\...`,
+/// `\\?\UNC\server\share\...`); strip the prefix so ids stay human-readable.
+fn strip_verbatim(path: PathBuf) -> PathBuf {
+    let text = path.to_string_lossy();
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        PathBuf::from(format!(r"\\{rest}"))
+    } else if let Some(rest) = text.strip_prefix(r"\\?\") {
+        PathBuf::from(rest)
+    } else {
+        path
+    }
 }
 
 #[cfg(test)]
@@ -105,6 +118,19 @@ mod tests {
         assert!(session.is_empty());
         // Removing again is a no-op.
         assert_eq!(session.remove(&id), false);
+    }
+
+    #[test]
+    fn repo_id_has_no_windows_verbatim_prefix() {
+        let tmp = tempfile::tempdir().unwrap();
+        init_repo(tmp.path());
+
+        let mut session = Session::new();
+        let (id, _) = session.add(tmp.path()).unwrap();
+        assert!(
+            !id.starts_with(r"\\?\"),
+            "id should be human-readable, got {id}"
+        );
     }
 
     #[test]
