@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { RepoCard } from "../RepoCard";
-import { erroredRepo, linearRepo, mergeRepo } from "./mock";
+import { erroredRepo, linearRepo, longMergeRepo, mergeRepo } from "./mock";
 
 const meta: Meta<typeof RepoCard> = {
   title: "Pane/RepoCard",
@@ -13,6 +13,10 @@ type Story = StoryObj<typeof RepoCard>;
 
 export const MergeHistory: Story = {
   args: { repo: mergeRepo },
+};
+
+export const LongSpanMerge: Story = {
+  args: { repo: longMergeRepo },
 };
 
 export const Linear: Story = {

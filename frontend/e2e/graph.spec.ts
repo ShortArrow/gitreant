@@ -4,7 +4,7 @@ import path from "node:path";
 
 const fixtures = JSON.parse(
   readFileSync(path.join(process.cwd(), "e2e/.tmp/fixtures.json"), "utf8"),
-) as { repoC: string };
+) as { repoC: string; repoD: string };
 
 test.describe.serial("gitreant UI", () => {
   test.beforeEach(async ({ page }) => {
@@ -43,6 +43,47 @@ test.describe.serial("gitreant UI", () => {
       .locator('[data-testid="graph"] circle')
       .evaluateAll((els) => new Set(els.map((e) => e.getAttribute("cx"))).size);
     expect(lanes).toBeGreaterThanOrEqual(2);
+  });
+
+  test("a merge spanning many rows bends once, then runs vertically", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoD);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoD"]')).toBeVisible();
+    await expect(page.getByTestId("commit-row")).toHaveCount(13);
+
+    const ds = await page
+      .locator('[data-testid="graph"] path')
+      .evaluateAll((els) => els.map((e) => e.getAttribute("d") ?? ""));
+    const bent = ds
+      .map((d) => /^M(\S+),(\S+) C\S+ \S+ (\S+),(\S+) L(\S+),(\S+)$/.exec(d))
+      .filter((m): m is RegExpExecArray => m !== null)
+      .map((m) => ({
+        y1: Number(m[2]),
+        xBend: Number(m[3]),
+        yBend: Number(m[4]),
+        x2: Number(m[5]),
+        y2: Number(m[6]),
+      }));
+
+    // Cross-lane edges must not run diagonally across rows: the curve is
+    // confined to a single row, the rest is a vertical line in the parent's
+    // lane. At least one such edge spans many rows (merge -> feature-1).
+    expect(bent.length).toBeGreaterThan(0);
+    for (const e of bent) {
+      expect(e.yBend - e.y1).toBe(32);
+      expect(e.x2).toBe(e.xBend);
+    }
+    expect(
+      Math.max(...bent.map((e) => e.y2 - e.yBend)),
+    ).toBeGreaterThanOrEqual(5 * 32);
+
+    // Restore the served set.
+    const repoD = page.locator('[data-repo-name="repoD"]');
+    await repoD.hover();
+    await repoD.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoD"]')).toHaveCount(0);
   });
 
   test("opening a second repo adds a tab and switches panes", async ({

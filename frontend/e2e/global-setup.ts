@@ -18,7 +18,7 @@ const binary = path.join(
 );
 
 /** Run a git command in `dir` with a fixed identity and no signing. */
-function git(dir: string, args: string[]) {
+function git(dir: string, args: string[], env: Record<string, string> = {}) {
   execFileSync("git", args, {
     cwd: dir,
     stdio: "ignore",
@@ -28,12 +28,23 @@ function git(dir: string, args: string[]) {
       GIT_AUTHOR_EMAIL: "tester@example.com",
       GIT_COMMITTER_NAME: "Tester",
       GIT_COMMITTER_EMAIL: "tester@example.com",
+      ...env,
     },
   });
 }
 
-function commit(dir: string, message: string) {
-  git(dir, ["commit", "--allow-empty", "-q", "-m", message]);
+/** Env pinning both git dates to `epoch`, for deterministic topological order. */
+function atTime(epoch: number): Record<string, string> {
+  const date = `@${epoch} +0000`;
+  return { GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date };
+}
+
+function commit(dir: string, message: string, epoch?: number) {
+  git(
+    dir,
+    ["commit", "--allow-empty", "-q", "-m", message],
+    epoch === undefined ? {} : atTime(epoch),
+  );
 }
 
 function initRepo(name: string): string {
@@ -76,6 +87,28 @@ function makeRepoC(): string {
   return dir; // 2 commits
 }
 
+/**
+ * repoD: a feature merged back only after many commits on main, so the
+ * merge-to-parent edge spans many rows (not served initially).
+ */
+function makeRepoD(): string {
+  const dir = initRepo("repoD");
+  const t = 1_700_000_000;
+  commit(dir, "root", t);
+  git(dir, ["switch", "-c", "feature", "-q"]);
+  commit(dir, "feature-1", t + 10);
+  git(dir, ["switch", "main", "-q"]);
+  for (let i = 1; i <= 10; i++) {
+    commit(dir, `main-${i}`, t + 10 + i * 10);
+  }
+  git(
+    dir,
+    ["merge", "--no-ff", "feature", "-q", "-m", "merge feature"],
+    atTime(t + 200),
+  );
+  return dir; // 13 commits
+}
+
 async function waitForServer(timeoutMs: number) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -100,6 +133,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoA = makeRepoA();
   const repoB = makeRepoB();
   const repoC = makeRepoC();
+  const repoD = makeRepoD();
 
   // Build the current frontend and the debug binary that serves it.
   execFileSync("pnpm", ["run", "build"], {
@@ -125,10 +159,10 @@ export default async function globalSetup(_config: FullConfig) {
   );
   await waitForServer(15_000);
 
-  // Expose the extra fixture path to the specs.
+  // Expose the extra fixture paths to the specs.
   writeFileSync(
     path.join(tmpDir, "fixtures.json"),
-    JSON.stringify({ repoC }, null, 2),
+    JSON.stringify({ repoC, repoD }, null, 2),
   );
 
   // Returned function runs as global teardown.

@@ -49,6 +49,11 @@ pub struct Graph {
 
 /// Assign lanes and colors to `commits`, which must be in topological order
 /// (child before parents).
+///
+/// Invariant the renderer relies on: once a pending parent is assigned a lane,
+/// that lane stays reserved until the parent itself is placed. Edges to that
+/// parent can therefore run vertically along `to_lane` across all intermediate
+/// rows without colliding with any node.
 pub fn layout(commits: &[CommitInput]) -> Graph {
     let mut state = LayoutState::default();
     let mut nodes = Vec::with_capacity(commits.len());

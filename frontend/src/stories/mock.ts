@@ -50,6 +50,38 @@ export const mergeRepo: RepoView = {
   lane_count: 2,
 };
 
+/** A feature merged back only after many main commits: the merge-to-parent
+ * edge spans many rows and must run vertically, not diagonally. */
+export const longMergeRepo: RepoView = (() => {
+  const mains = Array.from({ length: 10 }, (_, i) => {
+    const n = 10 - i;
+    return commit(`a${n}`, i + 1, 0, 0, [`a${n - 1}`], `main: change ${n}`);
+  });
+  return {
+    id: "/repos/long",
+    name: "long",
+    path: "/home/user/repos/long",
+    head: "m",
+    refs: [
+      { name: "main", target: "m" },
+      { name: "feature", target: "f1" },
+    ],
+    commits: [
+      commit("m", 0, 0, 0, ["a10", "f1"], "merge feature"),
+      ...mains,
+      commit("f1", 11, 1, 1, ["a0"], "feature: early work"),
+      commit("a0", 12, 0, 0, [], "root"),
+    ],
+    edges: [
+      edge("m", "a10", 0, 0, 0),
+      edge("m", "f1", 0, 1, 1),
+      ...mains.map((c) => edge(c.id, c.parents[0], 0, 0, 0)),
+      edge("f1", "a0", 1, 0, 0),
+    ],
+    lane_count: 2,
+  };
+})();
+
 /** A small linear repo. */
 export const linearRepo: RepoView = {
   id: "/repos/notes",

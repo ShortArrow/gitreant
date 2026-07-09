@@ -39,8 +39,11 @@ export function graphHeight(commitCount: number): number {
 }
 
 /**
- * A smooth path from a child commit to one of its parents. Straight when both
- * sit in the same lane; an eased S-curve when the branch changes lanes.
+ * A path from a child commit to one of its parents. Straight when both sit in
+ * the same lane. When the edge changes lanes, it bends within the first row
+ * and then runs straight down the parent's lane, never diagonally across
+ * rows — the layout keeps that lane reserved for the pending parent, so the
+ * vertical corridor is guaranteed free.
  */
 export function edgePath(
   edge: GraphEdge,
@@ -58,8 +61,10 @@ export function edgePath(
   if (x1 === x2) {
     return `M${x1},${y1} L${x2},${y2}`;
   }
-  const ym = (y1 + y2) / 2;
-  return `M${x1},${y1} C${x1},${ym} ${x2},${ym} ${x2},${y2}`;
+  const yBend = y1 + ROW_HEIGHT;
+  const ym = (y1 + yBend) / 2;
+  const curve = `M${x1},${y1} C${x1},${ym} ${x2},${ym} ${x2},${yBend}`;
+  return yBend >= y2 ? curve : `${curve} L${x2},${y2}`;
 }
 
 /** Map every commit id to its row for quick edge/parent lookups. */
