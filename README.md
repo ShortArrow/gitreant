@@ -1,112 +1,61 @@
 # gitreant
 
-ローカル git リポジトリのコミットグラフを、単一の SPA 上にまとめて表示する
-Web アプリ。[k1LoW/mo](https://github.com/k1LoW/mo) の体験を参考に、Rust 単一
-バイナリに React 製 SPA を埋め込んで配布する。
+[English](README.md) | [日本語](docs/README.jp.md)
+
+A web app that shows commit graphs of local git repositories side by side in a
+single-page app. Inspired by [k1LoW/mo](https://github.com/k1LoW/mo), it ships
+as a single Rust binary with an embedded React SPA.
 
 ```console
-$ gitreant                 # カレントの .git を探して表示
-$ gitreant ../foo ../bar   # 複数リポジトリをまとめて表示
+$ gitreant                 # discover .git from the current directory
+$ gitreant ../foo ../bar   # show multiple repositories at once
 ```
 
-別ディレクトリで `gitreant` を再実行すると、既に起動しているサーバへ
-リポジトリが追加され、同じ画面に並んで表示される（mo と同様の単一インスタンス動作）。
+Running `gitreant` again from another directory adds that repository to the
+already-running server, so everything appears on the same page
+(single-instance behavior, like mo).
 
-## アーキテクチャ
+## Features
 
-単一バイナリ。バックエンドは Rust (`axum`)、フロントは TypeScript (React + Vite)。
-詳細は [docs/adr/0001-architecture.md](docs/adr/0001-architecture.md)。
+- Commit graph rendering with lanes and colors computed server-side
+- Multiple repositories in one SPA: a drawer to list/add/remove, tabs to switch
+- Live updates via Server-Sent Events when repositories are added or removed
+- Native folder picker for adding repositories
+- Dark/light theme toggle
+- Single self-contained binary — no runtime dependencies
 
-```
-main (CLI) ──▶ server (axum) ──▶ app (session) ──▶ domain (graph layout)
-                                       └──────────▶ git (gix adapter)
-```
+## Install / Build
 
-- **domain**: コミット列を受けてレーン（列）と色を割り当てる純粋関数。外部 I/O なし。
-- **git**: `gix` (gitoxide, pure Rust) でリポジトリを読み、トポロジカル順の
-  コミット列に変換するアダプタ。
-- **app**: 表示中リポジトリの集合を管理し、レイアウト結果とメタデータを合成して
-  JSON ビューを生成。
-- **server**: REST (`/api/repos`) と SSE (`/api/events`)、`rust-embed` による
-  SPA 配信、単一インスタンス検知 (`/api/ping` + `POST /api/repos`)。
-- **frontend**: レーン計算済みの JSON を受け取り、自前の SVG でグラフを描画。
-
-## API
-
-| Method | Path           | 説明                                        |
-| ------ | -------------- | ------------------------------------------- |
-| GET    | `/api/ping`    | 稼働マーカー（単一インスタンス検知用）      |
-| GET    | `/api/repos`   | 表示中リポジトリのグラフ JSON               |
-| POST   | `/api/repos`   | `{ "path": "..." }` をセッションに追加      |
-| DELETE | `/api/repos`   | `{ "path": "<id>" }` をセッションから削除   |
-| POST   | `/api/pick`    | サーバ機でネイティブのフォルダ選択を開く    |
-| GET    | `/api/events`  | SSE。リポジトリ追加/削除時に `update` を通知 |
-
-## ビルド
-
-要件: Rust (stable), Node.js + pnpm。
+Requirements: Rust (stable), Node.js + pnpm.
 
 ```console
-$ make build     # frontend をビルドして release バイナリに埋め込む
+$ make build     # build the frontend and embed it into a release binary
 $ ./target/release/gitreant
 ```
 
-## 開発
-
-```console
-$ cargo run -- .                       # バックエンド（:4000）
-$ cd frontend && pnpm dev              # フロント（Vite、/api を :4000 にプロキシ）
-```
-
-## テスト
-
-```console
-$ cargo test                    # Rust: domain / git / server
-$ cd frontend && pnpm test:e2e  # Playwright E2E（フィクスチャ生成＋サーバ起動込み）
-```
-
-- `domain`: レーン割当のユニットテスト（空・単線・分岐/合流・レーン再利用）。
-- `git`: 実リポジトリを生成しての特性テスト。
-- `server`: 実ソケット経由での ping / 追加 / 削除 / 重複排除 / 404 フォールバック。
-- `e2e` (Playwright): ドロワー一覧・タブ開閉・グラフ描画（ノード/レーン）・
-  リポジトリ追加/削除を実ブラウザで検証。フィクスチャリポジトリ生成と gitreant
-  サーバ起動は `frontend/e2e/global-setup.ts` が行う。
-
-### CI
-
-`.github/workflows/ci.yml` で以下を実行する。
-
-- **rust**: Linux / macOS / Windows で `cargo build` + `cargo test`
-- **web**: フロントの `pnpm build`（型チェック込み）と `pnpm build-storybook`
-- **e2e**: Ubuntu で Playwright E2E
-
-Linux ビルドは `rfd` がシステムの libwayland にリンクするため `libwayland-dev`
-を導入する。
-
-## UIパーツの確認（Storybook）
-
-```console
-$ cd frontend
-$ pnpm storybook          # 開発サーバ（:6006）
-$ pnpm build-storybook    # 静的ビルド
-```
-
-`Drawer`（一覧・折りたたみ・空）と `RepoCard`（マージ履歴・単線・読み取りエラー）を
-モックデータで単体確認できる。
-
-## オプション
+## Options
 
 ```
 gitreant [PATH...]
-  -p, --port <PORT>   待受/接続ポート（既定 4000）
-      --no-open       ブラウザを自動で開かない
+  -p, --port <PORT>   port to listen on / connect to (default 4000)
+      --no-open       do not open the browser automatically
 ```
+
+## Contributing
+
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for development setup,
+architecture, and testing.
 
 ## License
 
-以下のいずれかを選択して利用できる（デュアルライセンス）。
+Licensed under either of the following, at your option:
 
-- MIT License（[LICENSE-MIT](LICENSE-MIT)）
-- Apache License 2.0（[LICENSE-APACHE](LICENSE-APACHE)）
+- MIT License ([LICENSE-MIT](LICENSE-MIT))
+- Apache License 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
 
 `SPDX-License-Identifier: MIT OR Apache-2.0`
+
+Unless you explicitly state otherwise, any contribution intentionally
+submitted for inclusion in this work by you, as defined in the Apache-2.0
+license, shall be dual licensed as above, without any additional terms or
+conditions.
