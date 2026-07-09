@@ -35,6 +35,8 @@ pub struct GraphEdge {
     pub to: String,
     pub from_lane: usize,
     pub to_lane: usize,
+    /// Color of the branch this edge belongs to: the child's branch for
+    /// first-parent edges, the merged branch for further (merge) parents.
     pub color: usize,
 }
 
@@ -82,7 +84,11 @@ pub fn layout(commits: &[CommitInput]) -> Graph {
                     to: parent.clone(),
                     from_lane: my_lane,
                     to_lane: target_lane,
-                    color: state.colors[target_lane],
+                    color: if is_first {
+                        my_color
+                    } else {
+                        state.colors[target_lane]
+                    },
                 });
             }
         }
@@ -250,6 +256,27 @@ mod tests {
         // A's first parent Base is already reserved in lane 1, so A converges there.
         let a_edge = g.edges.iter().find(|e| e.from == "A").unwrap();
         assert_eq!((a_edge.from_lane, a_edge.to_lane), (0, 1));
+    }
+
+    #[test]
+    fn fork_edge_keeps_the_child_branch_color() {
+        // Same topology as branch_and_merge_uses_two_lanes: A (main, color 0)
+        // converges into Base, which sits in B's lane (color 1). That segment
+        // is main's own line, so it must keep main's color instead of
+        // switching to the lane it converges into.
+        let g = layout(&[
+            ci("M", &["A", "B"]),
+            ci("B", &["Base"]),
+            ci("A", &["Base"]),
+            ci("Base", &[]),
+        ]);
+
+        let a_edge = g.edges.iter().find(|e| e.from == "A").unwrap();
+        assert_eq!(a_edge.color, 0);
+
+        // Merge edges still carry the merged branch's color.
+        let merge_edge = g.edges.iter().find(|e| e.from == "M" && e.to == "B").unwrap();
+        assert_eq!(merge_edge.color, 1);
     }
 
     #[test]

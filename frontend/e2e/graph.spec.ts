@@ -45,6 +45,36 @@ test.describe.serial("gitreant UI", () => {
     expect(lanes).toBeGreaterThanOrEqual(2);
   });
 
+  test("branch edges keep the branch color end to end", async ({ page }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await expect(page.getByTestId("graph")).toBeVisible();
+
+    // nodeX(lane) = 14 + lane * 18 (frontend/src/graph.ts geometry).
+    const laneFill = (lane: number) =>
+      page
+        .locator(`[data-testid="graph"] circle[cx="${14 + lane * 18}"]`)
+        .first()
+        .getAttribute("fill");
+    const featureFill = await laneFill(1);
+    const mainFill = await laneFill(0);
+    expect(featureFill).not.toBe(mainFill);
+
+    // repoA's two cross-lane (curved) edges — merge -> feature tip and
+    // feature tip -> fork point — both belong to the feature branch, so they
+    // must carry its color. The fork edge used to flip to main's color.
+    const strokes = await page
+      .locator('[data-testid="graph"] path')
+      .evaluateAll((els) =>
+        els
+          .filter((e) => (e.getAttribute("d") ?? "").includes("C"))
+          .map((e) => e.getAttribute("stroke")),
+      );
+    expect(strokes.length).toBe(2);
+    for (const stroke of strokes) {
+      expect(stroke).toBe(featureFill);
+    }
+  });
+
   test("a merge spanning many rows bends once, then runs vertically", async ({
     page,
   }) => {

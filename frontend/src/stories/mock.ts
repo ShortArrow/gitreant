@@ -44,7 +44,7 @@ export const mergeRepo: RepoView = {
     edge("m", "a2", 0, 0, 0),
     edge("m", "f1", 0, 1, 1),
     edge("a2", "a1", 0, 0, 0),
-    edge("f1", "a1", 1, 0, 0),
+    edge("f1", "a1", 1, 0, 1),
     edge("a1", "a0", 0, 0, 0),
   ],
   lane_count: 2,
@@ -76,7 +76,7 @@ export const longMergeRepo: RepoView = (() => {
       edge("m", "a10", 0, 0, 0),
       edge("m", "f1", 0, 1, 1),
       ...mains.map((c) => edge(c.id, c.parents[0], 0, 0, 0)),
-      edge("f1", "a0", 1, 0, 0),
+      edge("f1", "a0", 1, 0, 1),
     ],
     lane_count: 2,
   };
