@@ -38,6 +38,9 @@ main (CLI) ──▶ server (axum) ──▶ app (session) ──▶ domain (gra
 | POST   | `/api/repos`   | Add `{ "path": "..." }` to the session                |
 | DELETE | `/api/repos`   | Remove `{ "path": "<id>" }` from the session          |
 | POST   | `/api/commit`  | Details of `{ "repo": "<id>", "id": "<commit>" }`: full message + changed files |
+| POST   | `/api/diff`    | Unified diff of `{ "repo", "id", "path" }` against the first parent |
+| POST   | `/api/commit-diff` | Unified diffs of every file `{ "repo", "id" }` changed |
+| POST   | `/api/fetch`   | `git fetch --all --prune` every displayed repository (needs git CLI) |
 | POST   | `/api/pick`    | Open a native folder picker on the server machine     |
 | POST   | `/api/shutdown` | Stop the running server (used by `gitreant --shutdown`) |
 | GET    | `/api/events`  | SSE; emits `update` when repositories are added/removed |

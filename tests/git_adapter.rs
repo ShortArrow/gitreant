@@ -6,7 +6,7 @@ use std::path::Path;
 use std::process::Command;
 
 use gitreant::domain::layout;
-use gitreant::git::{read_commit, read_repo};
+use gitreant::git::{read_commit, read_commit_diff, read_file_diff, read_repo};
 
 fn git(dir: &Path, args: &[&str]) {
     let status = Command::new("git")
@@ -116,6 +116,70 @@ fn reads_commit_detail_with_message_body_and_file_changes() {
 
     // An unknown id is an error, not a panic.
     assert!(read_commit(dir, "0000000000000000000000000000000000000000").is_err());
+}
+
+#[test]
+fn reads_file_diff_hunks() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    std::fs::write(dir.join("README.md"), "one\ntwo\n").unwrap();
+    git(dir, &["add", "README.md"]);
+    commit(dir, "add README", 1000);
+    std::fs::write(dir.join("README.md"), "one\nTWO\nthree\n").unwrap();
+    git(dir, &["add", "README.md"]);
+    commit(dir, "update README", 1001);
+
+    let repo = read_repo(dir).expect("read repo");
+    let head = &repo.commits[0].id;
+    let root = &repo.commits[1].id;
+
+    // Modification: unified hunks against the first parent.
+    let diff = read_file_diff(dir, head, "README.md").expect("head diff");
+    assert_eq!(diff.status, "M");
+    assert!(!diff.binary);
+    assert!(diff.text.contains("@@"), "hunk header missing: {}", diff.text);
+    assert!(diff.text.contains("-two"), "removal missing: {}", diff.text);
+    assert!(diff.text.contains("+TWO"), "addition missing: {}", diff.text);
+    assert!(diff.text.contains(" one"), "context missing: {}", diff.text);
+
+    // Addition in a root commit: everything is new.
+    let diff = read_file_diff(dir, root, "README.md").expect("root diff");
+    assert_eq!(diff.status, "A");
+    assert!(diff.text.contains("+one"), "added line missing: {}", diff.text);
+
+    // A path the commit does not touch is an error, not a panic.
+    assert!(read_file_diff(dir, head, "missing.txt").is_err());
+}
+
+#[test]
+fn reads_the_whole_commit_diff_at_once() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    std::fs::write(dir.join("a.txt"), "a\n").unwrap();
+    git(dir, &["add", "a.txt"]);
+    commit(dir, "root", 1000);
+    std::fs::write(dir.join("a.txt"), "A\n").unwrap();
+    std::fs::write(dir.join("b.txt"), "b\n").unwrap();
+    git(dir, &["add", "a.txt", "b.txt"]);
+    commit(dir, "change a, add b", 1001);
+
+    let repo = read_repo(dir).expect("read repo");
+    let mut diffs =
+        read_commit_diff(dir, &repo.commits[0].id).expect("whole-commit diff");
+    diffs.sort_by(|x, y| x.path.cmp(&y.path));
+
+    assert_eq!(diffs.len(), 2, "diffs: {diffs:?}");
+    assert_eq!((diffs[0].path.as_str(), diffs[0].status.as_str()), ("a.txt", "M"));
+    assert!(diffs[0].text.contains("-a"), "removal missing: {}", diffs[0].text);
+    assert!(diffs[0].text.contains("+A"), "addition missing: {}", diffs[0].text);
+    assert_eq!((diffs[1].path.as_str(), diffs[1].status.as_str()), ("b.txt", "A"));
+    assert!(diffs[1].text.contains("+b"), "added line missing: {}", diffs[1].text);
 }
 
 #[test]

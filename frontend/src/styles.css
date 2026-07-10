@@ -567,15 +567,32 @@ body {
 .files-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   margin-top: 10px;
   padding-top: 8px;
   border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 
 .files-count {
+  flex: 1 1 auto;
   color: var(--muted);
   font-size: 12px;
+}
+
+.diff-all-btn {
+  flex: none;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.diff-all-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
 }
 
 .files-view {
@@ -621,6 +638,148 @@ body {
   align-items: baseline;
   gap: 8px;
   padding: 3px 0;
+  cursor: pointer;
+}
+
+.detail-file:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* ---- File diff pane (replaces the graph while open) ---- */
+.diff-pane {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.diff-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.diff-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.diff-file-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--border) 25%, transparent);
+  position: sticky;
+  top: 0;
+}
+
+.diff-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-body {
+  margin: 0;
+  padding: 8px 0;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.diff-line {
+  padding: 0 12px;
+  white-space: pre;
+}
+
+.diff-line-hunk {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.diff-line-add {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+}
+
+.diff-line-remove {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+/* Side-by-side (split) view */
+.diff-split {
+  padding: 0 0 8px;
+}
+
+.split-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.split-cell {
+  display: flex;
+  gap: 8px;
+  padding: 0 8px;
+  min-width: 0;
+  border-left: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.split-cell:first-child {
+  border-left: none;
+}
+
+.split-no {
+  flex: none;
+  width: 32px;
+  text-align: right;
+  color: var(--muted);
+  user-select: none;
+}
+
+.split-text {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.split-cell-add {
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  color: var(--success);
+}
+
+.split-cell-remove {
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  color: var(--danger);
+}
+
+.diff-binary,
+.diff-pane .detail-error,
+.diff-pane .detail-loading {
+  color: var(--muted);
+  padding: 8px 12px;
+}
+
+.diff-pane .detail-error {
+  color: var(--danger);
 }
 
 .file-status {

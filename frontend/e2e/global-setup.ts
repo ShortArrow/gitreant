@@ -85,6 +85,17 @@ function makeRepoE(): string {
   return dir; // 1 commit
 }
 
+/** repoF: a clone with a file-transport origin; the fetch test commits into
+ * the origin live. Returns both paths. */
+function makeRepoF(): { origin: string; clone: string } {
+  const origin = initRepo("repoF-origin");
+  commit(origin, "f-1");
+  git(tmpDir, ["clone", "-q", "repoF-origin", "repoF"]);
+  const clone = path.join(tmpDir, "repoF");
+  git(clone, ["config", "commit.gpgsign", "false"]);
+  return { origin, clone }; // 1 commit
+}
+
 let server: ChildProcess | undefined;
 
 export default async function globalSetup(_config: FullConfig) {
@@ -97,14 +108,19 @@ export default async function globalSetup(_config: FullConfig) {
   const repoC = makeRepoC();
   const repoD = makeRepoD();
   const repoE = makeRepoE();
+  const repoF = makeRepoF();
 
-  // Serve repoA and repoB; repoC/D/E are added by tests.
+  // Serve repoA and repoB; repoC/D/E/F are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
 
   // Expose the extra fixture paths to the specs.
   writeFileSync(
     path.join(tmpDir, "fixtures.json"),
-    JSON.stringify({ repoC, repoD, repoE }, null, 2),
+    JSON.stringify(
+      { repoC, repoD, repoE, repoF: repoF.clone, repoFOrigin: repoF.origin },
+      null,
+      2,
+    ),
   );
 
   // Returned function runs as global teardown.

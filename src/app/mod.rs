@@ -5,4 +5,6 @@ mod session;
 mod view;
 
 pub use session::Session;
-pub use view::{build_view, CommitDetailView, CommitView, FileChangeView, RefView, RepoView};
+pub use view::{
+    build_view, CommitDetailView, CommitView, FileChangeView, FileDiffView, RefView, RepoView,
+};

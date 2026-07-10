@@ -1,4 +1,10 @@
-import type { CommitDetail, CommitView, GraphEdge, RepoView } from "../api";
+import type {
+  CommitDetail,
+  CommitView,
+  FileDiff,
+  GraphEdge,
+  RepoView,
+} from "../api";
 
 let clock = 1_700_000_000;
 
@@ -116,6 +122,22 @@ export const commitDetail: CommitDetail = {
     { path: "docs/adr/0001-architecture.md", status: "A", additions: 30, deletions: 0 },
     { path: "src/old_layout.rs", status: "D", additions: 0, deletions: 118 },
   ],
+};
+
+/** One file's unified diff, as returned by POST /api/diff. */
+export const fileDiff: FileDiff = {
+  path: "src/domain/graph.rs",
+  status: "M",
+  binary: false,
+  text:
+    "@@ -1,4 +1,5 @@\n" +
+    " use serde::Serialize;\n" +
+    "-fn lane(commit: &Commit) -> usize {\n" +
+    "-    0\n" +
+    "+fn lane(state: &mut LayoutState, commit: &Commit) -> usize {\n" +
+    "+    state.lane_for(&commit.id)\n" +
+    " }\n" +
+    " \n",
 };
 
 /** A repo that failed to read. */

@@ -41,11 +41,17 @@ function storedFilesView(): FilesView {
 export function CommitDetailPanel({
   detail,
   error,
+  onSelectFile,
+  onShowAllDiffs,
   onClose,
 }: {
   /** null while loading. */
   detail: CommitDetail | null;
   error: string | null;
+  /** Called with the repository-relative path of a clicked file. */
+  onSelectFile: (path: string) => void;
+  /** Called when every changed file's diff should open at once. */
+  onShowAllDiffs: () => void;
   onClose: () => void;
 }) {
   const [view, setView] = useState<FilesView>(storedFilesView);
@@ -87,7 +93,13 @@ export function CommitDetailPanel({
         {error && <p className="detail-error">{error}</p>}
         {!error && !detail && <p className="detail-loading">Loading…</p>}
         {detail && (
-          <DetailBody detail={detail} view={view} onChangeView={changeView} />
+          <DetailBody
+            detail={detail}
+            view={view}
+            onChangeView={changeView}
+            onSelectFile={onSelectFile}
+            onShowAllDiffs={onShowAllDiffs}
+          />
         )}
       </div>
     </aside>
@@ -98,10 +110,14 @@ function DetailBody({
   detail,
   view,
   onChangeView,
+  onSelectFile,
+  onShowAllDiffs,
 }: {
   detail: CommitDetail;
   view: FilesView;
   onChangeView: (view: FilesView) => void;
+  onSelectFile: (path: string) => void;
+  onShowAllDiffs: () => void;
 }) {
   const { summary, body } = splitMessage(detail.message);
   return (
@@ -132,6 +148,17 @@ function DetailBody({
         <span className="files-count">
           {detail.files.length} file{detail.files.length === 1 ? "" : "s"}
         </span>
+        {detail.files.length > 0 && (
+          <button
+            className="diff-all-btn"
+            title="Show every file's diff"
+            data-testid="diff-all"
+            onClick={onShowAllDiffs}
+            type="button"
+          >
+            Diff all
+          </button>
+        )}
         <div className="files-view">
           <button
             className={view === "flat" ? "active" : ""}
@@ -158,17 +185,35 @@ function DetailBody({
         )}
         {view === "flat" &&
           detail.files.map((file) => (
-            <FileRow key={file.path} change={file} label={file.path} depth={0} />
+            <FileRow
+              key={file.path}
+              change={file}
+              label={file.path}
+              depth={0}
+              onSelect={onSelectFile}
+            />
           ))}
         {view === "tree" && (
-          <TreeRows nodes={buildFileTree(detail.files)} depth={0} />
+          <TreeRows
+            nodes={buildFileTree(detail.files)}
+            depth={0}
+            onSelect={onSelectFile}
+          />
         )}
       </ul>
     </>
   );
 }
 
-function TreeRows({ nodes, depth }: { nodes: FileTreeNode[]; depth: number }) {
+function TreeRows({
+  nodes,
+  depth,
+  onSelect,
+}: {
+  nodes: FileTreeNode[];
+  depth: number;
+  onSelect: (path: string) => void;
+}) {
   return (
     <>
       {nodes.map((node) =>
@@ -182,7 +227,7 @@ function TreeRows({ nodes, depth }: { nodes: FileTreeNode[]; depth: number }) {
               {node.name}/
             </div>
             <ul className="detail-files">
-              <TreeRows nodes={node.children} depth={depth + 1} />
+              <TreeRows nodes={node.children} depth={depth + 1} onSelect={onSelect} />
             </ul>
           </li>
         ) : (
@@ -191,6 +236,7 @@ function TreeRows({ nodes, depth }: { nodes: FileTreeNode[]; depth: number }) {
             change={node.change}
             label={node.name}
             depth={depth}
+            onSelect={onSelect}
           />
         ),
       )}
@@ -202,16 +248,19 @@ function FileRow({
   change,
   label,
   depth,
+  onSelect,
 }: {
   change: FileChange;
   label: string;
   depth: number;
+  onSelect: (path: string) => void;
 }) {
   return (
     <li
       className="detail-file"
       data-testid="detail-file"
       style={{ paddingLeft: depth * 14 }}
+      onClick={() => onSelect(change.path)}
     >
       <span className={`file-status file-status-${change.status}`}>
         {change.status}

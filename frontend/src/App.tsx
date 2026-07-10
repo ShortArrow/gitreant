@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { addRepo, fetchRepos, removeRepo, type RepoView } from "./api";
+import {
+  addRepo,
+  fetchRemotes,
+  fetchRepos,
+  removeRepo,
+  type RepoView,
+} from "./api";
 import { Drawer } from "./Drawer";
 import { RepoCard } from "./RepoCard";
 import { ThemeToggle } from "./ThemeToggle";
@@ -86,6 +92,24 @@ export function App() {
     [applyRepos, openTab],
   );
 
+  const [fetching, setFetching] = useState(false);
+  const runFetch = useCallback(async () => {
+    setFetching(true);
+    try {
+      const result = await fetchRemotes();
+      setError(
+        result.errors.length
+          ? result.errors.map((e) => `${e.repo}: ${e.message}`).join(" / ")
+          : null,
+      );
+      await reload();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setFetching(false);
+    }
+  }, [reload]);
+
   const activeRepo = activeId ? repoById.get(activeId) : undefined;
 
   return (
@@ -131,6 +155,16 @@ export function App() {
             );
           })}
           </div>
+          <button
+            className="topbar-btn"
+            title="Fetch remotes"
+            data-testid="fetch"
+            onClick={runFetch}
+            disabled={fetching}
+            type="button"
+          >
+            ⇣
+          </button>
           <button
             className="topbar-btn"
             title="Reload repositories"

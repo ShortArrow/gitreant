@@ -194,6 +194,148 @@ async fn commit_endpoint_returns_detail() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn diff_endpoint_returns_unified_hunks() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    init_repo_with_commit(dir);
+    std::fs::write(dir.join("notes.txt"), "hello\n").unwrap();
+    let run = |args: &[&str]| {
+        let status = Command::new("git")
+            .current_dir(dir)
+            .args(args)
+            .env("GIT_AUTHOR_NAME", "T")
+            .env("GIT_AUTHOR_EMAIL", "t@e.com")
+            .env("GIT_COMMITTER_NAME", "T")
+            .env("GIT_COMMITTER_EMAIL", "t@e.com")
+            .status()
+            .unwrap();
+        assert!(status.success(), "git {args:?} failed");
+    };
+    run(&["add", "notes.txt"]);
+    run(&["commit", "-q", "-m", "add notes"]);
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(Session::new())).await.unwrap();
+    });
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    let repo_path = dir.to_string_lossy().into_owned();
+    tokio::task::spawn_blocking(move || post_repo(port, &repo_path))
+        .await
+        .unwrap()
+        .expect("add repo");
+
+    let repo_id = Session::new().add(dir).unwrap().0;
+    let head = gitreant::git::read_repo(dir).unwrap().commits[0].id.clone();
+
+    let request =
+        format!("{{\"repo\": {repo_id:?}, \"id\": {head:?}, \"path\": \"notes.txt\"}}");
+    let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/diff", &request))
+        .await
+        .unwrap();
+    assert!(resp.contains("200 OK"), "response: {resp}");
+    assert!(resp.contains("+hello"), "added line missing: {resp}");
+    assert!(resp.contains("\"status\":\"A\""), "status missing: {resp}");
+
+    // A path the commit does not touch -> 404.
+    let bad = format!("{{\"repo\": {repo_id:?}, \"id\": {head:?}, \"path\": \"nope.txt\"}}");
+    let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/diff", &bad))
+        .await
+        .unwrap();
+    assert!(resp.contains("404"), "expected 404 for unknown path: {resp}");
+
+    // The whole-commit diff returns every changed file with its hunks.
+    let request = format!("{{\"repo\": {repo_id:?}, \"id\": {head:?}}}");
+    let resp =
+        tokio::task::spawn_blocking(move || http_post_json(port, "/api/commit-diff", &request))
+            .await
+            .unwrap();
+    assert!(resp.contains("200 OK"), "response: {resp}");
+    assert!(resp.contains("notes.txt"), "file missing: {resp}");
+    assert!(resp.contains("+hello"), "hunk missing: {resp}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn fetch_endpoint_updates_remote_refs() {
+    // A local "origin" and a clone of it: fetch works offline via the file
+    // transport, exactly like a network remote would.
+    let tmp = tempfile::tempdir().unwrap();
+    let origin = tmp.path().join("origin");
+    std::fs::create_dir(&origin).unwrap();
+    init_repo_with_commit(&origin);
+    let run = |dir: &Path, args: &[&str]| {
+        let status = Command::new("git")
+            .current_dir(dir)
+            .args(args)
+            .env("GIT_AUTHOR_NAME", "T")
+            .env("GIT_AUTHOR_EMAIL", "t@e.com")
+            .env("GIT_COMMITTER_NAME", "T")
+            .env("GIT_COMMITTER_EMAIL", "t@e.com")
+            .status()
+            .unwrap();
+        assert!(status.success(), "git {args:?} failed");
+    };
+    run(tmp.path(), &["clone", "-q", "origin", "clone"]);
+    let clone = tmp.path().join("clone");
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(Session::new())).await.unwrap();
+    });
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    let clone_path = clone.to_string_lossy().into_owned();
+    tokio::task::spawn_blocking(move || post_repo(port, &clone_path))
+        .await
+        .unwrap()
+        .expect("add clone");
+
+    // A commit lands on the origin after the clone.
+    run(&origin, &["commit", "--allow-empty", "-q", "-m", "after-clone"]);
+    let before = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+        .await
+        .unwrap();
+    assert!(!before.contains("after-clone"), "must not appear before fetch");
+
+    let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/fetch", "{}"))
+        .await
+        .unwrap();
+    assert!(resp.contains("200 OK"), "response: {resp}");
+    assert!(resp.contains("\"errors\":[]"), "expected no errors: {resp}");
+
+    // The new commit is now reachable via the updated remote-tracking ref.
+    let after = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+        .await
+        .unwrap();
+    assert!(after.contains("after-clone"), "fetched commit missing: {after}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn shutdown_endpoint_stops_the_server() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();

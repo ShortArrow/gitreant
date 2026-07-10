@@ -5,7 +5,7 @@ use std::path::Path;
 use serde::Serialize;
 
 use crate::domain::{layout, GraphEdge};
-use crate::git::{CommitDetail, RepoData};
+use crate::git::{CommitDetail, FileDiff, RepoData};
 
 /// A commit positioned on the grid, with the metadata needed to render it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -114,6 +114,29 @@ impl From<CommitDetail> for CommitDetailView {
                     deletions: f.deletions,
                 })
                 .collect(),
+        }
+    }
+}
+
+/// One file's unified diff, as the SPA consumes it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FileDiffView {
+    pub path: String,
+    /// "A" (added), "M" (modified) or "D" (deleted).
+    pub status: String,
+    /// True when either side looks binary; `text` is empty then.
+    pub binary: bool,
+    /// Unified diff hunks ("@@ ..." headers with -/+/context lines).
+    pub text: String,
+}
+
+impl From<FileDiff> for FileDiffView {
+    fn from(diff: FileDiff) -> Self {
+        FileDiffView {
+            path: diff.path,
+            status: diff.status,
+            binary: diff.binary,
+            text: diff.text,
         }
     }
 }

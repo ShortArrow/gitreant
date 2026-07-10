@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchCommitDetail,
+  fetchCommitDiff,
+  fetchFileDiff,
   type CommitDetail,
+  type FileDiff,
   type RefView,
   type RepoView,
 } from "./api";
 import { CommitDetailPanel } from "./CommitDetailPanel";
+import { FileDiffPane } from "./FileDiffPane";
 import {
   edgePath,
   graphHeight,
@@ -30,13 +34,24 @@ function refsByCommit(repo: RepoView): Map<string, RefView[]> {
   return map;
 }
 
+/** What the diff pane shows: one file, or everything the commit changed. */
+export type DiffTarget = { kind: "file"; path: string } | { kind: "all" };
+
 export function RepoCard({
   repo,
   loadDetail = fetchCommitDetail,
+  loadDiff = fetchFileDiff,
+  loadCommitDiff = fetchCommitDiff,
 }: {
   repo: RepoView;
   /** Injectable for Storybook; defaults to the real API. */
   loadDetail?: (repoId: string, commitId: string) => Promise<CommitDetail>;
+  loadDiff?: (
+    repoId: string,
+    commitId: string,
+    path: string,
+  ) => Promise<FileDiff>;
+  loadCommitDiff?: (repoId: string, commitId: string) => Promise<FileDiff[]>;
 }) {
   const rowOf = useMemo(() => rowIndex(repo.commits), [repo.commits]);
   const refMap = useMemo(() => refsByCommit(repo), [repo.refs]);
@@ -44,6 +59,9 @@ export function RepoCard({
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<CommitDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [diffTarget, setDiffTarget] = useState<DiffTarget | null>(null);
+  const [diffFiles, setDiffFiles] = useState<FileDiff[] | null>(null);
+  const [diffError, setDiffError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!selected) {
@@ -65,6 +83,31 @@ export function RepoCard({
       stale = true;
     };
   }, [selected, repo.id, loadDetail]);
+
+  useEffect(() => {
+    if (!selected || !diffTarget) {
+      setDiffFiles(null);
+      setDiffError(null);
+      return;
+    }
+    let stale = false;
+    setDiffFiles(null);
+    setDiffError(null);
+    const load =
+      diffTarget.kind === "file"
+        ? loadDiff(repo.id, selected, diffTarget.path).then((d) => [d])
+        : loadCommitDiff(repo.id, selected);
+    load
+      .then((data) => {
+        if (!stale) setDiffFiles(data);
+      })
+      .catch((e) => {
+        if (!stale) setDiffError(String(e));
+      });
+    return () => {
+      stale = true;
+    };
+  }, [selected, diffTarget, repo.id, loadDiff, loadCommitDiff]);
 
   if (repo.error) {
     return (
@@ -90,6 +133,13 @@ export function RepoCard({
       </header>
 
       <div className="repo-body">
+      {selected && diffTarget ? (
+        <FileDiffPane
+          files={diffFiles}
+          error={diffError}
+          onClose={() => setDiffTarget(null)}
+        />
+      ) : (
       <div className="graph-and-list">
         <svg
           className="graph"
@@ -109,16 +159,17 @@ export function RepoCard({
           ))}
           {repo.commits.map((commit) =>
             commit.id === repo.head ? (
-              // HEAD: a ring in the branch color with a punched-out center,
-              // like vscode-git-graph. Inline stroke wins over the .node CSS.
+              // HEAD: a ring in the branch color with the center punched out
+              // to the card background, like vscode-git-graph. Both colors go
+              // through `style` — inline styles resolve var() and win over the
+              // .node CSS, while a `fill` attribute would not resolve it.
               <circle
                 key={commit.id}
                 className="node node-head"
                 cx={nodeX(commit.lane)}
                 cy={nodeY(commit.row)}
                 r={NODE_RADIUS}
-                fill="var(--bg-elev)"
-                style={{ stroke: laneColor(commit.color) }}
+                style={{ stroke: laneColor(commit.color), fill: "var(--bg-elev)" }}
               />
             ) : (
               <circle
@@ -143,9 +194,10 @@ export function RepoCard({
                 className={`commit${commit.id === selected ? " selected" : ""}`}
                 data-testid="commit-row"
                 style={{ height: ROW_HEIGHT }}
-                onClick={() =>
-                  setSelected((s) => (s === commit.id ? null : commit.id))
-                }
+                onClick={() => {
+                  setSelected((s) => (s === commit.id ? null : commit.id));
+                  setDiffTarget(null);
+                }}
               >
                 {isHead && <span className="badge badge-head">HEAD</span>}
                 {refs.map((ref) => (
@@ -170,12 +222,18 @@ export function RepoCard({
           })}
         </ul>
       </div>
+      )}
 
       {selected && (
         <CommitDetailPanel
           detail={detail}
           error={detailError}
-          onClose={() => setSelected(null)}
+          onSelectFile={(path) => setDiffTarget({ kind: "file", path })}
+          onShowAllDiffs={() => setDiffTarget({ kind: "all" })}
+          onClose={() => {
+            setSelected(null);
+            setDiffTarget(null);
+          }}
         />
       )}
       </div>

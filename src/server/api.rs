@@ -14,7 +14,7 @@ use tokio::sync::{broadcast, watch};
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 
-use crate::app::{CommitDetailView, RepoView, Session};
+use crate::app::{CommitDetailView, FileDiffView, RepoView, Session};
 
 use super::{assets, PING_MARKER};
 
@@ -78,6 +78,17 @@ impl AppState {
             .path_of(id)
             .cloned()
     }
+
+    /// Ids and root paths of every displayed repository.
+    fn repo_paths(&self) -> Vec<(String, PathBuf)> {
+        self.session
+            .lock()
+            .expect("session mutex")
+            .paths()
+            .iter()
+            .map(|p| (p.to_string_lossy().into_owned(), p.clone()))
+            .collect()
+    }
 }
 
 /// Build the application router.
@@ -89,6 +100,9 @@ pub fn router(state: AppState) -> Router {
             get(list_repos).post(add_repo).delete(remove_repo),
         )
         .route("/api/commit", post(commit_detail))
+        .route("/api/diff", post(file_diff))
+        .route("/api/commit-diff", post(commit_diff))
+        .route("/api/fetch", post(fetch_remotes))
         .route("/api/events", get(events))
         .route("/api/pick", post(pick_folder))
         .route("/api/shutdown", post(shutdown))
@@ -167,6 +181,83 @@ async fn commit_detail(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .map_err(|message| (StatusCode::NOT_FOUND, message))?;
     Ok(Json(detail.into()))
+}
+
+#[derive(Deserialize)]
+struct FileDiffRequest {
+    /// The repository id (its canonical path, as returned in `RepoView::id`).
+    repo: String,
+    /// The full commit id.
+    id: String,
+    /// Repository-relative path of the changed file.
+    path: String,
+}
+
+/// One file's unified diff against the commit's first parent, read on demand
+/// when a file is opened from the commit detail pane.
+async fn file_diff(
+    State(state): State<AppState>,
+    Json(req): Json<FileDiffRequest>,
+) -> Result<Json<FileDiffView>, (StatusCode, String)> {
+    let Some(repo) = state.repo_path(&req.repo) else {
+        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+    };
+    let diff =
+        tokio::task::spawn_blocking(move || crate::git::read_file_diff(&repo, &req.id, &req.path))
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .map_err(|message| (StatusCode::NOT_FOUND, message))?;
+    Ok(Json(diff.into()))
+}
+
+/// The unified diffs of every file changed by one commit, read on demand when
+/// the whole-commit diff is opened from the detail pane.
+async fn commit_diff(
+    State(state): State<AppState>,
+    Json(req): Json<CommitDetailRequest>,
+) -> Result<Json<Vec<FileDiffView>>, (StatusCode, String)> {
+    let Some(repo) = state.repo_path(&req.repo) else {
+        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+    };
+    let diffs =
+        tokio::task::spawn_blocking(move || crate::git::read_commit_diff(&repo, &req.id))
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .map_err(|message| (StatusCode::NOT_FOUND, message))?;
+    Ok(Json(diffs.into_iter().map(Into::into).collect()))
+}
+
+#[derive(Serialize)]
+struct FetchError {
+    /// The repository id (its canonical path).
+    repo: String,
+    message: String,
+}
+
+#[derive(Serialize)]
+struct FetchResponse {
+    /// One entry per repository whose fetch failed; empty on full success.
+    errors: Vec<FetchError>,
+}
+
+/// Fetch all remotes of every displayed repository via the `git` CLI (which
+/// carries the user's authentication setup), then notify SSE listeners.
+async fn fetch_remotes(State(state): State<AppState>) -> Json<FetchResponse> {
+    let repos = state.repo_paths();
+    let errors = tokio::task::spawn_blocking(move || {
+        repos
+            .into_iter()
+            .filter_map(|(repo, path)| {
+                crate::git::fetch_remotes(&path)
+                    .err()
+                    .map(|message| FetchError { repo, message })
+            })
+            .collect()
+    })
+    .await
+    .unwrap_or_default();
+    let _ = state.updates.send(());
+    Json(FetchResponse { errors })
 }
 
 #[derive(Serialize)]

@@ -59,6 +59,67 @@ export interface CommitDetail {
   files: FileChange[];
 }
 
+export interface FileDiff {
+  path: string;
+  /** "A" (added), "M" (modified) or "D" (deleted). */
+  status: string;
+  /** True when either side looks binary; `text` is empty then. */
+  binary: boolean;
+  /** Unified diff hunks ("@@ ..." headers with -/+/context lines). */
+  text: string;
+}
+
+/** Load one file's unified diff against the commit's first parent. */
+export async function fetchFileDiff(
+  repoId: string,
+  commitId: string,
+  path: string,
+): Promise<FileDiff> {
+  const response = await fetch("/api/diff", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo: repoId, id: commitId, path }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || `file diff failed: ${response.status}`,
+    );
+  }
+  return response.json();
+}
+
+export interface FetchResult {
+  /** One entry per repository whose fetch failed; empty on full success. */
+  errors: { repo: string; message: string }[];
+}
+
+/** Fetch all remotes of every displayed repository (server-side `git fetch`). */
+export async function fetchRemotes(): Promise<FetchResult> {
+  const response = await fetch("/api/fetch", { method: "POST" });
+  if (!response.ok) {
+    throw new Error(`fetch failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+/** Load the unified diffs of every file one commit changed. */
+export async function fetchCommitDiff(
+  repoId: string,
+  commitId: string,
+): Promise<FileDiff[]> {
+  const response = await fetch("/api/commit-diff", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo: repoId, id: commitId }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || `commit diff failed: ${response.status}`,
+    );
+  }
+  return response.json();
+}
+
 /** Load one commit's details on demand (ids are paths, hence a JSON body). */
 export async function fetchCommitDetail(
   repoId: string,

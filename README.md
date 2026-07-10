@@ -28,7 +28,9 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
 
 - Commit graph rendering with lanes and colors computed server-side
 - Click a commit to see its full message, signature state, and changed files
-  (flat or tree view) with line counts
+  (flat or tree view) with line counts; click a file (or "Diff all") to see
+  diffs inline or side-by-side
+- Fetch button runs `git fetch` for every shown repository (requires git)
 - Multiple repositories in one SPA: a drawer to list/add/remove, tabs to switch
 - Live updates via Server-Sent Events when repositories are added or removed,
   plus a reload button to pick up new commits

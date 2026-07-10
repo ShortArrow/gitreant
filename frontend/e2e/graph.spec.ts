@@ -5,7 +5,13 @@ import { commit } from "./git";
 
 const fixtures = JSON.parse(
   readFileSync(path.join(process.cwd(), "e2e/.tmp/fixtures.json"), "utf8"),
-) as { repoC: string; repoD: string; repoE: string };
+) as {
+  repoC: string;
+  repoD: string;
+  repoE: string;
+  repoF: string;
+  repoFOrigin: string;
+};
 
 test.describe.serial("gitreant UI", () => {
   test.beforeEach(async ({ page }) => {
@@ -71,6 +77,31 @@ test.describe.serial("gitreant UI", () => {
 
     await page.getByTestId("detail-close").click();
     await expect(panel).toHaveCount(0);
+  });
+
+  test("clicking a changed file opens its diff pane", async ({ page }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page
+      .getByTestId("commit-row")
+      .filter({ hasText: "main-1" })
+      .click();
+    await page
+      .getByTestId("detail-file")
+      .filter({ hasText: "README.md" })
+      .click();
+
+    // The diff pane replaces the graph until it is closed.
+    const pane = page.getByTestId("diff-pane");
+    await expect(pane).toBeVisible();
+    await expect(pane).toContainText("README.md");
+    await expect(pane).toContainText("@@");
+    await expect(pane.locator(".diff-line-add")).toHaveText("+two");
+    await expect(pane.locator(".diff-line-context")).toHaveText(" one");
+    await expect(page.getByTestId("graph")).toHaveCount(0);
+
+    await page.getByTestId("diff-close").click();
+    await expect(page.getByTestId("diff-pane")).toHaveCount(0);
+    await expect(page.getByTestId("graph")).toBeVisible();
   });
 
   test("changed files can be shown as a directory tree", async ({ page }) => {
@@ -166,20 +197,23 @@ test.describe.serial("gitreant UI", () => {
     const graph = page.locator('[data-testid="graph"]');
     await expect(graph.locator("circle.node-head")).toHaveCount(1);
 
-    const { stroke, fill, laneFill } = await graph.evaluate((g) => {
+    const { stroke, fill, laneFill, cardBg } = await graph.evaluate((g) => {
       const head = g.querySelector("circle.node-head")!;
       const peer = [...g.querySelectorAll("circle:not(.node-head)")].find(
         (c) => c.getAttribute("cx") === head.getAttribute("cx"),
       )!;
+      const card = g.closest(".repo")!;
       return {
         stroke: getComputedStyle(head).stroke,
         fill: getComputedStyle(head).fill,
         laneFill: getComputedStyle(peer).fill,
+        cardBg: getComputedStyle(card).backgroundColor,
       };
     });
-    // The ring is the branch color; the center is punched out (background).
+    // The ring is the branch color; the center is punched out to the card
+    // background, so it follows the theme (dark center in dark mode).
     expect(stroke).toBe(laneFill);
-    expect(fill).not.toBe(laneFill);
+    expect(fill).toBe(cardBg);
   });
 
   test("reload button re-reads repositories from disk", async ({ page }) => {
@@ -242,6 +276,81 @@ test.describe.serial("gitreant UI", () => {
     await repoD.hover();
     await repoD.getByTestId("repo-remove").click();
     await expect(page.locator('[data-repo-name="repoD"]')).toHaveCount(0);
+  });
+
+  test("the diff pane can switch between inline and side-by-side view", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page
+      .getByTestId("commit-row")
+      .filter({ hasText: "main-1" })
+      .click();
+    await page
+      .getByTestId("detail-file")
+      .filter({ hasText: "README.md" })
+      .click();
+    const pane = page.getByTestId("diff-pane");
+    await expect(pane.locator(".diff-line-add")).toHaveText("+two");
+
+    await pane.getByTestId("diff-view-split").click();
+    // main-1 turned "one" into "one\ntwo": the split view pairs the context
+    // line on both sides and shows the added line on the right only.
+    const rows = pane.locator(".split-row");
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator(".split-cell-context")).toHaveCount(2);
+    await expect(rows.nth(1).locator(".split-cell-empty")).toHaveCount(1);
+    await expect(rows.nth(1).locator(".split-cell-add .split-text")).toHaveText(
+      "two",
+    );
+
+    await pane.getByTestId("diff-view-inline").click();
+    await expect(pane.locator(".diff-line-add")).toHaveText("+two");
+  });
+
+  test("the whole commit diff can be opened at once", async ({ page }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page
+      .getByTestId("commit-row")
+      .filter({ hasText: "main-2" })
+      .click();
+    // main-2 changed two files; open every diff with one click.
+    await page.getByTestId("diff-all").click();
+
+    const pane = page.getByTestId("diff-pane");
+    await expect(pane).toBeVisible();
+    const sections = pane.getByTestId("diff-file-section");
+    await expect(sections).toHaveCount(2);
+    await expect(sections.nth(0)).toContainText("src/lib/one.ts");
+    await expect(sections.nth(1)).toContainText("src/lib/two.ts");
+    await expect(sections.nth(0).locator(".diff-line-add")).toHaveText("+1");
+
+    await page.getByTestId("diff-close").click();
+    await expect(page.getByTestId("graph")).toBeVisible();
+  });
+
+  test("fetch button pulls new remote commits into the graph", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoF);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoF"]')).toBeVisible();
+    await expect(page.getByTestId("commit-row")).toHaveCount(1);
+
+    // A commit lands on the origin; the clone doesn't know it yet.
+    commit(fixtures.repoFOrigin, "f-2");
+    await page.getByTestId("fetch").click();
+    // The fetched remote-tracking ref makes the new commit reachable.
+    await expect(page.getByTestId("commit-row")).toHaveCount(2);
+    await expect(
+      page.getByTestId("commit-row").filter({ hasText: "f-2" }),
+    ).toBeVisible();
+
+    // Restore the served set.
+    const repoF = page.locator('[data-repo-name="repoF"]');
+    await repoF.hover();
+    await repoF.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoF"]')).toHaveCount(0);
   });
 
   test("branch edges keep the branch color end to end", async ({ page }) => {

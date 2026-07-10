@@ -10,3 +10,6 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0003](0003-edge-routing.md) | レーンをまたぐエッジは1行分の曲線＋垂直線で経路する | Accepted |
 | [0004](0004-readme-screenshots.md) | READMEスクリーンショットは宣言的フィクスチャから自動生成する | Accepted |
 | [0005](0005-commit-detail-on-demand.md) | コミット詳細はオンデマンドで取得する | Accepted |
+| [0006](0006-file-diff-on-demand.md) | ファイルdiffは1ファイルずつオンデマンドで取得する | Accepted |
+| [0007](0007-fetch-via-git-cli.md) | リモートfetchはgit CLIに委譲する | Accepted |
+| [0008](0008-split-diff-client-side.md) | 左右分割diffはunifiedテキストのクライアント側パースで実現する | Accepted |
