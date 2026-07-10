@@ -14,7 +14,7 @@ use tokio::sync::{broadcast, watch};
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 
-use crate::app::{RepoView, Session};
+use crate::app::{CommitDetailView, RepoView, Session};
 
 use super::{assets, PING_MARKER};
 
@@ -69,6 +69,15 @@ impl AppState {
         }
         removed
     }
+
+    /// The root path of a displayed repository, if `id` is known.
+    fn repo_path(&self, id: &str) -> Option<PathBuf> {
+        self.session
+            .lock()
+            .expect("session mutex")
+            .path_of(id)
+            .cloned()
+    }
 }
 
 /// Build the application router.
@@ -79,6 +88,7 @@ pub fn router(state: AppState) -> Router {
             "/api/repos",
             get(list_repos).post(add_repo).delete(remove_repo),
         )
+        .route("/api/commit", post(commit_detail))
         .route("/api/events", get(events))
         .route("/api/pick", post(pick_folder))
         .route("/api/shutdown", post(shutdown))
@@ -133,6 +143,30 @@ async fn remove_repo(
 ) -> Json<Vec<RepoView>> {
     state.remove_repo(&req.path);
     Json(state.views())
+}
+
+#[derive(Deserialize)]
+struct CommitDetailRequest {
+    /// The repository id (its canonical path, as returned in `RepoView::id`).
+    repo: String,
+    /// The full commit id.
+    id: String,
+}
+
+/// Details of one commit (full message + per-file changes), read on demand so
+/// the repo list stays cheap. Ids are paths, hence a JSON body instead of a URL.
+async fn commit_detail(
+    State(state): State<AppState>,
+    Json(req): Json<CommitDetailRequest>,
+) -> Result<Json<CommitDetailView>, (StatusCode, String)> {
+    let Some(path) = state.repo_path(&req.repo) else {
+        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+    };
+    let detail = tokio::task::spawn_blocking(move || crate::git::read_commit(&path, &req.id))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(|message| (StatusCode::NOT_FOUND, message))?;
+    Ok(Json(detail.into()))
 }
 
 #[derive(Serialize)]

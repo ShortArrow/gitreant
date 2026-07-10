@@ -21,8 +21,11 @@ pub struct CommitMeta {
 /// A named reference (branch/tag) pointing at a commit.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RefInfo {
+    /// Short name; for remote-tracking refs the remote prefix is split off
+    /// into `remote` ("refs/remotes/origin/main" -> "main" + "origin").
     pub name: String,
     pub target: String,
+    pub remote: Option<String>,
 }
 
 /// Everything read from one repository.
@@ -106,15 +109,28 @@ fn collect_refs(repo: &gix::Repository) -> Vec<RefInfo> {
     let mut refs = Vec::new();
     for reference in iter.filter_map(Result::ok) {
         let mut reference = reference;
-        let name = reference.name().shorten().to_string();
+        let (name, remote) = split_remote(
+            &reference.name().as_bstr().to_string(),
+            &reference.name().shorten().to_string(),
+        );
         if let Ok(id) = reference.peel_to_id() {
             refs.push(RefInfo {
                 name,
                 target: id.detach().to_string(),
+                remote,
             });
         }
     }
     refs
+}
+
+/// Split a remote-tracking ref into its branch and remote names; anything else
+/// keeps its short name.
+fn split_remote(full: &str, short: &str) -> (String, Option<String>) {
+    full.strip_prefix("refs/remotes/")
+        .and_then(|rest| rest.split_once('/'))
+        .map(|(remote, branch)| (branch.to_string(), Some(remote.to_string())))
+        .unwrap_or_else(|| (short.to_string(), None))
 }
 
 /// A commit collected before ordering.

@@ -14,16 +14,26 @@ function initRepo(name: string): string {
   return initRepoAt(path.join(tmpDir, name));
 }
 
-/** repoA: a branch that is merged back -> two lanes and a merge node. */
+/** repoA: a branch that is merged back -> two lanes and a merge node.
+ * Carries real file changes and a message body for the detail-pane test. */
 function makeRepoA(): string {
   const dir = initRepo("repoA");
+  writeFileSync(path.join(dir, "README.md"), "one\n");
+  git(dir, ["add", "."]);
   commit(dir, "root");
-  commit(dir, "main-1");
+  writeFileSync(path.join(dir, "README.md"), "one\ntwo\n");
+  git(dir, ["add", "."]);
+  commit(dir, "main-1\n\nSecond line of the description.");
   git(dir, ["switch", "-c", "feature", "-q"]);
   commit(dir, "feature-1");
   git(dir, ["switch", "main", "-q"]);
+  mkdirSync(path.join(dir, "src", "lib"), { recursive: true });
+  writeFileSync(path.join(dir, "src", "lib", "one.ts"), "1\n");
+  writeFileSync(path.join(dir, "src", "lib", "two.ts"), "2\n");
+  git(dir, ["add", "."]);
   commit(dir, "main-2");
   git(dir, ["merge", "--no-ff", "feature", "-q", "-m", "merge feature"]);
+  git(dir, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
   return dir; // 5 commits
 }
 
@@ -68,6 +78,13 @@ function makeRepoD(): string {
   return dir; // 13 commits
 }
 
+/** repoE: linear with one commit; the reload test commits into it live. */
+function makeRepoE(): string {
+  const dir = initRepo("repoE");
+  commit(dir, "e-1");
+  return dir; // 1 commit
+}
+
 let server: ChildProcess | undefined;
 
 export default async function globalSetup(_config: FullConfig) {
@@ -79,14 +96,15 @@ export default async function globalSetup(_config: FullConfig) {
   const repoB = makeRepoB();
   const repoC = makeRepoC();
   const repoD = makeRepoD();
+  const repoE = makeRepoE();
 
-  // Serve repoA and repoB; repoC is added by a test.
+  // Serve repoA and repoB; repoC/D/E are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
 
   // Expose the extra fixture paths to the specs.
   writeFileSync(
     path.join(tmpDir, "fixtures.json"),
-    JSON.stringify({ repoC, repoD }, null, 2),
+    JSON.stringify({ repoC, repoD, repoE }, null, 2),
   );
 
   // Returned function runs as global teardown.

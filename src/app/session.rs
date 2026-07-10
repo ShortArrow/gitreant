@@ -45,6 +45,11 @@ impl Session {
         &self.paths
     }
 
+    /// The root path of the repository identified by `id`, if displayed.
+    pub fn path_of(&self, id: &str) -> Option<&PathBuf> {
+        self.paths.iter().find(|p| p.to_string_lossy() == id)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.paths.is_empty()
     }

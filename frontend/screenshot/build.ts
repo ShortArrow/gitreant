@@ -28,6 +28,12 @@ export function buildScenario(
       git(dir, args);
     } else if ("switch" in step) {
       git(dir, ["switch", "-q", step.switch]);
+    } else if ("track" in step) {
+      git(dir, [
+        "update-ref",
+        `refs/remotes/${step.remote ?? "origin"}/${step.track}`,
+        step.track,
+      ]);
     } else if ("commit" in step) {
       commit(dir, step.commit, epoch, author);
       epoch += STEP_SECONDS;

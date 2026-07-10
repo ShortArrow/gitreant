@@ -1,10 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { commit } from "./git";
 
 const fixtures = JSON.parse(
   readFileSync(path.join(process.cwd(), "e2e/.tmp/fixtures.json"), "utf8"),
-) as { repoC: string; repoD: string };
+) as { repoC: string; repoD: string; repoE: string };
 
 test.describe.serial("gitreant UI", () => {
   test.beforeEach(async ({ page }) => {
@@ -43,6 +44,204 @@ test.describe.serial("gitreant UI", () => {
       .locator('[data-testid="graph"] circle')
       .evaluateAll((els) => new Set(els.map((e) => e.getAttribute("cx"))).size);
     expect(lanes).toBeGreaterThanOrEqual(2);
+  });
+
+  test("clicking a commit row shows its message body and changed files", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page
+      .getByTestId("commit-row")
+      .filter({ hasText: "main-1" })
+      .click();
+
+    const panel = page.getByTestId("commit-detail");
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText("main-1");
+    await expect(panel).toContainText("Second line of the description.");
+    await expect(panel).toContainText("Tester");
+    // Fixture commits are unsigned; the signature state is always shown.
+    await expect(panel.getByTestId("detail-signature")).toHaveText("Not signed");
+
+    // main-1 modified README.md (added one line).
+    const file = panel.getByTestId("detail-file");
+    await expect(file).toHaveCount(1);
+    await expect(file).toContainText("README.md");
+    await expect(file).toContainText("+1");
+
+    await page.getByTestId("detail-close").click();
+    await expect(panel).toHaveCount(0);
+  });
+
+  test("changed files can be shown as a directory tree", async ({ page }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page
+      .getByTestId("commit-row")
+      .filter({ hasText: "main-2" })
+      .click();
+
+    const panel = page.getByTestId("commit-detail");
+    const files = panel.getByTestId("detail-file");
+    // Flat view (default) shows full paths.
+    await expect(files).toHaveCount(2);
+    await expect(files.first()).toContainText("src/lib/one.ts");
+
+    await panel.getByTestId("files-view-tree").click();
+    // Tree view: the single-child directory chain is compressed into one
+    // node, and file rows show only the file name.
+    const dir = panel.getByTestId("detail-dir");
+    await expect(dir).toHaveCount(1);
+    await expect(dir).toContainText("src/lib");
+    await expect(files).toHaveCount(2);
+    await expect(files.first()).toContainText("one.ts");
+    await expect(files.first()).not.toContainText("src/lib");
+
+    await panel.getByTestId("files-view-flat").click();
+    await expect(panel.getByTestId("detail-dir")).toHaveCount(0);
+    await expect(files.first()).toContainText("src/lib/one.ts");
+  });
+
+  test("drawer and detail panel widths are adjustable by dragging", async ({
+    page,
+  }) => {
+    // Widen the drawer by dragging its right-edge handle.
+    const drawer = page.locator(".drawer");
+    const drawerBefore = (await drawer.boundingBox())!;
+    const drawerHandle = (await page.getByTestId("drawer-resize").boundingBox())!;
+    await page.mouse.move(
+      drawerHandle.x + drawerHandle.width / 2,
+      drawerHandle.y + 200,
+    );
+    await page.mouse.down();
+    await page.mouse.move(drawerHandle.x + 120, drawerHandle.y + 200);
+    await page.mouse.up();
+    const drawerAfter = (await drawer.boundingBox())!;
+    expect(drawerAfter.width).toBeGreaterThan(drawerBefore.width + 80);
+
+    // The width survives a reload.
+    await page.reload();
+    const drawerReloaded = (await page.locator(".drawer").boundingBox())!;
+    expect(Math.abs(drawerReloaded.width - drawerAfter.width)).toBeLessThan(2);
+
+    // Widen the detail panel by dragging its left-edge handle.
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page
+      .getByTestId("commit-row")
+      .filter({ hasText: "main-1" })
+      .click();
+    const panel = page.getByTestId("commit-detail");
+    const panelBefore = (await panel.boundingBox())!;
+    const panelHandle = (await page.getByTestId("detail-resize").boundingBox())!;
+    await page.mouse.move(
+      panelHandle.x + panelHandle.width / 2,
+      panelHandle.y + 100,
+    );
+    await page.mouse.down();
+    await page.mouse.move(panelHandle.x - 100, panelHandle.y + 100);
+    await page.mouse.up();
+    const panelAfter = (await panel.boundingBox())!;
+    expect(panelAfter.width).toBeGreaterThan(panelBefore.width + 60);
+  });
+
+  test("remote refs show the remote name as a separate badge segment", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+
+    const remoteBadge = page.locator(".badge-remote");
+    await expect(remoteBadge).toHaveCount(1);
+    await expect(remoteBadge.getByTestId("badge-remote")).toHaveText("origin");
+    await expect(remoteBadge.locator(".badge-ref-name")).toHaveText("main");
+
+    // The local branch badge stays a single segment.
+    const localMain = page
+      .locator(".badge-ref:not(.badge-remote)")
+      .filter({ hasText: "main" });
+    await expect(localMain).toHaveCount(1);
+    await expect(localMain.getByTestId("badge-remote")).toHaveCount(0);
+  });
+
+  test("the HEAD commit is drawn as a hollow colored ring", async ({ page }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const graph = page.locator('[data-testid="graph"]');
+    await expect(graph.locator("circle.node-head")).toHaveCount(1);
+
+    const { stroke, fill, laneFill } = await graph.evaluate((g) => {
+      const head = g.querySelector("circle.node-head")!;
+      const peer = [...g.querySelectorAll("circle:not(.node-head)")].find(
+        (c) => c.getAttribute("cx") === head.getAttribute("cx"),
+      )!;
+      return {
+        stroke: getComputedStyle(head).stroke,
+        fill: getComputedStyle(head).fill,
+        laneFill: getComputedStyle(peer).fill,
+      };
+    });
+    // The ring is the branch color; the center is punched out (background).
+    expect(stroke).toBe(laneFill);
+    expect(fill).not.toBe(laneFill);
+  });
+
+  test("reload button re-reads repositories from disk", async ({ page }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoE);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoE"]')).toBeVisible();
+    await expect(page.getByTestId("commit-row")).toHaveCount(1);
+
+    // A commit lands in the repository outside of gitreant.
+    commit(fixtures.repoE, "e-2");
+    await expect(page.getByTestId("commit-row")).toHaveCount(1);
+
+    await page.getByTestId("reload").click();
+    await expect(page.getByTestId("commit-row")).toHaveCount(2);
+
+    // Restore the served set.
+    const repoE = page.locator('[data-repo-name="repoE"]');
+    await repoE.hover();
+    await repoE.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoE"]')).toHaveCount(0);
+  });
+
+  test("the commit list and the detail panel scroll independently", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 400 });
+    await page.getByTestId("add-input").fill(fixtures.repoD);
+    await page.getByTestId("add-submit").click();
+    await expect(page.getByTestId("commit-row")).toHaveCount(13);
+
+    await page
+      .getByTestId("commit-row")
+      .filter({ hasText: "merge feature" })
+      .click();
+    await expect(page.getByTestId("commit-detail")).toBeVisible();
+
+    // 13 rows do not fit in a 400px viewport: the list itself must scroll
+    // (not the whole pane), leaving the detail panel in place.
+    const list = page.locator(".graph-and-list");
+    const scrollable = await list.evaluate(
+      (el) => el.scrollHeight > el.clientHeight,
+    );
+    expect(scrollable).toBe(true);
+
+    const panelBefore = (await page
+      .getByTestId("commit-detail")
+      .boundingBox())!;
+    await list.evaluate((el) => {
+      el.scrollTop = 150;
+    });
+    const panelAfter = (await page.getByTestId("commit-detail").boundingBox())!;
+    expect(panelAfter.y).toBe(panelBefore.y);
+    const detailScroll = await page
+      .locator(".detail-scroll")
+      .evaluate((el) => el.scrollTop);
+    expect(detailScroll).toBe(0);
+
+    // Restore the served set.
+    const repoD = page.locator('[data-repo-name="repoD"]');
+    await repoD.hover();
+    await repoD.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoD"]')).toHaveCount(0);
   });
 
   test("branch edges keep the branch color end to end", async ({ page }) => {

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { pickFolder, type RepoView } from "./api";
+import { ResizeHandle, useStoredWidth } from "./Resizer";
 
 interface DrawerProps {
   repos: RepoView[];
@@ -23,6 +24,7 @@ export function Drawer({
   const [path, setPath] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [width, setWidth] = useStoredWidth("gitreant-drawer-width", 260, 180, 480);
 
   const runAdd = async (value: string) => {
     setAdding(true);
@@ -70,7 +72,7 @@ export function Drawer({
   }
 
   return (
-    <aside className="drawer">
+    <aside className="drawer" style={{ width }}>
       <div className="drawer-head">
         <span className="drawer-title">Repositories</span>
         <button
@@ -137,6 +139,14 @@ export function Drawer({
         ))}
         {repos.length === 0 && <li className="repo-empty">No repositories.</li>}
       </ul>
+
+      <ResizeHandle
+        width={width}
+        onWidth={setWidth}
+        direction={1}
+        label="Resize repository list"
+        testId="drawer-resize"
+      />
     </aside>
   );
 }

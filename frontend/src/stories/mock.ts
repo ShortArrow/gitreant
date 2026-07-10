@@ -1,4 +1,4 @@
-import type { CommitView, GraphEdge, RepoView } from "../api";
+import type { CommitDetail, CommitView, GraphEdge, RepoView } from "../api";
 
 let clock = 1_700_000_000;
 
@@ -31,6 +31,7 @@ export const mergeRepo: RepoView = {
   head: "m",
   refs: [
     { name: "main", target: "m" },
+    { name: "main", target: "m", remote: "origin" },
     { name: "feature", target: "f1" },
   ],
   commits: [
@@ -95,6 +96,26 @@ export const linearRepo: RepoView = {
   ],
   edges: [edge("n2", "n1", 0, 0, 0)],
   lane_count: 1,
+};
+
+/** Details of one commit, as returned by POST /api/commit. */
+export const commitDetail: CommitDetail = {
+  id: "1234567890abcdef1234567890abcdef12345678",
+  message:
+    "feat(graph): topological lane layout\n\n" +
+    "Assign each commit a column so children sit above their parents.\n" +
+    "Freed columns are reused to keep the graph compact.",
+  author: "Tester",
+  email: "tester@example.com",
+  time: 1_700_000_000,
+  parents: ["abcdef1234567890abcdef1234567890abcdef12"],
+  signature: "openpgp",
+  files: [
+    { path: "src/domain/graph.rs", status: "M", additions: 42, deletions: 7 },
+    { path: "src/domain/mod.rs", status: "M", additions: 2, deletions: 0 },
+    { path: "docs/adr/0001-architecture.md", status: "A", additions: 30, deletions: 0 },
+    { path: "src/old_layout.rs", status: "D", additions: 0, deletions: 118 },
+  ],
 };
 
 /** A repo that failed to read. */

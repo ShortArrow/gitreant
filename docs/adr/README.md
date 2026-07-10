@@ -9,3 +9,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0002](0002-detach-by-default.md) | 既定でターミナルからdetachして起動する | Accepted |
 | [0003](0003-edge-routing.md) | レーンをまたぐエッジは1行分の曲線＋垂直線で経路する | Accepted |
 | [0004](0004-readme-screenshots.md) | READMEスクリーンショットは宣言的フィクスチャから自動生成する | Accepted |
+| [0005](0005-commit-detail-on-demand.md) | コミット詳細はオンデマンドで取得する | Accepted |

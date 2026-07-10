@@ -131,6 +131,15 @@ export function App() {
             );
           })}
           </div>
+          <button
+            className="topbar-btn"
+            title="Reload repositories"
+            data-testid="reload"
+            onClick={reload}
+            type="button"
+          >
+            ⟳
+          </button>
           <ThemeToggle />
         </div>
 
@@ -138,7 +147,7 @@ export function App() {
 
         <div className="pane">
           {activeRepo ? (
-            <RepoCard repo={activeRepo} />
+            <RepoCard key={activeRepo.id} repo={activeRepo} />
           ) : (
             <div className="pane-empty" data-testid="pane-empty">
               左のドロワーからリポジトリを選択してください。

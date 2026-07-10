@@ -27,8 +27,11 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
 ## Features
 
 - Commit graph rendering with lanes and colors computed server-side
+- Click a commit to see its full message, signature state, and changed files
+  (flat or tree view) with line counts
 - Multiple repositories in one SPA: a drawer to list/add/remove, tabs to switch
-- Live updates via Server-Sent Events when repositories are added or removed
+- Live updates via Server-Sent Events when repositories are added or removed,
+  plus a reload button to pick up new commits
 - Native folder picker for adding repositories
 - Detaches from the terminal by default; `--shutdown` stops the server
 - Dark/light theme toggle

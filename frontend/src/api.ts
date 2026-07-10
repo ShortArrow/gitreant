@@ -18,8 +18,10 @@ export interface GraphEdge {
 }
 
 export interface RefView {
+  /** Short name; remote-tracking refs carry the remote separately. */
   name: string;
   target: string;
+  remote?: string;
 }
 
 export interface RepoView {
@@ -32,6 +34,47 @@ export interface RepoView {
   edges: GraphEdge[];
   lane_count: number;
   error?: string;
+}
+
+export interface FileChange {
+  path: string;
+  /** "A" (added), "M" (modified), "D" (deleted) or "R" (rewritten). */
+  status: string;
+  additions: number;
+  deletions: number;
+}
+
+export interface CommitDetail {
+  id: string;
+  /** Full commit message (summary and body). */
+  message: string;
+  author: string;
+  email: string;
+  time: number;
+  parents: string[];
+  /** Kind of the embedded signature ("openpgp", "ssh", ...), if signed.
+   *  Presence only — the server does not verify it. */
+  signature?: string;
+  /** Changes against the first parent (or the empty tree for a root commit). */
+  files: FileChange[];
+}
+
+/** Load one commit's details on demand (ids are paths, hence a JSON body). */
+export async function fetchCommitDetail(
+  repoId: string,
+  commitId: string,
+): Promise<CommitDetail> {
+  const response = await fetch("/api/commit", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo: repoId, id: commitId }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || `commit detail failed: ${response.status}`,
+    );
+  }
+  return response.json();
 }
 
 export async function fetchRepos(): Promise<RepoView[]> {

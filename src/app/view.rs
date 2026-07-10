@@ -5,7 +5,7 @@ use std::path::Path;
 use serde::Serialize;
 
 use crate::domain::{layout, GraphEdge};
-use crate::git::RepoData;
+use crate::git::{CommitDetail, RepoData};
 
 /// A commit positioned on the grid, with the metadata needed to render it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -23,8 +23,11 @@ pub struct CommitView {
 /// A named reference pointing at a commit.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RefView {
+    /// Short name; remote-tracking refs carry the remote separately.
     pub name: String,
     pub target: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remote: Option<String>,
 }
 
 /// One repository as the SPA consumes it.
@@ -64,6 +67,57 @@ impl RepoView {
     }
 }
 
+/// One changed file of a commit, as the SPA consumes it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FileChangeView {
+    pub path: String,
+    /// "A" (added), "M" (modified), "D" (deleted) or "R" (rewritten).
+    pub status: String,
+    pub additions: usize,
+    pub deletions: usize,
+}
+
+/// A single commit's details, as the SPA consumes them.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CommitDetailView {
+    pub id: String,
+    /// Full commit message (summary and body).
+    pub message: String,
+    pub author: String,
+    pub email: String,
+    pub time: i64,
+    pub parents: Vec<String>,
+    /// Kind of the embedded signature ("openpgp", "ssh", ...), if signed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+    /// Changes against the first parent (or the empty tree for a root commit).
+    pub files: Vec<FileChangeView>,
+}
+
+impl From<CommitDetail> for CommitDetailView {
+    fn from(detail: CommitDetail) -> Self {
+        CommitDetailView {
+            id: detail.id,
+            message: detail.message,
+            author: detail.author,
+            email: detail.email,
+            time: detail.time,
+            parents: detail.parents,
+            signature: detail.signature,
+            files: detail
+                .files
+                .into_iter()
+                .map(|f| FileChangeView {
+                    path: f.path,
+                    status: f.status,
+                    additions: f.additions,
+                    deletions: f.deletions,
+                })
+                .collect(),
+        }
+    }
+}
+
 /// Build the view for `data`, keyed by `id` (its canonical path).
 pub fn build_view(id: &Path, data: &RepoData) -> RepoView {
     let graph = layout(&data.commit_inputs());
@@ -91,6 +145,7 @@ pub fn build_view(id: &Path, data: &RepoData) -> RepoView {
         .map(|r| RefView {
             name: r.name.clone(),
             target: r.target.clone(),
+            remote: r.remote.clone(),
         })
         .collect();
 

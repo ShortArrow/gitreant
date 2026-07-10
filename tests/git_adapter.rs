@@ -6,7 +6,7 @@ use std::path::Path;
 use std::process::Command;
 
 use gitreant::domain::layout;
-use gitreant::git::read_repo;
+use gitreant::git::{read_commit, read_repo};
 
 fn git(dir: &Path, args: &[&str]) {
     let status = Command::new("git")
@@ -36,6 +36,146 @@ fn commit(dir: &Path, message: &str, epoch: i64) {
         .status()
         .expect("run git commit");
     assert!(status.success(), "git commit failed");
+}
+
+#[test]
+fn remote_refs_carry_their_remote_name() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    commit(dir, "root", 1000);
+    git(dir, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+
+    let repo = read_repo(dir).expect("read repo");
+
+    let local = repo
+        .refs
+        .iter()
+        .find(|r| r.name == "main" && r.remote.is_none())
+        .expect("local main ref");
+    let remote = repo
+        .refs
+        .iter()
+        .find(|r| r.remote.as_deref() == Some("origin"))
+        .expect("remote-tracking ref");
+    assert_eq!(remote.name, "main");
+    assert_eq!(remote.target, local.target);
+}
+
+#[test]
+fn reads_commit_detail_with_message_body_and_file_changes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+
+    std::fs::write(dir.join("README.md"), "one\ntwo\n").unwrap();
+    git(dir, &["add", "README.md"]);
+    commit(dir, "add README", 1000);
+
+    std::fs::write(dir.join("README.md"), "one\nTWO\nthree\n").unwrap();
+    std::fs::write(dir.join("notes.txt"), "hello\n").unwrap();
+    git(dir, &["add", "README.md", "notes.txt"]);
+    commit(dir, "update README and add notes\n\nExplains why the notes exist.", 1001);
+
+    let repo = read_repo(dir).expect("read repo");
+    let head = &repo.commits[0];
+    let root = &repo.commits[1];
+
+    let detail = read_commit(dir, &head.id).expect("read head detail");
+    assert_eq!(detail.id, head.id);
+    assert!(
+        detail.message.contains("Explains why the notes exist."),
+        "full message body missing: {:?}",
+        detail.message
+    );
+    assert_eq!(detail.author, "Tester");
+    assert_eq!(detail.email, "tester@example.com");
+    assert_eq!(detail.parents, vec![root.id.clone()]);
+
+    // README.md modified (1 line replaced + 1 added), notes.txt added.
+    let mut files = detail.files.clone();
+    files.sort_by(|a, b| a.path.cmp(&b.path));
+    assert_eq!(files.len(), 2, "files: {files:?}");
+    assert_eq!(files[0].path, "README.md");
+    assert_eq!(files[0].status, "M");
+    assert_eq!((files[0].additions, files[0].deletions), (2, 1));
+    assert_eq!(files[1].path, "notes.txt");
+    assert_eq!(files[1].status, "A");
+    assert_eq!((files[1].additions, files[1].deletions), (1, 0));
+
+    // The root commit diffs against the empty tree: everything is an addition.
+    let detail = read_commit(dir, &root.id).expect("read root detail");
+    assert!(detail.parents.is_empty());
+    assert_eq!(detail.files.len(), 1);
+    assert_eq!(detail.files[0].status, "A");
+    assert_eq!(detail.files[0].additions, 2);
+
+    // An unknown id is an error, not a panic.
+    assert!(read_commit(dir, "0000000000000000000000000000000000000000").is_err());
+}
+
+#[test]
+fn commit_detail_reports_signature_presence() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    commit(dir, "root", 1000);
+
+    let repo = read_repo(dir).expect("read repo");
+    let unsigned = read_commit(dir, &repo.commits[0].id).expect("unsigned detail");
+    assert_eq!(unsigned.signature, None);
+
+    // Craft a commit object with a (fake) OpenPGP signature header; only the
+    // header's presence is detected, no verification happens.
+    let tree = git_stdout(dir, &["rev-parse", "HEAD^{tree}"]);
+    let raw = format!(
+        "tree {tree}\n\
+         author Tester <tester@example.com> 1000 +0000\n\
+         committer Tester <tester@example.com> 1000 +0000\n\
+         gpgsig -----BEGIN PGP SIGNATURE-----\n \n fake\n -----END PGP SIGNATURE-----\n\
+         \nsigned commit\n"
+    );
+    let id = git_hash_commit(dir, &raw);
+    let signed = read_commit(dir, &id).expect("signed detail");
+    assert_eq!(signed.signature.as_deref(), Some("openpgp"));
+}
+
+fn git_stdout(dir: &Path, args: &[&str]) -> String {
+    let out = Command::new("git")
+        .current_dir(dir)
+        .args(args)
+        .output()
+        .expect("run git");
+    assert!(out.status.success(), "git {args:?} failed");
+    String::from_utf8(out.stdout).unwrap().trim().to_string()
+}
+
+/// Store a raw commit object and return its id.
+fn git_hash_commit(dir: &Path, raw: &str) -> String {
+    use std::io::Write;
+    use std::process::Stdio;
+    let mut child = Command::new("git")
+        .current_dir(dir)
+        .args(["hash-object", "-w", "-t", "commit", "--literally", "--stdin"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("spawn git hash-object");
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(raw.as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success(), "git hash-object failed");
+    String::from_utf8(out.stdout).unwrap().trim().to_string()
 }
 
 #[test]

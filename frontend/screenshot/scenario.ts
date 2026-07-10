@@ -14,7 +14,9 @@ export type Step =
   /** Add an empty commit with this message to the current branch. */
   | { commit: string }
   /** Merge a branch (--no-ff) into the current branch. */
-  | { merge: string; message?: string };
+  | { merge: string; message?: string }
+  /** Point a remote-tracking ref (default remote "origin") at a branch tip. */
+  | { track: string; remote?: string };
 
 export type Scenario = {
   /** Directory name — shown as the repository name in the UI. */
@@ -52,6 +54,7 @@ export const featured: Scenario = {
     { commit: "feat(sse): reconnect with backoff" },
     { switch: "main" },
     { commit: "release: v0.2.0" },
+    { track: "main" },
   ],
 };
 
