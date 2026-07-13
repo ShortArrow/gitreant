@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+use super::detail::signature_kind;
 use crate::domain::CommitInput;
 
 /// A commit with the metadata needed to render it.
@@ -16,6 +17,9 @@ pub struct CommitMeta {
     pub time: i64,
     /// Parent ids, filtered to commits present in this dataset.
     pub parents: Vec<String>,
+    /// Kind of the embedded signature ("openpgp", "ssh", ...), if signed.
+    /// Presence only — no verification happens.
+    pub signature: Option<String>,
 }
 
 /// A named reference (branch/tag) pointing at a commit.
@@ -140,6 +144,7 @@ struct RawCommit {
     summary: String,
     author: String,
     time: i64,
+    signature: Option<String>,
 }
 
 /// Walk parents from every tip, reading each commit once.
@@ -170,6 +175,7 @@ fn collect_commits(repo: &gix::Repository, tips: &[gix::ObjectId]) -> Vec<RawCom
             summary: commit_summary(&commit),
             author: commit_author(&commit),
             time: commit_time(&commit),
+            signature: signature_kind(&commit),
         });
     }
     out
@@ -239,6 +245,7 @@ fn topological_order(raw: Vec<RawCommit>) -> Vec<CommitMeta> {
             author: commit.author.clone(),
             time: commit.time,
             parents,
+            signature: commit.signature.clone(),
         });
         for parent in &commit.parents {
             if let Some(&pi) = index.get(parent) {

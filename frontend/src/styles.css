@@ -269,8 +269,58 @@ body {
   color: var(--muted);
 }
 
-.topbar-btn:hover {
+.topbar-btn:hover,
+.topbar-btn.active {
   color: var(--text);
+}
+
+/* ---- Command log pane ---- */
+.log-pane {
+  flex: none;
+  max-height: 180px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elev);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.log-empty {
+  color: var(--muted);
+  margin: 8px 12px;
+}
+
+.log-entries {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.log-entry {
+  display: flex;
+  gap: 10px;
+  padding: 2px 12px;
+  white-space: nowrap;
+}
+
+.log-time {
+  flex: none;
+  color: var(--muted);
+}
+
+.log-command {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.log-entry-error .log-command {
+  color: var(--danger);
+}
+
+.log-message {
+  color: var(--danger);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 :root[data-theme="dark"] .theme-toggle .moon,
@@ -498,6 +548,14 @@ body {
   color: var(--success);
   border-color: color-mix(in srgb, var(--success) 40%, transparent);
   background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.badge-signed {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  margin-right: 8px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 /* ---- Commit detail panel ---- */

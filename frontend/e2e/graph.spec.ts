@@ -12,6 +12,7 @@ const fixtures = JSON.parse(
   repoF: string;
   repoFOrigin: string;
   repoG: string;
+  repoH: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -528,6 +529,47 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-repo-name="repoG"]')).toHaveCount(0);
     await page.getByTestId("fetch").click();
     await expect(page.locator(".app-error")).toHaveCount(0);
+  });
+
+  test("signed commits show a badge, ordered badge-author-hash", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoH);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoH"]')).toBeVisible();
+
+    const signed = page
+      .getByTestId("commit-row")
+      .filter({ hasText: "signed tip" });
+    await expect(signed.getByTestId("badge-signed")).toBeVisible();
+    // The right-hand meta reads: signed badge, author, then the hash.
+    const meta = (await signed.locator(".commit-meta").textContent()) ?? "";
+    expect(meta).toMatch(/Signed.*Tester.*\b[0-9a-f]{7}\b/);
+
+    const unsigned = page
+      .getByTestId("commit-row")
+      .filter({ hasText: "unsigned base" });
+    await expect(unsigned.getByTestId("badge-signed")).toHaveCount(0);
+
+    // Restore the served set.
+    const repoH = page.locator('[data-repo-name="repoH"]');
+    await repoH.hover();
+    await repoH.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoH"]')).toHaveCount(0);
+  });
+
+  test("the command log pane lists executed git commands", async ({ page }) => {
+    await page.getByTestId("log-toggle").click();
+    const pane = page.getByTestId("log-pane");
+    await expect(pane).toBeVisible();
+
+    await page.getByTestId("fetch").click();
+    const entry = pane.getByTestId("log-entry").first();
+    await expect(entry).toContainText("git -C");
+    await expect(entry).toContainText("fetch --all --prune");
+
+    await page.getByTestId("log-toggle").click();
+    await expect(page.getByTestId("log-pane")).toHaveCount(0);
   });
 
   test("browse button adds the folder returned by the picker", async ({

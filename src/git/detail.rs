@@ -60,7 +60,7 @@ pub fn read_commit(path: &Path, id: &str) -> Result<CommitDetail, String> {
 }
 
 /// Classify the commit's embedded signature by its armor header, if any.
-fn signature_kind(commit: &gix::Commit) -> Option<String> {
+pub(super) fn signature_kind(commit: &gix::Commit) -> Option<String> {
     let data = commit.decode().ok()?;
     let signature = data.extra_headers().pgp_signature()?;
     let kind = if signature.starts_with(b"-----BEGIN SSH SIGNATURE") {

@@ -215,7 +215,16 @@ export function RepoCard({
                 ))}
                 <span className="commit-summary">{commit.summary}</span>
                 <span className="commit-meta">
-                  {shortId(commit.id)} · {commit.author}
+                  {commit.signature && (
+                    <span
+                      className="badge badge-signed"
+                      data-testid="badge-signed"
+                      title="Carries a signature (not verified by gitreant)"
+                    >
+                      Signed
+                    </span>
+                  )}
+                  {commit.author} · {shortId(commit.id)}
                 </span>
               </li>
             );

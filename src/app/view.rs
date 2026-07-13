@@ -18,6 +18,9 @@ pub struct CommitView {
     pub summary: String,
     pub author: String,
     pub time: i64,
+    /// Kind of the embedded signature ("openpgp", "ssh", ...), if signed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
 }
 
 /// A named reference pointing at a commit.
@@ -159,6 +162,7 @@ pub fn build_view(id: &Path, data: &RepoData) -> RepoView {
             summary: meta.summary.clone(),
             author: meta.author.clone(),
             time: meta.time,
+            signature: meta.signature.clone(),
         })
         .collect();
 
@@ -198,6 +202,7 @@ mod tests {
             author: "Tester".to_string(),
             time,
             parents: parents.iter().map(|s| s.to_string()).collect(),
+            signature: None,
         }
     }
 

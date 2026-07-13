@@ -7,13 +7,17 @@
 use std::path::Path;
 use std::process::Command;
 
+const FETCH_ARGS: [&str; 4] = ["fetch", "--all", "--prune", "--quiet"];
+
+/// The command line `fetch_remotes` executes, for the command log.
+pub fn fetch_command(path: &Path) -> String {
+    format!("git -C {} {}", path.display(), FETCH_ARGS.join(" "))
+}
+
 /// Fetch all remotes of the repository at `path` (`git fetch --all --prune`).
 pub fn fetch_remotes(path: &Path) -> Result<(), String> {
     let mut command = Command::new("git");
-    command
-        .arg("-C")
-        .arg(path)
-        .args(["fetch", "--all", "--prune", "--quiet"]);
+    command.arg("-C").arg(path).args(FETCH_ARGS);
     hide_console(&mut command);
     let output = command
         .output()

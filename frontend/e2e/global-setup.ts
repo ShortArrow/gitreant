@@ -1,4 +1,4 @@
-import { type ChildProcess } from "node:child_process";
+import { execFileSync, type ChildProcess } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { FullConfig } from "@playwright/test";
@@ -104,6 +104,29 @@ function makeRepoG(): string {
   return dir; // 1 commit
 }
 
+/** repoH: an unsigned root with a (fake-)signed tip commit. Only the gpgsig
+ * header's presence matters — nothing verifies it. */
+function makeRepoH(): string {
+  const dir = initRepo("repoH");
+  commit(dir, "unsigned base");
+  const out = (args: string[], input?: string) =>
+    execFileSync("git", args, { cwd: dir, input, encoding: "utf8" }).trim();
+  const tree = out(["rev-parse", "HEAD^{tree}"]);
+  const parent = out(["rev-parse", "HEAD"]);
+  const raw =
+    `tree ${tree}\nparent ${parent}\n` +
+    "author Tester <tester@example.com> 1700000100 +0000\n" +
+    "committer Tester <tester@example.com> 1700000100 +0000\n" +
+    "gpgsig -----BEGIN PGP SIGNATURE-----\n fake\n -----END PGP SIGNATURE-----\n" +
+    "\nsigned tip\n";
+  const id = out(
+    ["hash-object", "-w", "-t", "commit", "--literally", "--stdin"],
+    raw,
+  );
+  git(dir, ["update-ref", "refs/heads/main", id]);
+  return dir; // 2 commits
+}
+
 let server: ChildProcess | undefined;
 
 export default async function globalSetup(_config: FullConfig) {
@@ -118,8 +141,9 @@ export default async function globalSetup(_config: FullConfig) {
   const repoE = makeRepoE();
   const repoF = makeRepoF();
   const repoG = makeRepoG();
+  const repoH = makeRepoH();
 
-  // Serve repoA and repoB; repoC..G are added by tests.
+  // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
 
   // Expose the extra fixture paths to the specs.
@@ -133,6 +157,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoF: repoF.clone,
         repoFOrigin: repoF.origin,
         repoG,
+        repoH,
       },
       null,
       2,

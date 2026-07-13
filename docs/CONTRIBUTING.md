@@ -41,6 +41,7 @@ main (CLI) ──▶ server (axum) ──▶ app (session) ──▶ domain (gra
 | POST   | `/api/diff`    | Unified diff of `{ "repo", "id", "path" }` against the first parent |
 | POST   | `/api/commit-diff` | Unified diffs of every file `{ "repo", "id" }` changed |
 | POST   | `/api/fetch`   | `git fetch --all --prune` every displayed repository (needs git CLI) |
+| GET    | `/api/log`     | Executed external commands (ring buffer of 200), oldest first |
 | POST   | `/api/pick`    | Open a native folder picker on the server machine     |
 | POST   | `/api/shutdown` | Stop the running server (used by `gitreant --shutdown`) |
 | GET    | `/api/events`  | SSE; emits `update` when repositories are added/removed |

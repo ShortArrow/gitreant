@@ -41,7 +41,7 @@ export const mergeRepo: RepoView = {
     { name: "feature", target: "f1" },
   ],
   commits: [
-    commit("m", 0, 0, 0, ["a2", "f1"], "merge feature branch"),
+    { ...commit("m", 0, 0, 0, ["a2", "f1"], "merge feature branch"), signature: "openpgp" },
     commit("a2", 1, 0, 0, ["a1"], "main: tweak config"),
     commit("f1", 2, 1, 1, ["a1"], "feature: add endpoint"),
     commit("a1", 3, 0, 0, ["a0"], "main: initial layout"),

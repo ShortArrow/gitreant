@@ -6,9 +6,18 @@ use std::path::Path;
 use std::process::{Child, Command};
 use std::time::{Duration, Instant};
 
-use gitreant::server::{ping, post_shutdown};
+use gitreant::server::ping;
 
-const PORT: u16 = 47821;
+/// A port that is free right now. A fixed port would collide with TIME_WAIT
+/// sockets left behind by the previous test run (bind fails with WSAEADDRINUSE
+/// for tens of seconds even after the process exited).
+fn free_port() -> u16 {
+    std::net::TcpListener::bind(("127.0.0.1", 0))
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
+}
 
 fn init_repo_with_commit(dir: &Path) {
     let run = |args: &[&str]| {
@@ -66,13 +75,7 @@ fn get_repos(port: u16) -> String {
 
 #[test]
 fn detaches_by_default_and_stops_via_shutdown() {
-    // A leftover server from an earlier run stays bound for up to a second
-    // after acknowledging the shutdown; wait until the port is actually free.
-    let _ = post_shutdown(PORT);
-    assert!(
-        wait_until(|| !ping(PORT), Duration::from_secs(10)),
-        "a previous server would not release port {PORT}"
-    );
+    let port = free_port();
 
     let tmp = tempfile::tempdir().unwrap();
     init_repo_with_commit(tmp.path());
@@ -80,7 +83,7 @@ fn detaches_by_default_and_stops_via_shutdown() {
     let exe = env!("CARGO_BIN_EXE_gitreant");
     let mut launcher = Command::new(exe)
         .arg(tmp.path())
-        .args(["--port", &PORT.to_string(), "--no-open"])
+        .args(["--port", &port.to_string(), "--no-open"])
         .spawn()
         .unwrap();
 
@@ -92,7 +95,7 @@ fn detaches_by_default_and_stops_via_shutdown() {
         }
     };
     assert!(status.success(), "launcher failed: {status}");
-    assert!(ping(PORT), "detached server is not answering");
+    assert!(ping(port), "detached server is not answering");
 
     // Single-instance behavior: a second invocation forwards its repository
     // to the running server and exits instead of starting another one.
@@ -100,7 +103,7 @@ fn detaches_by_default_and_stops_via_shutdown() {
     init_repo_with_commit(second.path());
     let forwarder = Command::new(exe)
         .arg(second.path())
-        .args(["--port", &PORT.to_string(), "--no-open"])
+        .args(["--port", &port.to_string(), "--no-open"])
         .output()
         .expect("run forwarding invocation");
     assert!(
@@ -113,6 +116,12 @@ fn detaches_by_default_and_stops_via_shutdown() {
         !stdout.contains(r"\\?\"),
         "forwarded path must be human-readable, got: {stdout}"
     );
+    // Instead of opening yet another browser tab, the forwarding invocation
+    // points at the already-running instance.
+    assert!(
+        stdout.contains(&format!("http://127.0.0.1:{port}")),
+        "forwarding must print the running server's URL, got: {stdout}"
+    );
     let second_name = second
         .path()
         .file_name()
@@ -120,17 +129,17 @@ fn detaches_by_default_and_stops_via_shutdown() {
         .to_string_lossy()
         .into_owned();
     assert!(
-        get_repos(PORT).contains(&second_name),
+        get_repos(port).contains(&second_name),
         "forwarded repository missing from the running server"
     );
 
     let shutdown = Command::new(exe)
-        .args(["--port", &PORT.to_string(), "--shutdown"])
+        .args(["--port", &port.to_string(), "--shutdown"])
         .status()
         .unwrap();
     assert!(shutdown.success(), "--shutdown failed: {shutdown}");
     assert!(
-        wait_until(|| !ping(PORT), Duration::from_secs(10)),
+        wait_until(|| !ping(port), Duration::from_secs(10)),
         "server still answering after --shutdown"
     );
 }

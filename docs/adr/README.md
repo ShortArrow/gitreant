@@ -13,3 +13,5 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0006](0006-file-diff-on-demand.md) | ファイルdiffは1ファイルずつオンデマンドで取得する | Accepted |
 | [0007](0007-fetch-via-git-cli.md) | リモートfetchはgit CLIに委譲する | Accepted |
 | [0008](0008-split-diff-client-side.md) | 左右分割diffはunifiedテキストのクライアント側パースで実現する | Accepted |
+| [0009](0009-command-log.md) | 実行した外部コマンドをリングバッファに記録しUIに表示する | Accepted |
+| [0010](0010-no-browser-on-forward.md) | 稼働中サーバへの転送時はブラウザを開かない | Accepted |

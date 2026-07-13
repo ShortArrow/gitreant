@@ -1,18 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addRepo,
+  fetchCommandLog,
   fetchRemotes,
   fetchRepos,
   removeRepo,
+  type CommandLogEntry,
   type RepoView,
 } from "./api";
 import { Drawer } from "./Drawer";
+import { LogPane } from "./LogPane";
 import { RepoCard } from "./RepoCard";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function App() {
   const [repos, setRepos] = useState<RepoView[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  // Loading the repo list and running a fetch fail independently; a successful
+  // reload right after a failed fetch must not wipe the fetch error.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -27,7 +33,7 @@ export function App() {
   const applyRepos = useCallback((data: RepoView[]) => {
     fetchSeq.current += 1;
     setRepos(data);
-    setError(null);
+    setLoadError(null);
   }, []);
 
   const reload = useCallback(async () => {
@@ -36,10 +42,10 @@ export function App() {
       const data = await fetchRepos();
       if (seq === fetchSeq.current) {
         setRepos(data);
-        setError(null);
+        setLoadError(null);
       }
     } catch (e) {
-      if (seq === fetchSeq.current) setError(String(e));
+      if (seq === fetchSeq.current) setLoadError(String(e));
     }
   }, []);
 
@@ -92,19 +98,37 @@ export function App() {
     [applyRepos, openTab],
   );
 
+  const [logOpen, setLogOpen] = useState(false);
+  const [logEntries, setLogEntries] = useState<CommandLogEntry[]>([]);
+
+  // Refresh the log whenever it is visible and the repo state moved (reload
+  // after fetch, SSE updates, add/remove all funnel through `repos`).
+  useEffect(() => {
+    if (!logOpen) return;
+    let stale = false;
+    fetchCommandLog()
+      .then((entries) => {
+        if (!stale) setLogEntries(entries);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [logOpen, repos]);
+
   const [fetching, setFetching] = useState(false);
   const runFetch = useCallback(async () => {
     setFetching(true);
     try {
       const result = await fetchRemotes();
-      setError(
+      setFetchError(
         result.errors.length
           ? result.errors.map((e) => `${e.repo}: ${e.message}`).join(" / ")
           : null,
       );
       await reload();
     } catch (e) {
-      setError(String(e));
+      setFetchError(String(e));
     } finally {
       setFetching(false);
     }
@@ -166,6 +190,15 @@ export function App() {
             ⇣
           </button>
           <button
+            className={`topbar-btn${logOpen ? " active" : ""}`}
+            title="Command log"
+            data-testid="log-toggle"
+            onClick={() => setLogOpen((open) => !open)}
+            type="button"
+          >
+            ≣
+          </button>
+          <button
             className="topbar-btn"
             title="Reload repositories"
             data-testid="reload"
@@ -177,7 +210,9 @@ export function App() {
           <ThemeToggle />
         </div>
 
-        {error && <p className="app-error">{error}</p>}
+        {(loadError ?? fetchError) && (
+          <p className="app-error">{loadError ?? fetchError}</p>
+        )}
 
         <div className="pane">
           {activeRepo ? (
@@ -188,6 +223,8 @@ export function App() {
             </div>
           )}
         </div>
+
+        {logOpen && <LogPane entries={logEntries} />}
       </main>
     </div>
   );

@@ -7,6 +7,9 @@ export interface CommitView {
   summary: string;
   author: string;
   time: number;
+  /** Kind of the embedded signature ("openpgp", "ssh", ...), if signed.
+   *  Presence only — the server does not verify it. */
+  signature?: string;
 }
 
 export interface GraphEdge {
@@ -84,6 +87,27 @@ export async function fetchFileDiff(
     throw new Error(
       (await response.text()) || `file diff failed: ${response.status}`,
     );
+  }
+  return response.json();
+}
+
+export interface CommandLogEntry {
+  /** Seconds since the Unix epoch when the command finished. */
+  time: number;
+  /** The repository id (canonical path) the command ran in. */
+  repo: string;
+  /** The full command line. */
+  command: string;
+  ok: boolean;
+  /** stderr on failure, empty on success. */
+  message: string;
+}
+
+/** The external commands the server executed, oldest first. */
+export async function fetchCommandLog(): Promise<CommandLogEntry[]> {
+  const response = await fetch("/api/log");
+  if (!response.ok) {
+    throw new Error(`command log failed: ${response.status}`);
   }
   return response.json();
 }

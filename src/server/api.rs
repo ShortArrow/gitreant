@@ -1,5 +1,6 @@
 //! REST + SSE handlers and shared state.
 
+use std::collections::VecDeque;
 use std::convert::Infallible;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -18,12 +19,30 @@ use crate::app::{CommitDetailView, FileDiffView, RepoView, Session};
 
 use super::{assets, PING_MARKER};
 
+/// One executed external command, kept for the UI's command log.
+#[derive(Clone, Serialize)]
+struct CommandLogEntry {
+    /// Seconds since the Unix epoch when the command finished.
+    time: i64,
+    /// The repository id (canonical path) the command ran in.
+    repo: String,
+    /// The full command line.
+    command: String,
+    ok: bool,
+    /// stderr on failure, empty on success.
+    message: String,
+}
+
+/// Oldest entries are dropped beyond this many.
+const COMMAND_LOG_CAPACITY: usize = 200;
+
 /// Shared, cloneable server state.
 #[derive(Clone)]
 pub struct AppState {
     session: Arc<Mutex<Session>>,
     updates: broadcast::Sender<()>,
     shutdown: watch::Sender<bool>,
+    command_log: Arc<Mutex<VecDeque<CommandLogEntry>>>,
 }
 
 impl AppState {
@@ -34,7 +53,16 @@ impl AppState {
             session: Arc::new(Mutex::new(session)),
             updates,
             shutdown,
+            command_log: Arc::new(Mutex::new(VecDeque::new())),
         }
+    }
+
+    fn push_log(&self, entry: CommandLogEntry) {
+        let mut log = self.command_log.lock().expect("command log mutex");
+        if log.len() == COMMAND_LOG_CAPACITY {
+            log.pop_front();
+        }
+        log.push_back(entry);
     }
 
     /// Watch for a shutdown requested via `POST /api/shutdown`.
@@ -103,6 +131,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/diff", post(file_diff))
         .route("/api/commit-diff", post(commit_diff))
         .route("/api/fetch", post(fetch_remotes))
+        .route("/api/log", get(command_log))
         .route("/api/events", get(events))
         .route("/api/pick", post(pick_folder))
         .route("/api/shutdown", post(shutdown))
@@ -242,15 +271,23 @@ struct FetchResponse {
 
 /// Fetch all remotes of every displayed repository via the `git` CLI (which
 /// carries the user's authentication setup), then notify SSE listeners.
+/// Every executed command lands in the command log.
 async fn fetch_remotes(State(state): State<AppState>) -> Json<FetchResponse> {
     let repos = state.repo_paths();
+    let logger = state.clone();
     let errors = tokio::task::spawn_blocking(move || {
         repos
             .into_iter()
             .filter_map(|(repo, path)| {
-                crate::git::fetch_remotes(&path)
-                    .err()
-                    .map(|message| FetchError { repo, message })
+                let result = crate::git::fetch_remotes(&path);
+                logger.push_log(CommandLogEntry {
+                    time: epoch_now(),
+                    repo: repo.clone(),
+                    command: crate::git::fetch_command(&path),
+                    ok: result.is_ok(),
+                    message: result.as_ref().err().cloned().unwrap_or_default(),
+                });
+                result.err().map(|message| FetchError { repo, message })
             })
             .collect()
     })
@@ -258,6 +295,19 @@ async fn fetch_remotes(State(state): State<AppState>) -> Json<FetchResponse> {
     .unwrap_or_default();
     let _ = state.updates.send(());
     Json(FetchResponse { errors })
+}
+
+fn epoch_now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
+
+/// The executed external commands, oldest first.
+async fn command_log(State(state): State<AppState>) -> Json<Vec<CommandLogEntry>> {
+    let log = state.command_log.lock().expect("command log mutex");
+    Json(log.iter().cloned().collect())
 }
 
 #[derive(Serialize)]

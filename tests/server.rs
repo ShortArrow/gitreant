@@ -333,6 +333,13 @@ async fn fetch_endpoint_updates_remote_refs() {
         .await
         .unwrap();
     assert!(after.contains("after-clone"), "fetched commit missing: {after}");
+
+    // The executed git command shows up in the command log.
+    let log = tokio::task::spawn_blocking(move || http_get(port, "/api/log"))
+        .await
+        .unwrap();
+    assert!(log.contains("fetch --all --prune"), "command missing: {log}");
+    assert!(log.contains("\"ok\":true"), "success flag missing: {log}");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -380,6 +387,12 @@ async fn fetch_endpoint_reports_per_repo_errors() {
         "expected a per-repo error: {resp}"
     );
     assert!(resp.contains("\"message\""), "error detail missing: {resp}");
+
+    // The failed command is logged with its error.
+    let log = tokio::task::spawn_blocking(move || http_get(port, "/api/log"))
+        .await
+        .unwrap();
+    assert!(log.contains("\"ok\":false"), "failure flag missing: {log}");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

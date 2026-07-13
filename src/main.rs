@@ -135,7 +135,8 @@ fn detach(command: &mut std::process::Command) {
     command.process_group(0);
 }
 
-/// Hand the repositories to an already-running gitreant and exit.
+/// Hand the repositories to an already-running gitreant and exit. The running
+/// instance already has a browser tab, so none is opened here.
 fn forward_to_running(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
     for path in paths {
         let absolute = canonical(path);
@@ -144,7 +145,7 @@ fn forward_to_running(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
             Err(e) => eprintln!("failed to add {}: {e}", absolute.display()),
         }
     }
-    open_browser(cli);
+    println!("already serving on http://127.0.0.1:{}", cli.port);
     ExitCode::SUCCESS
 }
 

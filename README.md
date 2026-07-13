@@ -30,7 +30,9 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
 - Click a commit to see its full message, signature state, and changed files
   (flat or tree view) with line counts; click a file (or "Diff all") to see
   diffs inline or side-by-side
-- Fetch button runs `git fetch` for every shown repository (requires git)
+- Fetch button runs `git fetch` for every shown repository (requires git);
+  a toggleable bottom pane logs the executed commands
+- Signed commits carry a badge in the graph (signature presence, unverified)
 - Multiple repositories in one SPA: a drawer to list/add/remove, tabs to switch
 - Live updates via Server-Sent Events when repositories are added or removed,
   plus a reload button to pick up new commits

@@ -263,6 +263,36 @@ fn commit_detail_reports_signature_presence() {
     assert_eq!(signed.signature.as_deref(), Some("unknown"));
 }
 
+#[test]
+fn repo_commits_carry_their_signature_kind() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    commit(dir, "unsigned root", 1000);
+
+    // Put a (fake-)signed commit on top of the branch.
+    let tree = git_stdout(dir, &["rev-parse", "HEAD^{tree}"]);
+    let parent = git_stdout(dir, &["rev-parse", "HEAD"]);
+    let raw = format!(
+        "tree {tree}\n\
+         parent {parent}\n\
+         author Tester <tester@example.com> 1001 +0000\n\
+         committer Tester <tester@example.com> 1001 +0000\n\
+         gpgsig -----BEGIN PGP SIGNATURE-----\n fake\n -----END PGP SIGNATURE-----\n\
+         \nsigned tip\n"
+    );
+    let id = git_hash_commit(dir, &raw);
+    git(dir, &["update-ref", "refs/heads/main", &id]);
+
+    let repo = read_repo(dir).expect("read repo");
+    assert_eq!(repo.commits.len(), 2);
+    assert_eq!(repo.commits[0].summary, "signed tip");
+    assert_eq!(repo.commits[0].signature.as_deref(), Some("openpgp"));
+    assert_eq!(repo.commits[1].signature, None);
+}
+
 fn git_stdout(dir: &Path, args: &[&str]) -> String {
     let out = Command::new("git")
         .current_dir(dir)
