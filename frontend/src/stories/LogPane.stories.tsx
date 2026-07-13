@@ -10,20 +10,25 @@ export default meta;
 
 type Story = StoryObj<typeof LogPane>;
 
-export const WithEntries: Story = {
+export const WithItems: Story = {
   args: {
-    entries: [
+    items: [
       {
         time: 1_700_000_000,
-        repo: "/repos/demo",
-        command: "git -C /repos/demo fetch --all --prune --quiet",
+        kind: "action",
+        text: "Fetch remotes",
         ok: true,
-        message: "",
+      },
+      {
+        time: 1_700_000_001,
+        kind: "command",
+        text: "git -C /repos/demo fetch --all --prune --quiet",
+        ok: true,
       },
       {
         time: 1_700_000_060,
-        repo: "/repos/broken",
-        command: "git -C /repos/broken fetch --all --prune --quiet",
+        kind: "command",
+        text: "git -C /repos/broken fetch --all --prune --quiet",
         ok: false,
         message: "fatal: unable to access remote",
       },
@@ -32,5 +37,5 @@ export const WithEntries: Story = {
 };
 
 export const Empty: Story = {
-  args: { entries: [] },
+  args: { items: [] },
 };

@@ -317,6 +317,11 @@ body {
   color: var(--danger);
 }
 
+.log-entry-action .log-command {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .log-message {
   color: var(--danger);
   overflow: hidden;
@@ -505,12 +510,30 @@ body {
   text-overflow: ellipsis;
 }
 
+.commit-summary-merge {
+  color: var(--muted);
+}
+
 .commit-meta {
   margin-left: auto;
   color: var(--muted);
   font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   font-size: 12px;
   padding-left: 12px;
+}
+
+.commit-hash {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.commit-hash:hover {
+  text-decoration: underline;
+  color: var(--fg);
 }
 
 .badge {
@@ -544,18 +567,43 @@ body {
   padding: 1px 6px;
 }
 
+/* Link to the branch's open PR, appended as a badge segment. */
+.badge-pr {
+  padding: 1px 6px;
+  color: var(--accent);
+  text-decoration: none;
+  border-left: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.badge-pr:hover {
+  text-decoration: underline;
+}
+
 .badge-head {
   color: var(--success);
   border-color: color-mix(in srgb, var(--success) 40%, transparent);
   background: color-mix(in srgb, var(--success) 12%, transparent);
 }
 
+/* Unchecked signature: neutral, so green stays reserved for "Verified". */
 .badge-signed {
+  color: var(--muted);
+  border-color: color-mix(in srgb, var(--muted) 40%, transparent);
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  margin-right: 8px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.badge-verified {
   color: var(--success);
   border-color: color-mix(in srgb, var(--success) 40%, transparent);
   background: color-mix(in srgb, var(--success) 12%, transparent);
-  margin-right: 8px;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.badge-unverified {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
 /* ---- Commit detail panel ---- */
@@ -827,6 +875,22 @@ body {
 .split-cell-remove {
   background: color-mix(in srgb, var(--danger) 10%, transparent);
   color: var(--danger);
+}
+
+/* Intra-line changed parts: same hue as the line, but a stronger wash. */
+mark.intra {
+  color: inherit;
+  border-radius: 2px;
+}
+
+.diff-line-add mark.intra,
+.split-cell-add mark.intra {
+  background: color-mix(in srgb, var(--success) 30%, transparent);
+}
+
+.diff-line-remove mark.intra,
+.split-cell-remove mark.intra {
+  background: color-mix(in srgb, var(--danger) 30%, transparent);
 }
 
 .diff-binary,

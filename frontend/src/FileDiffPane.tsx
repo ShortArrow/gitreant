@@ -1,14 +1,6 @@
 import { useState } from "react";
 import type { FileDiff } from "./api";
-import { parseUnified, type SplitCell } from "./diffModel";
-
-/** CSS class for one unified-diff line, by its prefix. */
-export function diffLineClass(line: string): string {
-  if (line.startsWith("@@")) return "diff-line diff-line-hunk";
-  if (line.startsWith("+")) return "diff-line diff-line-add";
-  if (line.startsWith("-")) return "diff-line diff-line-remove";
-  return "diff-line diff-line-context";
-}
+import { inlineCells, parseUnified, type SplitCell } from "./diffModel";
 
 type DiffView = "inline" | "split";
 
@@ -108,18 +100,41 @@ export function FileDiffPane({
   );
 }
 
+const INLINE_PREFIX = { remove: "-", add: "+", context: " " } as const;
+
 function InlineDiff({ text }: { text: string }) {
   return (
     <pre className="diff-body">
-      {text
-        .replace(/\n$/, "")
-        .split("\n")
-        .map((line, i) => (
-          <div key={i} className={diffLineClass(line)}>
-            {line}
-          </div>
-        ))}
+      {parseUnified(text).map((hunk) => (
+        <div key={hunk.header}>
+          <div className="diff-line diff-line-hunk">{hunk.header}</div>
+          {inlineCells(hunk.rows).map((cell, i) => (
+            <div key={i} className={`diff-line diff-line-${cell.kind}`}>
+              {INLINE_PREFIX[cell.kind]}
+              <CellText cell={cell} />
+            </div>
+          ))}
+        </div>
+      ))}
     </pre>
+  );
+}
+
+/** Line text with the intra-line changed parts highlighted, when known. */
+function CellText({ cell }: { cell: SplitCell }) {
+  if (!cell.segments) return <>{cell.text}</>;
+  return (
+    <>
+      {cell.segments.map((s, i) =>
+        s.changed ? (
+          <mark key={i} className="intra" data-testid="intra">
+            {s.text}
+          </mark>
+        ) : (
+          <span key={i}>{s.text}</span>
+        ),
+      )}
+    </>
   );
 }
 
@@ -148,7 +163,9 @@ function SplitSide({ cell }: { cell: SplitCell | undefined }) {
   return (
     <div className={`split-cell split-cell-${cell.kind}`}>
       <span className="split-no">{cell.no}</span>
-      <span className="split-text">{cell.text}</span>
+      <span className="split-text">
+        <CellText cell={cell} />
+      </span>
     </div>
   );
 }

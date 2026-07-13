@@ -1,9 +1,10 @@
 //! REST + SSE handlers and shared state.
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::convert::Infallible;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -36,6 +37,9 @@ struct CommandLogEntry {
 /// Oldest entries are dropped beyond this many.
 const COMMAND_LOG_CAPACITY: usize = 200;
 
+/// How long a repository's PR lookup stays cached before `gh` runs again.
+const PR_CACHE_TTL: Duration = Duration::from_secs(300);
+
 /// Shared, cloneable server state.
 #[derive(Clone)]
 pub struct AppState {
@@ -43,6 +47,7 @@ pub struct AppState {
     updates: broadcast::Sender<()>,
     shutdown: watch::Sender<bool>,
     command_log: Arc<Mutex<VecDeque<CommandLogEntry>>>,
+    pr_cache: Arc<Mutex<HashMap<String, (Instant, Vec<crate::git::PullRequest>)>>>,
 }
 
 impl AppState {
@@ -54,7 +59,22 @@ impl AppState {
             updates,
             shutdown,
             command_log: Arc::new(Mutex::new(VecDeque::new())),
+            pr_cache: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// The cached PR list of a repository, unless it went stale.
+    fn cached_prs(&self, repo: &str) -> Option<Vec<crate::git::PullRequest>> {
+        let cache = self.pr_cache.lock().expect("pr cache mutex");
+        cache
+            .get(repo)
+            .filter(|(at, _)| at.elapsed() < PR_CACHE_TTL)
+            .map(|(_, prs)| prs.clone())
+    }
+
+    fn store_prs(&self, repo: &str, prs: Vec<crate::git::PullRequest>) {
+        let mut cache = self.pr_cache.lock().expect("pr cache mutex");
+        cache.insert(repo.to_string(), (Instant::now(), prs));
     }
 
     fn push_log(&self, entry: CommandLogEntry) {
@@ -70,8 +90,20 @@ impl AppState {
         self.shutdown.subscribe()
     }
 
+    /// Read every repository view, logging any external commands the read ran
+    /// (signature verification).
     fn views(&self) -> Vec<RepoView> {
-        self.session.lock().expect("session mutex").views()
+        let (views, executed) = self.session.lock().expect("session mutex").views();
+        for command in executed {
+            self.push_log(CommandLogEntry {
+                time: epoch_now(),
+                repo: command.repo,
+                command: command.command,
+                ok: command.ok,
+                message: command.message,
+            });
+        }
+        views
     }
 
     /// Add a repository; returns whether it was newly added. Notifies SSE
@@ -131,6 +163,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/diff", post(file_diff))
         .route("/api/commit-diff", post(commit_diff))
         .route("/api/fetch", post(fetch_remotes))
+        .route("/api/prs", post(list_prs))
         .route("/api/log", get(command_log))
         .route("/api/events", get(events))
         .route("/api/pick", post(pick_folder))
@@ -295,6 +328,54 @@ async fn fetch_remotes(State(state): State<AppState>) -> Json<FetchResponse> {
     .unwrap_or_default();
     let _ = state.updates.send(());
     Json(FetchResponse { errors })
+}
+
+#[derive(Deserialize)]
+struct PrsRequest {
+    /// The repository id (its canonical path, as returned in `RepoView::id`).
+    repo: String,
+}
+
+#[derive(Serialize)]
+struct PrsResponse {
+    /// Open pull requests, keyed by their head branch name. Empty when gh is
+    /// missing, unauthenticated, or the repository has no GitHub remote.
+    prs: Vec<crate::git::PullRequest>,
+}
+
+/// Open pull requests of one repository, via the user's `gh` CLI. Results are
+/// cached per repository for a few minutes; executed lookups land in the
+/// command log.
+async fn list_prs(
+    State(state): State<AppState>,
+    Json(req): Json<PrsRequest>,
+) -> Result<Json<PrsResponse>, (StatusCode, String)> {
+    let Some(path) = state.repo_path(&req.repo) else {
+        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+    };
+    if let Some(prs) = state.cached_prs(&req.repo) {
+        return Ok(Json(PrsResponse { prs }));
+    }
+    if !crate::git::gh_available() {
+        return Ok(Json(PrsResponse { prs: Vec::new() }));
+    }
+    let logger = state.clone();
+    let repo = req.repo.clone();
+    let prs = tokio::task::spawn_blocking(move || {
+        let result = crate::git::list_prs(&path);
+        logger.push_log(CommandLogEntry {
+            time: epoch_now(),
+            repo,
+            command: crate::git::pr_command(),
+            ok: result.is_ok(),
+            message: result.as_ref().err().cloned().unwrap_or_default(),
+        });
+        result.unwrap_or_default()
+    })
+    .await
+    .unwrap_or_default();
+    state.store_prs(&req.repo, prs.clone());
+    Ok(Json(PrsResponse { prs }))
 }
 
 fn epoch_now() -> i64 {

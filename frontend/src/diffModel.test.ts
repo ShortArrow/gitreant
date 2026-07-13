@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { parseUnified } from "./diffModel";
+import { inlineCells, intralineSegments, parseUnified } from "./diffModel";
 
 test("pairs runs of removals and additions row by row", () => {
   const hunks = parseUnified("@@ -1,3 +1,2 @@\n ctx\n-a\n-b\n+A\n");
@@ -36,4 +36,78 @@ test("handles empty input and text without a trailing newline", () => {
   const hunks = parseUnified("@@ -1 +1 @@\n-a\n+b");
   expect(hunks[0].rows).toHaveLength(1);
   expect(hunks[0].rows[0].right).toMatchObject({ text: "b" });
+});
+
+test("splits an edited line into unchanged and changed segments", () => {
+  const pair = intralineSegments("foo(a, b)", "foo(a, c, b)");
+
+  expect(pair).not.toBeNull();
+  // The removal side has nothing inserted, so only the shared affixes remain.
+  expect(pair!.old).toEqual([
+    { text: "foo(a, ", changed: false },
+    { text: "b)", changed: false },
+  ]);
+  expect(pair!.new).toEqual([
+    { text: "foo(a, ", changed: false },
+    { text: "c, ", changed: true },
+    { text: "b)", changed: false },
+  ]);
+});
+
+test("marks the differing middle on both sides", () => {
+  const pair = intralineSegments("let x = 1;", "let x = 42;");
+
+  expect(pair!.old).toEqual([
+    { text: "let x = ", changed: false },
+    { text: "1", changed: true },
+    { text: ";", changed: false },
+  ]);
+  expect(pair!.new).toEqual([
+    { text: "let x = ", changed: false },
+    { text: "42", changed: true },
+    { text: ";", changed: false },
+  ]);
+});
+
+test("does not double-count overlapping prefix and suffix", () => {
+  const pair = intralineSegments("aaa", "aa");
+
+  expect(pair!.old).toEqual([
+    { text: "aa", changed: false },
+    { text: "a", changed: true },
+  ]);
+  expect(pair!.new).toEqual([{ text: "aa", changed: false }]);
+});
+
+test("returns null when the lines share nothing at either end", () => {
+  expect(intralineSegments("abc", "xyz")).toBeNull();
+  expect(intralineSegments("", "added")).toBeNull();
+});
+
+test("flattens rows back into unified order for the inline view", () => {
+  const hunks = parseUnified("@@ -1,3 +1,2 @@\n-a\n-b\n+A\n ctx\n");
+
+  const cells = inlineCells(hunks[0].rows);
+  expect(cells.map((c) => [c.kind, c.text])).toEqual([
+    ["remove", "a"],
+    ["remove", "b"],
+    ["add", "A"],
+    ["context", "ctx"],
+  ]);
+});
+
+test("attaches segments to paired remove/add rows only", () => {
+  const hunks = parseUnified(
+    "@@ -1,3 +1,3 @@\n-foo(a, b)\n+foo(a, c, b)\n ctx\n-lonely\n",
+  );
+
+  const paired = hunks[0].rows[0];
+  expect(paired.left!.segments).toBeDefined();
+  expect(paired.right!.segments).toContainEqual({ text: "c, ", changed: true });
+
+  const context = hunks[0].rows[1];
+  expect(context.left!.segments).toBeUndefined();
+
+  const lonely = hunks[0].rows[2];
+  expect(lonely.left!.segments).toBeUndefined();
 });

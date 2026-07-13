@@ -13,6 +13,8 @@ const fixtures = JSON.parse(
   repoFOrigin: string;
   repoG: string;
   repoH: string;
+  /** null when gpg is not installed on this machine. */
+  repoI: string | null;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -342,8 +344,12 @@ test.describe.serial("gitreant UI", () => {
     // A commit lands on the origin; the clone doesn't know it yet.
     commit(fixtures.repoFOrigin, "f-2");
     await page.getByTestId("fetch").click();
-    // The fetched remote-tracking ref makes the new commit reachable.
-    await expect(page.getByTestId("commit-row")).toHaveCount(2);
+    // The fetched remote-tracking ref makes the new commit reachable. The
+    // round trip runs a real `git fetch` per served repository, so give it
+    // more than the default 5 seconds.
+    await expect(page.getByTestId("commit-row")).toHaveCount(2, {
+      timeout: 15_000,
+    });
     await expect(
       page.getByTestId("commit-row").filter({ hasText: "f-2" }),
     ).toBeVisible();
@@ -558,6 +564,39 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-repo-name="repoH"]')).toHaveCount(0);
   });
 
+  test("a commit signed with a known gpg key shows a Verified badge", async ({
+    page,
+  }) => {
+    test.skip(!fixtures.repoI, "gpg is not installed on this machine");
+    await page.getByTestId("add-input").fill(fixtures.repoI!);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoI"]')).toBeVisible();
+
+    const verified = page
+      .getByTestId("commit-row")
+      .filter({ hasText: "verified tip" });
+    const badge = verified.getByTestId("badge-signed");
+    await expect(badge).toHaveText("Verified");
+    await expect(badge).toHaveClass(/badge-verified/);
+
+    // The verification command lands in the command log.
+    await page.getByTestId("log-toggle").click();
+    await expect(
+      page
+        .getByTestId("log-pane")
+        .getByTestId("log-entry")
+        .filter({ hasText: "%H %G?" })
+        .first(),
+    ).toBeVisible();
+    await page.getByTestId("log-toggle").click();
+
+    // Restore the served set.
+    const repoI = page.locator('[data-repo-name="repoI"]');
+    await repoI.hover();
+    await repoI.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoI"]')).toHaveCount(0);
+  });
+
   test("the command log pane lists executed git commands", async ({ page }) => {
     await page.getByTestId("log-toggle").click();
     const pane = page.getByTestId("log-pane");
@@ -570,6 +609,97 @@ test.describe.serial("gitreant UI", () => {
 
     await page.getByTestId("log-toggle").click();
     await expect(page.getByTestId("log-pane")).toHaveCount(0);
+  });
+
+  test("user actions appear in the log pane", async ({ page }) => {
+    await page.getByTestId("log-toggle").click();
+    const pane = page.getByTestId("log-pane");
+    await expect(pane).toBeVisible();
+
+    await page.getByTestId("reload").click();
+    const action = pane.locator(".log-entry-action").first();
+    await expect(action).toContainText("Reload repositories");
+
+    // A fetch logs the interaction and, above it, the executed command.
+    await page.getByTestId("fetch").click();
+    await expect(pane.getByTestId("log-entry").first()).toContainText(
+      "fetch --all --prune",
+    );
+    await expect(
+      pane.locator(".log-entry-action").first(),
+    ).toContainText("Fetch remotes");
+
+    await page.getByTestId("log-toggle").click();
+  });
+
+  test("a branch with an open PR links to its GitHub page", async ({
+    page,
+  }) => {
+    // PR data comes from the user's gh CLI on the server; stub the endpoint
+    // and verify the badge wiring end to end.
+    await page.route("**/api/prs", (route) =>
+      route.fulfill({
+        json: {
+          prs: [
+            {
+              number: 7,
+              url: "https://github.com/o/r/pull/7",
+              branch: "feature",
+            },
+          ],
+        },
+      }),
+    );
+    await page.locator('[data-repo-name="repoA"]').click();
+
+    const link = page.getByTestId("badge-pr");
+    await expect(link).toHaveText("#7");
+    await expect(link).toHaveAttribute(
+      "href",
+      "https://github.com/o/r/pull/7",
+    );
+    await expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  test("merge commit messages are dimmed", async ({ page }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+
+    const merge = page
+      .getByTestId("commit-row")
+      .filter({ hasText: "merge feature" });
+    await expect(merge.locator(".commit-summary")).toHaveClass(
+      /commit-summary-merge/,
+    );
+
+    const normal = page
+      .getByTestId("commit-row")
+      .filter({ hasText: "feature-1" });
+    await expect(normal.locator(".commit-summary")).not.toHaveClass(
+      /commit-summary-merge/,
+    );
+  });
+
+  test("clicking the hash copies the full commit id", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.locator('[data-repo-name="repoA"]').click();
+
+    const hash = page.getByTestId("commit-hash").first();
+    const shown = (await hash.textContent()) ?? "";
+    expect(shown).toMatch(/^[0-9a-f]{7}$/);
+
+    await hash.click();
+    await expect(hash).toHaveText("Copied");
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copied).toMatch(/^[0-9a-f]{40}$/);
+    expect(copied.startsWith(shown)).toBe(true);
+
+    // The click copies; it must not toggle the row's detail panel.
+    await expect(page.getByTestId("commit-detail")).toHaveCount(0);
+    // The feedback is transient.
+    await expect(hash).toHaveText(shown, { timeout: 3000 });
   });
 
   test("browse button adds the folder returned by the picker", async ({

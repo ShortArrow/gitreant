@@ -18,8 +18,11 @@ pub struct CommitMeta {
     /// Parent ids, filtered to commits present in this dataset.
     pub parents: Vec<String>,
     /// Kind of the embedded signature ("openpgp", "ssh", ...), if signed.
-    /// Presence only — no verification happens.
+    /// Presence only — the gix read never verifies.
     pub signature: Option<String>,
+    /// Verification verdict, filled in later by the session when gpg is
+    /// available: `Some(true)` valid, `Some(false)` invalid, `None` unchecked.
+    pub verified: Option<bool>,
 }
 
 /// A named reference (branch/tag) pointing at a commit.
@@ -246,6 +249,7 @@ fn topological_order(raw: Vec<RawCommit>) -> Vec<CommitMeta> {
             time: commit.time,
             parents,
             signature: commit.signature.clone(),
+            verified: None,
         });
         for parent in &commit.parents {
             if let Some(&pi) = index.get(parent) {

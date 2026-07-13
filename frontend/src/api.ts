@@ -7,9 +7,11 @@ export interface CommitView {
   summary: string;
   author: string;
   time: number;
-  /** Kind of the embedded signature ("openpgp", "ssh", ...), if signed.
-   *  Presence only — the server does not verify it. */
+  /** Kind of the embedded signature ("openpgp", "ssh", ...), if signed. */
   signature?: string;
+  /** true = gpg verified the signature, false = judged it invalid;
+   *  absent = unchecked (no gpg, unknown key, or unsigned). */
+  verified?: boolean;
 }
 
 export interface GraphEdge {
@@ -101,6 +103,28 @@ export interface CommandLogEntry {
   ok: boolean;
   /** stderr on failure, empty on success. */
   message: string;
+}
+
+export interface PullRequestView {
+  number: number;
+  url: string;
+  /** Head branch name the PR belongs to. */
+  branch: string;
+}
+
+/** Open PRs of one repository via the server's `gh` lookup. Empty when gh is
+ *  missing, unauthenticated, or the repository has no GitHub remote. */
+export async function fetchPrs(repoId: string): Promise<PullRequestView[]> {
+  const response = await fetch("/api/prs", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo: repoId }),
+  });
+  if (!response.ok) {
+    throw new Error(`pr lookup failed: ${response.status}`);
+  }
+  const data = (await response.json()) as { prs: PullRequestView[] };
+  return data.prs;
 }
 
 /** The external commands the server executed, oldest first. */

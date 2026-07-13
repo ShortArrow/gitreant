@@ -10,6 +10,7 @@ import {
 } from "./api";
 import { Drawer } from "./Drawer";
 import { LogPane } from "./LogPane";
+import { mergeLog, type UserAction } from "./logModel";
 import { RepoCard } from "./RepoCard";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -82,20 +83,30 @@ export function App() {
     setOpenTabs((prev) => prev.filter((t) => t !== id));
   }, []);
 
+  // UI interactions shown back to the user in the log pane. Client-side only:
+  // the server's command log stays a record of executed external commands.
+  const [actions, setActions] = useState<UserAction[]>([]);
+  const recordAction = useCallback((text: string) => {
+    const time = Math.floor(Date.now() / 1000);
+    setActions((prev) => [...prev, { time, text }]);
+  }, []);
+
   const handleRemove = useCallback(
     async (id: string) => {
+      recordAction(`Remove repository ${id}`);
       applyRepos(await removeRepo(id));
     },
-    [applyRepos],
+    [applyRepos, recordAction],
   );
 
   const handleAdd = useCallback(
     async (path: string) => {
+      recordAction(`Add repository ${path}`);
       const { id, repos: next } = await addRepo(path);
       applyRepos(next);
       openTab(id);
     },
-    [applyRepos, openTab],
+    [applyRepos, openTab, recordAction],
   );
 
   const [logOpen, setLogOpen] = useState(false);
@@ -118,6 +129,7 @@ export function App() {
 
   const [fetching, setFetching] = useState(false);
   const runFetch = useCallback(async () => {
+    recordAction("Fetch remotes");
     setFetching(true);
     try {
       const result = await fetchRemotes();
@@ -132,7 +144,12 @@ export function App() {
     } finally {
       setFetching(false);
     }
-  }, [reload]);
+  }, [reload, recordAction]);
+
+  const logItems = useMemo(
+    () => mergeLog(logEntries, actions),
+    [logEntries, actions],
+  );
 
   const activeRepo = activeId ? repoById.get(activeId) : undefined;
 
@@ -202,7 +219,10 @@ export function App() {
             className="topbar-btn"
             title="Reload repositories"
             data-testid="reload"
-            onClick={reload}
+            onClick={() => {
+              recordAction("Reload repositories");
+              reload();
+            }}
             type="button"
           >
             ⟳
@@ -224,7 +244,7 @@ export function App() {
           )}
         </div>
 
-        {logOpen && <LogPane entries={logEntries} />}
+        {logOpen && <LogPane items={logItems} />}
       </main>
     </div>
   );

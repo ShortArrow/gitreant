@@ -15,36 +15,46 @@ function initRepo(name: string): string {
 }
 
 /** repoA: a branch that is merged back -> two lanes and a merge node.
- * Carries real file changes and a message body for the detail-pane test. */
+ * Carries real file changes and a message body for the detail-pane test.
+ * Commit times are pinned: on fast machines several commits land in the same
+ * second otherwise, and timestamp ties reorder the walk (and thus lanes and
+ * colors) differently per platform. */
 function makeRepoA(): string {
   const dir = initRepo("repoA");
+  const t = 1_700_000_000;
   writeFileSync(path.join(dir, "README.md"), "one\n");
   git(dir, ["add", "."]);
-  commit(dir, "root");
+  commit(dir, "root", t);
   writeFileSync(path.join(dir, "README.md"), "one\ntwo\n");
   git(dir, ["add", "."]);
-  commit(dir, "main-1\n\nSecond line of the description.");
+  commit(dir, "main-1\n\nSecond line of the description.", t + 10);
   git(dir, ["switch", "-c", "feature", "-q"]);
-  commit(dir, "feature-1");
+  commit(dir, "feature-1", t + 20);
   git(dir, ["switch", "main", "-q"]);
   mkdirSync(path.join(dir, "src", "lib"), { recursive: true });
   writeFileSync(path.join(dir, "src", "lib", "one.ts"), "1\n");
   writeFileSync(path.join(dir, "src", "lib", "two.ts"), "2\n");
   git(dir, ["add", "."]);
-  commit(dir, "main-2");
-  git(dir, ["merge", "--no-ff", "feature", "-q", "-m", "merge feature"]);
+  commit(dir, "main-2", t + 30);
+  git(
+    dir,
+    ["merge", "--no-ff", "feature", "-q", "-m", "merge feature"],
+    atTime(t + 40),
+  );
   git(dir, ["update-ref", "refs/remotes/origin/main", "HEAD"]);
   return dir; // 5 commits
 }
 
-/** repoB: a branch that never merges -> two lanes, no merge node. */
+/** repoB: a branch that never merges -> two lanes, no merge node.
+ * Times pinned for the same determinism reason as repoA. */
 function makeRepoB(): string {
   const dir = initRepo("repoB");
-  commit(dir, "init");
+  const t = 1_700_000_000;
+  commit(dir, "init", t);
   git(dir, ["switch", "-c", "topic", "-q"]);
-  commit(dir, "topic-1");
+  commit(dir, "topic-1", t + 10);
   git(dir, ["switch", "main", "-q"]);
-  commit(dir, "main-1");
+  commit(dir, "main-1", t + 20);
   return dir; // 3 commits
 }
 
@@ -127,6 +137,106 @@ function makeRepoH(): string {
   return dir; // 2 commits
 }
 
+/** repoI: a commit signed with a real throwaway gpg key, so the server's
+ * verification marks it Verified. Skipped (null) when gpg is unavailable.
+ * The GNUPGHOME set here stays in process.env so the spawned server inherits
+ * it and verifies against the same keyring. */
+function makeRepoI(): string | null {
+  try {
+    // Windows can have two gpg flavors on the PATH (native and Git's MSYS
+    // build) that disagree about path syntax. Resolve one binary and pin it
+    // everywhere: key generation, the signing commit (gpg.program), and the
+    // server's later verification (repo-local gpg.program config).
+    const gpg = resolveGpg();
+    if (process.platform === "win32") {
+      gpgconfBin = path.join(path.dirname(gpg), "gpgconf.exe");
+    }
+    const home = path.join(tmpDir, "gnupg");
+    mkdirSync(home, { recursive: true, mode: 0o700 });
+    process.env.GNUPGHOME = gpgHomePath(gpg, home);
+    execFileSync(
+      gpg,
+      [
+        "--batch",
+        "--pinentry-mode",
+        "loopback",
+        "--passphrase",
+        "",
+        "--quick-gen-key",
+        "Tester <tester@example.com>",
+        "ed25519",
+        "sign",
+        "never",
+      ],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+
+    const dir = initRepo("repoI");
+    git(dir, ["config", "gpg.program", gpg]);
+    const t = 1_700_000_000;
+    commit(dir, "unsigned base", t);
+    git(
+      dir,
+      [
+        "-c",
+        "user.signingkey=tester@example.com",
+        "-c",
+        "commit.gpgsign=true",
+        "commit",
+        "--allow-empty",
+        "-q",
+        "-m",
+        "verified tip",
+      ],
+      atTime(t + 10),
+    );
+    return dir; // 2 commits
+  } catch (e) {
+    // No gpg, or a broken gpg setup: the Verified-badge test just skips.
+    const stderr = (e as { stderr?: Buffer }).stderr?.toString() ?? String(e);
+    console.warn(`repoI skipped (gpg unavailable?): ${stderr.trim()}`);
+    if (process.env.GNUPGHOME) {
+      // A half-done setup may have started an agent holding files in .tmp.
+      try {
+        execFileSync(
+          gpgconfBin,
+          ["--homedir", process.env.GNUPGHOME, "--kill", "all"],
+          { stdio: "ignore" },
+        );
+      } catch {
+        // Best effort.
+      }
+      delete process.env.GNUPGHOME;
+    }
+    return null;
+  }
+}
+
+/** The absolute path of the gpg the PATH resolves to (throws when absent). */
+function resolveGpg(): string {
+  if (process.platform !== "win32") {
+    execFileSync("gpg", ["--version"], { stdio: "ignore" });
+    return "gpg";
+  }
+  return execFileSync("where.exe", ["gpg"], { encoding: "utf8" })
+    .split(/\r?\n/)[0]
+    .trim();
+}
+
+/** GNUPGHOME in the form the resolved gpg understands. Git for Windows ships
+ * an MSYS gpg that only takes POSIX paths (/v/...), while a native gpg wants
+ * the Windows form. */
+function gpgHomePath(gpg: string, home: string): string {
+  if (process.platform !== "win32") return home;
+  if (/\\usr\\bin\\gpg\.exe$/i.test(gpg)) {
+    return `/${home[0].toLowerCase()}${home.slice(2).replaceAll("\\", "/")}`;
+  }
+  return home.replaceAll("\\", "/");
+}
+
+/** Set by makeRepoI; the teardown must talk to the same gpg installation. */
+let gpgconfBin = "gpgconf";
+
 let server: ChildProcess | undefined;
 
 export default async function globalSetup(_config: FullConfig) {
@@ -142,6 +252,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoF = makeRepoF();
   const repoG = makeRepoG();
   const repoH = makeRepoH();
+  const repoI = makeRepoI();
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
@@ -158,6 +269,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoFOrigin: repoF.origin,
         repoG,
         repoH,
+        repoI,
       },
       null,
       2,
@@ -167,5 +279,20 @@ export default async function globalSetup(_config: FullConfig) {
   // Returned function runs as global teardown.
   return async () => {
     server?.kill();
+    // Stop the throwaway keyring's gpg-agent: it holds socket files inside
+    // GNUPGHOME, which would make the next run's cleanup of .tmp fail.
+    // Even a failed repoI setup can have started an agent (gen-key succeeds,
+    // signing fails), so key off GNUPGHOME alone.
+    if (process.env.GNUPGHOME) {
+      try {
+        execFileSync(
+          gpgconfBin,
+          ["--homedir", process.env.GNUPGHOME, "--kill", "all"],
+          { stdio: "ignore" },
+        );
+      } catch {
+        // Best effort; a lingering agent times out on its own eventually.
+      }
+    }
   };
 }

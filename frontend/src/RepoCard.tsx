@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { CommitHash } from "./CommitHash";
 import {
   fetchCommitDetail,
   fetchCommitDiff,
   fetchFileDiff,
+  fetchPrs,
   type CommitDetail,
   type FileDiff,
+  type PullRequestView,
   type RefView,
   type RepoView,
 } from "./api";
@@ -20,7 +23,6 @@ import {
   rowIndex,
   ROW_HEIGHT,
   NODE_RADIUS,
-  shortId,
 } from "./graph";
 
 /** Group refs by the commit id they point at, so each row can show its badges. */
@@ -37,11 +39,41 @@ function refsByCommit(repo: RepoView): Map<string, RefView[]> {
 /** What the diff pane shows: one file, or everything the commit changed. */
 export type DiffTarget = { kind: "file"; path: string } | { kind: "all" };
 
+/** Badge for a signed commit, following GitHub's wording: "Verified" only
+ * when gpg actually validated the signature, "Unverified" when it judged it
+ * invalid, and a plain "Signed" when it could not be checked. */
+export function signatureBadge(verified?: boolean): {
+  label: string;
+  className: string;
+  title: string;
+} {
+  if (verified === true) {
+    return {
+      label: "Verified",
+      className: "badge badge-signed badge-verified",
+      title: "Signature verified against your local gpg keyring",
+    };
+  }
+  if (verified === false) {
+    return {
+      label: "Unverified",
+      className: "badge badge-signed badge-unverified",
+      title: "Signature did not verify (invalid, expired or revoked)",
+    };
+  }
+  return {
+    label: "Signed",
+    className: "badge badge-signed",
+    title: "Carries a signature gitreant could not check",
+  };
+}
+
 export function RepoCard({
   repo,
   loadDetail = fetchCommitDetail,
   loadDiff = fetchFileDiff,
   loadCommitDiff = fetchCommitDiff,
+  loadPrs = fetchPrs,
 }: {
   repo: RepoView;
   /** Injectable for Storybook; defaults to the real API. */
@@ -52,9 +84,27 @@ export function RepoCard({
     path: string,
   ) => Promise<FileDiff>;
   loadCommitDiff?: (repoId: string, commitId: string) => Promise<FileDiff[]>;
+  loadPrs?: (repoId: string) => Promise<PullRequestView[]>;
 }) {
   const rowOf = useMemo(() => rowIndex(repo.commits), [repo.commits]);
   const refMap = useMemo(() => refsByCommit(repo), [repo.refs]);
+
+  // Open PRs by head branch name; loads lazily and silently stays empty when
+  // the server has no gh (or the repo no GitHub remote).
+  const [prByBranch, setPrByBranch] = useState<Map<string, PullRequestView>>(
+    new Map(),
+  );
+  useEffect(() => {
+    let stale = false;
+    loadPrs(repo.id)
+      .then((prs) => {
+        if (!stale) setPrByBranch(new Map(prs.map((pr) => [pr.branch, pr])));
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [repo.id, loadPrs]);
 
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<CommitDetail | null>(null);
@@ -200,31 +250,57 @@ export function RepoCard({
                 }}
               >
                 {isHead && <span className="badge badge-head">HEAD</span>}
-                {refs.map((ref) => (
-                  <span
-                    key={ref.remote ? `${ref.remote}/${ref.name}` : ref.name}
-                    className={`badge badge-ref${ref.remote ? " badge-remote" : ""}`}
-                  >
-                    {ref.remote && (
-                      <span className="badge-remote-name" data-testid="badge-remote">
-                        {ref.remote}
-                      </span>
-                    )}
-                    <span className="badge-ref-name">{ref.name}</span>
-                  </span>
-                ))}
-                <span className="commit-summary">{commit.summary}</span>
-                <span className="commit-meta">
-                  {commit.signature && (
+                {refs.map((ref) => {
+                  const pr = prByBranch.get(ref.name);
+                  return (
                     <span
-                      className="badge badge-signed"
-                      data-testid="badge-signed"
-                      title="Carries a signature (not verified by gitreant)"
+                      key={ref.remote ? `${ref.remote}/${ref.name}` : ref.name}
+                      className={`badge badge-ref${ref.remote ? " badge-remote" : ""}`}
                     >
-                      Signed
+                      {ref.remote && (
+                        <span className="badge-remote-name" data-testid="badge-remote">
+                          {ref.remote}
+                        </span>
+                      )}
+                      <span className="badge-ref-name">{ref.name}</span>
+                      {pr && (
+                        <a
+                          className="badge-pr"
+                          data-testid="badge-pr"
+                          href={pr.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={`Open pull request #${pr.number} on GitHub`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          #{pr.number}
+                        </a>
+                      )}
                     </span>
-                  )}
-                  {commit.author} · {shortId(commit.id)}
+                  );
+                })}
+                <span
+                  className={`commit-summary${
+                    commit.parents.length > 1 ? " commit-summary-merge" : ""
+                  }`}
+                >
+                  {commit.summary}
+                </span>
+                <span className="commit-meta">
+                  {commit.signature &&
+                    (() => {
+                      const badge = signatureBadge(commit.verified);
+                      return (
+                        <span
+                          className={badge.className}
+                          data-testid="badge-signed"
+                          title={badge.title}
+                        >
+                          {badge.label}
+                        </span>
+                      );
+                    })()}
+                  {commit.author} · <CommitHash id={commit.id} />
                 </span>
               </li>
             );

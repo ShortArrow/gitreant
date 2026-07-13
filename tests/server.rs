@@ -396,6 +396,53 @@ async fn fetch_endpoint_reports_per_repo_errors() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn prs_endpoint_answers_empty_without_github_and_404_for_unknown_repos() {
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(Session::new())).await.unwrap();
+    });
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    let repo_path = tmp.path().to_string_lossy().into_owned();
+    tokio::task::spawn_blocking(move || post_repo(port, &repo_path))
+        .await
+        .unwrap()
+        .expect("add repo");
+
+    // No GitHub remote (and possibly no gh at all): the lookup degrades to an
+    // empty PR list either way.
+    let id = gitreant::app::canonical(tmp.path()).to_string_lossy().into_owned();
+    let body = format!("{{\"repo\":{id:?}}}");
+    let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/prs", &body))
+        .await
+        .unwrap();
+    assert!(resp.contains("200 OK"), "response: {resp}");
+    assert!(resp.contains("\"prs\":[]"), "expected no PRs: {resp}");
+
+    let resp = tokio::task::spawn_blocking(move || {
+        http_post_json(port, "/api/prs", "{\"repo\":\"nope\"}")
+    })
+    .await
+    .unwrap();
+    assert!(resp.contains("404"), "response: {resp}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn shutdown_completes_while_an_sse_connection_is_open() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();

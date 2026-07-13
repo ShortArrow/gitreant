@@ -21,6 +21,10 @@ pub struct CommitView {
     /// Kind of the embedded signature ("openpgp", "ssh", ...), if signed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signature: Option<String>,
+    /// `true` when gpg verified the signature, `false` when it judged it
+    /// invalid; absent when unchecked (no gpg, unknown key, unsigned).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified: Option<bool>,
 }
 
 /// A named reference pointing at a commit.
@@ -163,6 +167,7 @@ pub fn build_view(id: &Path, data: &RepoData) -> RepoView {
             author: meta.author.clone(),
             time: meta.time,
             signature: meta.signature.clone(),
+            verified: meta.verified,
         })
         .collect();
 
@@ -203,6 +208,7 @@ mod tests {
             time,
             parents: parents.iter().map(|s| s.to_string()).collect(),
             signature: None,
+            verified: None,
         }
     }
 

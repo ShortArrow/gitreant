@@ -1,8 +1,23 @@
 import { expect, test } from "vitest";
 import { signatureLabel, splitMessage } from "./CommitDetailPanel";
-import { diffLineClass } from "./FileDiffPane";
+import { signatureBadge } from "./RepoCard";
 import { clampWidth } from "./Resizer";
 import { resolveTheme, toggleTheme } from "./theme";
+
+test("signatureBadge maps the verification verdict to a label", () => {
+  expect(signatureBadge(true)).toMatchObject({
+    label: "Verified",
+    className: "badge badge-signed badge-verified",
+  });
+  expect(signatureBadge(false)).toMatchObject({
+    label: "Unverified",
+    className: "badge badge-signed badge-unverified",
+  });
+  expect(signatureBadge(undefined)).toMatchObject({
+    label: "Signed",
+    className: "badge badge-signed",
+  });
+});
 
 test("splitMessage separates the summary from the body", () => {
   expect(splitMessage("subject\n\nbody line\nmore")).toEqual({
@@ -22,13 +37,6 @@ test("signatureLabel covers every kind the server reports", () => {
   expect(signatureLabel("ssh")).toBe("Signed (SSH)");
   expect(signatureLabel("x509")).toBe("Signed (X.509)");
   expect(signatureLabel("unknown")).toBe("Signed");
-});
-
-test("diffLineClass keys off the unified-diff prefix", () => {
-  expect(diffLineClass("@@ -1 +1 @@")).toContain("hunk");
-  expect(diffLineClass("+added")).toContain("add");
-  expect(diffLineClass("-removed")).toContain("remove");
-  expect(diffLineClass(" context")).toContain("context");
 });
 
 test("clampWidth stays within the allowed range", () => {

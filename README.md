@@ -26,13 +26,17 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
 
 ## Features
 
-- Commit graph rendering with lanes and colors computed server-side
+- Commit graph rendering with lanes and colors computed server-side;
+  merge-commit messages are dimmed, and clicking a hash copies the full id
 - Click a commit to see its full message, signature state, and changed files
   (flat or tree view) with line counts; click a file (or "Diff all") to see
-  diffs inline or side-by-side
+  diffs inline or side-by-side, with intra-line changes highlighted
 - Fetch button runs `git fetch` for every shown repository (requires git);
-  a toggleable bottom pane logs the executed commands
-- Signed commits carry a badge in the graph (signature presence, unverified)
+  a toggleable bottom pane logs the executed commands and your UI actions
+- Signed commits carry a badge in the graph: Verified / Unverified when a
+  local gpg can check the signature, plain Signed otherwise
+- Branch badges link to their open pull request when the `gh` CLI is
+  installed and authenticated
 - Multiple repositories in one SPA: a drawer to list/add/remove, tabs to switch
 - Live updates via Server-Sent Events when repositories are added or removed,
   plus a reload button to pick up new commits

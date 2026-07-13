@@ -1,25 +1,27 @@
-import type { CommandLogEntry } from "./api";
+import type { LogItem } from "./logModel";
 
-/** Bottom pane listing the external commands the server executed, newest
- * first. Toggled from the top bar. */
-export function LogPane({ entries }: { entries: CommandLogEntry[] }) {
+/** Bottom pane listing user actions and the external commands the server
+ * executed, newest first. Toggled from the top bar. */
+export function LogPane({ items }: { items: LogItem[] }) {
   return (
     <div className="log-pane" data-testid="log-pane">
-      {entries.length === 0 && (
-        <p className="log-empty">No commands executed yet.</p>
-      )}
+      {items.length === 0 && <p className="log-empty">No activity yet.</p>}
       <ul className="log-entries">
-        {[...entries].reverse().map((entry, i) => (
+        {[...items].reverse().map((item, i) => (
           <li
-            key={`${entry.time}-${i}`}
-            className={`log-entry${entry.ok ? "" : " log-entry-error"}`}
+            key={`${item.time}-${i}`}
+            className={`log-entry${item.ok ? "" : " log-entry-error"}${
+              item.kind === "action" ? " log-entry-action" : ""
+            }`}
             data-testid="log-entry"
           >
             <span className="log-time">
-              {new Date(entry.time * 1000).toLocaleTimeString()}
+              {new Date(item.time * 1000).toLocaleTimeString()}
             </span>
-            <span className="log-command">{entry.command}</span>
-            {!entry.ok && <span className="log-message">{entry.message}</span>}
+            <span className="log-command">{item.text}</span>
+            {!item.ok && item.message && (
+              <span className="log-message">{item.message}</span>
+            )}
           </li>
         ))}
       </ul>
