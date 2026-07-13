@@ -155,6 +155,36 @@ fn reads_file_diff_hunks() {
 }
 
 #[test]
+fn file_diff_covers_deletions_and_binary_files() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    std::fs::write(dir.join("gone.txt"), "gone\n").unwrap();
+    std::fs::write(dir.join("data.bin"), [0u8, 1, 2, 3, 0, 255]).unwrap();
+    git(dir, &["add", "."]);
+    commit(dir, "root", 1000);
+    git(dir, &["rm", "-q", "gone.txt"]);
+    std::fs::write(dir.join("data.bin"), [0u8, 9, 9, 9]).unwrap();
+    git(dir, &["add", "."]);
+    commit(dir, "delete text, change binary", 1001);
+
+    let repo = read_repo(dir).expect("read repo");
+    let head = &repo.commits[0].id;
+
+    let deleted = read_file_diff(dir, head, "gone.txt").expect("deletion diff");
+    assert_eq!(deleted.status, "D");
+    assert!(!deleted.binary);
+    assert!(deleted.text.contains("-gone"), "removal missing: {}", deleted.text);
+
+    let binary = read_file_diff(dir, head, "data.bin").expect("binary diff");
+    assert_eq!(binary.status, "M");
+    assert!(binary.binary, "NUL bytes must be detected as binary");
+    assert_eq!(binary.text, "", "binary diffs carry no text");
+}
+
+#[test]
 fn reads_the_whole_commit_diff_at_once() {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path();
@@ -208,6 +238,29 @@ fn commit_detail_reports_signature_presence() {
     let id = git_hash_commit(dir, &raw);
     let signed = read_commit(dir, &id).expect("signed detail");
     assert_eq!(signed.signature.as_deref(), Some("openpgp"));
+
+    // SSH signatures and unrecognized armor headers are classified too.
+    let raw = format!(
+        "tree {tree}\n\
+         author Tester <tester@example.com> 1000 +0000\n\
+         committer Tester <tester@example.com> 1000 +0000\n\
+         gpgsig -----BEGIN SSH SIGNATURE-----\n fake\n -----END SSH SIGNATURE-----\n\
+         \nssh-signed commit\n"
+    );
+    let id = git_hash_commit(dir, &raw);
+    let signed = read_commit(dir, &id).expect("ssh detail");
+    assert_eq!(signed.signature.as_deref(), Some("ssh"));
+
+    let raw = format!(
+        "tree {tree}\n\
+         author Tester <tester@example.com> 1000 +0000\n\
+         committer Tester <tester@example.com> 1000 +0000\n\
+         gpgsig mystery-blob\n\
+         \noddly signed commit\n"
+    );
+    let id = git_hash_commit(dir, &raw);
+    let signed = read_commit(dir, &id).expect("unknown detail");
+    assert_eq!(signed.signature.as_deref(), Some("unknown"));
 }
 
 fn git_stdout(dir: &Path, args: &[&str]) -> String {

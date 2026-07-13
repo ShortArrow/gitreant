@@ -49,6 +49,7 @@ main (CLI) ──▶ server (axum) ──▶ app (session) ──▶ domain (gra
 
 ```console
 $ cargo test                    # Rust: domain / git / server
+$ cd frontend && pnpm test:unit # Vitest: pure frontend functions
 $ cd frontend && pnpm test:e2e  # Playwright E2E (generates fixtures, starts server)
 ```
 
@@ -58,11 +59,14 @@ $ cd frontend && pnpm test:e2e  # Playwright E2E (generates fixtures, starts ser
   (graph reading and single-commit details with file changes).
 - `server`: ping / add / remove / dedup / shutdown / 404 fallback over a real
   socket.
-- `detach`: runs the real binary to verify detach-by-default and `--shutdown`.
+- `detach`: runs the real binary to verify detach-by-default, `--shutdown`,
+  and single-instance forwarding of a second invocation.
+- `unit` (Vitest): pure frontend functions — unified-diff parsing, file-tree
+  building, edge paths, theme resolution, width clamping.
 - `e2e` (Playwright): drawer listing, tab open/close, graph rendering
-  (nodes/lanes), and repository add/remove in a real browser. Fixture
-  repository generation and server startup are handled by
-  `frontend/e2e/global-setup.ts`.
+  (nodes/lanes), commit details and diffs, SSE live updates, fetch, and
+  repository add/remove in a real browser. Fixture repository generation and
+  server startup are handled by `frontend/e2e/global-setup.ts`.
 
 ## CI
 

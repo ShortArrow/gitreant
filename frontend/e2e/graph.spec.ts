@@ -11,6 +11,7 @@ const fixtures = JSON.parse(
   repoE: string;
   repoF: string;
   repoFOrigin: string;
+  repoG: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -486,6 +487,47 @@ test.describe.serial("gitreant UI", () => {
     await repoC.getByTestId("repo-remove").click();
     await expect(page.getByTestId("repo-item")).toHaveCount(2);
     await expect(page.locator('[data-repo-name="repoC"]')).toHaveCount(0);
+  });
+
+  test("the page updates live when another client changes the repo set", async ({
+    page,
+  }) => {
+    // Add via the HTTP API instead of this page's UI: only the SSE update
+    // event can bring the change to the already-open page.
+    const added = await page.request.post("/api/repos", {
+      data: { path: fixtures.repoC },
+    });
+    expect(added.ok()).toBeTruthy();
+    await expect(page.locator('[data-repo-name="repoC"]')).toBeVisible();
+
+    const { id } = (await added.json()) as { id: string };
+    const removed = await page.request.delete("/api/repos", {
+      data: { path: id },
+    });
+    expect(removed.ok()).toBeTruthy();
+    await expect(page.locator('[data-repo-name="repoC"]')).toHaveCount(0);
+    await expect(page.getByTestId("repo-item")).toHaveCount(2);
+  });
+
+  test("fetch failures surface as an error and clear on success", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoG);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-repo-name="repoG"]')).toBeVisible();
+
+    // repoG's remote is unreachable, so fetching reports it.
+    await page.getByTestId("fetch").click();
+    await expect(page.locator(".app-error")).toBeVisible();
+    await expect(page.locator(".app-error")).toContainText("repoG");
+
+    // Without the broken repository the next fetch succeeds and clears it.
+    const repoG = page.locator('[data-repo-name="repoG"]');
+    await repoG.hover();
+    await repoG.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoG"]')).toHaveCount(0);
+    await page.getByTestId("fetch").click();
+    await expect(page.locator(".app-error")).toHaveCount(0);
   });
 
   test("browse button adds the folder returned by the picker", async ({

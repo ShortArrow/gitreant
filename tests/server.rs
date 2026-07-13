@@ -336,6 +336,105 @@ async fn fetch_endpoint_updates_remote_refs() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn fetch_endpoint_reports_per_repo_errors() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    init_repo_with_commit(dir);
+    // A remote that cannot be reached makes this repository's fetch fail.
+    let run = |args: &[&str]| {
+        let status = Command::new("git").current_dir(dir).args(args).status().unwrap();
+        assert!(status.success(), "git {args:?} failed");
+    };
+    run(&["remote", "add", "origin", "definitely/missing/gitreant-remote"]);
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(Session::new())).await.unwrap();
+    });
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    let repo_path = dir.to_string_lossy().into_owned();
+    tokio::task::spawn_blocking(move || post_repo(port, &repo_path))
+        .await
+        .unwrap()
+        .expect("add repo");
+
+    let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/fetch", "{}"))
+        .await
+        .unwrap();
+    assert!(resp.contains("200 OK"), "response: {resp}");
+    assert!(
+        !resp.contains("\"errors\":[]"),
+        "expected a per-repo error: {resp}"
+    );
+    assert!(resp.contains("\"message\""), "error detail missing: {resp}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn shutdown_completes_while_an_sse_connection_is_open() {
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    let server = tokio::spawn(serve(listener, AppState::new(Session::new())));
+
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    // Open the SSE stream and keep the socket alive: a graceful shutdown
+    // would wait on it forever, so the 1-second grace deadline must kick in.
+    let sse = tokio::task::spawn_blocking(move || {
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        write!(
+            stream,
+            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/event-stream\r\n\r\n"
+        )
+        .unwrap();
+        let mut first = [0u8; 256];
+        let n = stream.read(&mut first).unwrap();
+        assert!(
+            String::from_utf8_lossy(&first[..n]).contains("200 OK"),
+            "SSE stream did not open"
+        );
+        stream
+    })
+    .await
+    .unwrap();
+
+    tokio::task::spawn_blocking(move || post_shutdown(port))
+        .await
+        .unwrap()
+        .expect("shutdown request");
+
+    let result = tokio::time::timeout(std::time::Duration::from_secs(5), server)
+        .await
+        .expect("server hung on the open SSE connection")
+        .unwrap();
+    assert!(result.is_ok(), "serve returned an error: {result:?}");
+    drop(sse);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn shutdown_endpoint_stops_the_server() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();

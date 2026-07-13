@@ -96,6 +96,14 @@ function makeRepoF(): { origin: string; clone: string } {
   return { origin, clone }; // 1 commit
 }
 
+/** repoG: its only remote is unreachable, so fetching it always fails. */
+function makeRepoG(): string {
+  const dir = initRepo("repoG");
+  commit(dir, "g-1");
+  git(dir, ["remote", "add", "origin", "gitreant-missing/remote"]);
+  return dir; // 1 commit
+}
+
 let server: ChildProcess | undefined;
 
 export default async function globalSetup(_config: FullConfig) {
@@ -109,15 +117,23 @@ export default async function globalSetup(_config: FullConfig) {
   const repoD = makeRepoD();
   const repoE = makeRepoE();
   const repoF = makeRepoF();
+  const repoG = makeRepoG();
 
-  // Serve repoA and repoB; repoC/D/E/F are added by tests.
+  // Serve repoA and repoB; repoC..G are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
 
   // Expose the extra fixture paths to the specs.
   writeFileSync(
     path.join(tmpDir, "fixtures.json"),
     JSON.stringify(
-      { repoC, repoD, repoE, repoF: repoF.clone, repoFOrigin: repoF.origin },
+      {
+        repoC,
+        repoD,
+        repoE,
+        repoF: repoF.clone,
+        repoFOrigin: repoF.origin,
+        repoG,
+      },
       null,
       2,
     ),

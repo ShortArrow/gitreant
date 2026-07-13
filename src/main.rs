@@ -11,7 +11,7 @@ use std::process::ExitCode;
 
 use clap::Parser;
 
-use gitreant::app::Session;
+use gitreant::app::{canonical, Session};
 use gitreant::server::{bind, ping, post_repo, post_shutdown, serve, AppState};
 
 #[derive(Parser)]
@@ -83,7 +83,7 @@ fn start_background(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
     };
     let mut command = std::process::Command::new(exe);
     for path in paths {
-        command.arg(std::fs::canonicalize(path).unwrap_or_else(|_| path.clone()));
+        command.arg(canonical(path));
     }
     command
         .arg("--foreground")
@@ -138,7 +138,7 @@ fn detach(command: &mut std::process::Command) {
 /// Hand the repositories to an already-running gitreant and exit.
 fn forward_to_running(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
     for path in paths {
-        let absolute = std::fs::canonicalize(path).unwrap_or_else(|_| path.clone());
+        let absolute = canonical(path);
         match post_repo(cli.port, &absolute.to_string_lossy()) {
             Ok(()) => println!("added {} to running gitreant", absolute.display()),
             Err(e) => eprintln!("failed to add {}: {e}", absolute.display()),

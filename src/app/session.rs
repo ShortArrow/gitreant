@@ -66,9 +66,9 @@ impl Session {
     }
 }
 
-/// Best-effort canonical form for de-duplication; falls back to the input when
-/// the path cannot be canonicalized.
-fn canonical(path: &Path) -> PathBuf {
+/// Best-effort canonical form for de-duplication and display; falls back to
+/// the input when the path cannot be canonicalized.
+pub fn canonical(path: &Path) -> PathBuf {
     strip_verbatim(fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf()))
 }
 
@@ -135,6 +135,22 @@ mod tests {
         assert!(
             !id.starts_with(r"\\?\"),
             "id should be human-readable, got {id}"
+        );
+    }
+
+    #[test]
+    fn strip_verbatim_handles_drive_and_unc_prefixes() {
+        assert_eq!(
+            strip_verbatim(PathBuf::from(r"\\?\C:\repos\demo")),
+            PathBuf::from(r"C:\repos\demo")
+        );
+        assert_eq!(
+            strip_verbatim(PathBuf::from(r"\\?\UNC\server\share\demo")),
+            PathBuf::from(r"\\server\share\demo")
+        );
+        assert_eq!(
+            strip_verbatim(PathBuf::from("/plain/path")),
+            PathBuf::from("/plain/path")
         );
     }
 

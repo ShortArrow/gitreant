@@ -50,9 +50,29 @@ fn wait_until(cond: impl Fn() -> bool, timeout: Duration) -> bool {
     false
 }
 
+/// Fetch `/api/repos` as text over a raw socket.
+fn get_repos(port: u16) -> String {
+    use std::io::{Read, Write};
+    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+    write!(
+        stream,
+        "GET /api/repos HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
+    )
+    .unwrap();
+    let mut resp = String::new();
+    stream.read_to_string(&mut resp).unwrap();
+    resp
+}
+
 #[test]
 fn detaches_by_default_and_stops_via_shutdown() {
+    // A leftover server from an earlier run stays bound for up to a second
+    // after acknowledging the shutdown; wait until the port is actually free.
     let _ = post_shutdown(PORT);
+    assert!(
+        wait_until(|| !ping(PORT), Duration::from_secs(10)),
+        "a previous server would not release port {PORT}"
+    );
 
     let tmp = tempfile::tempdir().unwrap();
     init_repo_with_commit(tmp.path());
@@ -73,6 +93,36 @@ fn detaches_by_default_and_stops_via_shutdown() {
     };
     assert!(status.success(), "launcher failed: {status}");
     assert!(ping(PORT), "detached server is not answering");
+
+    // Single-instance behavior: a second invocation forwards its repository
+    // to the running server and exits instead of starting another one.
+    let second = tempfile::tempdir().unwrap();
+    init_repo_with_commit(second.path());
+    let forwarder = Command::new(exe)
+        .arg(second.path())
+        .args(["--port", &PORT.to_string(), "--no-open"])
+        .output()
+        .expect("run forwarding invocation");
+    assert!(
+        forwarder.status.success(),
+        "forwarding invocation failed: {}",
+        forwarder.status
+    );
+    let stdout = String::from_utf8_lossy(&forwarder.stdout);
+    assert!(
+        !stdout.contains(r"\\?\"),
+        "forwarded path must be human-readable, got: {stdout}"
+    );
+    let second_name = second
+        .path()
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    assert!(
+        get_repos(PORT).contains(&second_name),
+        "forwarded repository missing from the running server"
+    );
 
     let shutdown = Command::new(exe)
         .args(["--port", &PORT.to_string(), "--shutdown"])
