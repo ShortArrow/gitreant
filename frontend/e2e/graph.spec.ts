@@ -738,9 +738,45 @@ test.describe.serial("gitreant UI", () => {
     await expect(add.locator("svg")).toHaveCount(0);
     await expect(reload).toContainText("Reload");
 
-    // The choice survives a reload.
+    // The choice survives a reload; the modal is gone after it.
     await page.reload();
     await expect(page.getByTestId("add-submit").locator("svg")).toHaveCount(0);
+
+    // The settings dialog is a modal that closes with Escape.
+    await page.getByTestId("settings-toggle").click();
+    await expect(page.getByTestId("settings-panel")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("settings-panel")).toHaveCount(0);
+  });
+
+  test("the command palette opens with Ctrl+K and runs commands", async ({
+    page,
+  }) => {
+    await page.keyboard.press("Control+k");
+    const palette = page.getByTestId("command-palette");
+    await expect(palette).toBeVisible();
+
+    // Typing filters; Enter runs the first match.
+    await page.getByTestId("palette-input").fill("repoB");
+    await expect(page.getByTestId("palette-item")).toHaveCount(1);
+    await page.keyboard.press("Enter");
+    await expect(palette).toHaveCount(0);
+    await expect(page.locator('[data-tab-name="repoB"]')).toBeVisible();
+    await expect(page.getByTestId("commit-row")).toHaveCount(3);
+
+    // Clicking an item works too, and the log pane has a fixed height.
+    await page.keyboard.press("Control+k");
+    await page.getByTestId("palette-input").fill("command log");
+    await page.getByTestId("palette-item").first().click();
+    const pane = page.getByTestId("log-pane");
+    await expect(pane).toBeVisible();
+    expect((await pane.boundingBox())!.height).toBe(180);
+
+    // Escape closes the palette without running anything.
+    await page.keyboard.press("Control+k");
+    await expect(palette).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(palette).toHaveCount(0);
   });
 
   test("diff lines can be selected, copied and permalinked", async ({

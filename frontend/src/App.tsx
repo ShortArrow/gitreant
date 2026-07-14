@@ -8,10 +8,13 @@ import {
   type CommandLogEntry,
   type RepoView,
 } from "./api";
+import { CommandPalette } from "./CommandPalette";
 import { Drawer } from "./Drawer";
 import { FetchIcon, LogIcon, ReloadIcon, SettingsIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { LogPane } from "./LogPane";
+import { type PaletteCommand } from "./palette";
+import { applyTheme, currentTheme, toggleTheme } from "./theme";
 import { mergeLog, type UserAction } from "./logModel";
 import { RepoCard } from "./RepoCard";
 import {
@@ -169,6 +172,59 @@ export function App() {
   };
   const settings = useMemo(() => ({ buttonStyle }), [buttonStyle]);
 
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((open) => !open);
+      } else if (e.key === "Escape") {
+        setPaletteOpen(false);
+        setSettingsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const paletteCommands = useMemo<PaletteCommand[]>(
+    () => [
+      { id: "fetch", title: "Fetch remotes", run: runFetch },
+      {
+        id: "reload",
+        title: "Reload repositories",
+        run: () => {
+          recordAction("Reload repositories");
+          reload();
+        },
+      },
+      {
+        id: "log",
+        title: "Toggle command log",
+        run: () => setLogOpen((open) => !open),
+      },
+      { id: "settings", title: "Open settings", run: () => setSettingsOpen(true) },
+      {
+        id: "theme",
+        title: "Toggle theme",
+        run: () => applyTheme(toggleTheme(currentTheme())),
+      },
+      {
+        id: "drawer",
+        title: collapsed
+          ? "Expand the repository list"
+          : "Collapse the repository list",
+        run: () => setCollapsed((c) => !c),
+      },
+      ...repos.map((repo) => ({
+        id: `open:${repo.id}`,
+        title: `Open repository: ${repo.name}`,
+        run: () => openTab(repo.id),
+      })),
+    ],
+    [repos, collapsed, runFetch, reload, recordAction, openTab],
+  );
+
   return (
     <SettingsContext.Provider value={settings}>
     <div className={`layout${collapsed ? " layout-collapsed" : ""}`}>
@@ -251,27 +307,57 @@ export function App() {
         </div>
 
         {settingsOpen && (
-          <div className="settings-panel" data-testid="settings-panel">
-            <span className="settings-title">Buttons</span>
-            {(
-              [
-                ["icon", "Icon"],
-                ["icon-label", "Icon + label"],
-                ["label", "Label"],
-              ] as const
-            ).map(([value, label]) => (
-              <label key={value} className="settings-option">
-                <input
-                  type="radio"
-                  name="button-style"
-                  data-testid={`button-style-${value}`}
-                  checked={buttonStyle === value}
-                  onChange={() => changeButtonStyle(value)}
-                />
-                {label}
-              </label>
-            ))}
+          <div
+            className="modal-backdrop"
+            onMouseDown={() => setSettingsOpen(false)}
+          >
+            <div
+              className="settings-modal"
+              data-testid="settings-panel"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <header className="modal-head">
+                <h3>Settings</h3>
+                <button
+                  className="icon-btn"
+                  title="Close settings"
+                  data-testid="settings-close"
+                  onClick={() => setSettingsOpen(false)}
+                  type="button"
+                >
+                  ×
+                </button>
+              </header>
+              <fieldset className="settings-group">
+                <legend>Buttons</legend>
+                {(
+                  [
+                    ["icon", "Icon"],
+                    ["icon-label", "Icon + label"],
+                    ["label", "Label"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <label key={value} className="settings-option">
+                    <input
+                      type="radio"
+                      name="button-style"
+                      data-testid={`button-style-${value}`}
+                      checked={buttonStyle === value}
+                      onChange={() => changeButtonStyle(value)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </fieldset>
+            </div>
           </div>
+        )}
+
+        {paletteOpen && (
+          <CommandPalette
+            commands={paletteCommands}
+            onClose={() => setPaletteOpen(false)}
+          />
         )}
 
         {(loadError ?? fetchError) && (
