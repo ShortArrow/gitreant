@@ -752,6 +752,9 @@ test.describe.serial("gitreant UI", () => {
   test("the command palette opens with Ctrl+K and runs commands", async ({
     page,
   }) => {
+    // The shortcut listener registers in an effect after the first render;
+    // wait for data-driven UI so pressing the key cannot race it.
+    await expect(page.getByTestId("repo-item").first()).toBeVisible();
     await page.keyboard.press("Control+k");
     const palette = page.getByTestId("command-palette");
     await expect(palette).toBeVisible();
