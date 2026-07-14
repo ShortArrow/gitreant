@@ -23,7 +23,7 @@ export function LabeledButton({
   active?: boolean;
   disabled?: boolean;
   type?: "button" | "submit";
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }) {
   const style = useButtonStyle();
   const classes = [className, active ? "active" : null, "labeled-btn"]

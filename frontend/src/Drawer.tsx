@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { pickFolder, type RepoView } from "./api";
-import { AddIcon } from "./Icons";
+import { AddIcon, BrowseIcon, CollapseIcon, ExpandIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { ResizeHandle, useStoredWidth } from "./Resizer";
 
@@ -60,15 +60,13 @@ export function Drawer({
   if (collapsed) {
     return (
       <aside className="drawer drawer-collapsed">
-        <button
+        <LabeledButton
+          icon={<ExpandIcon />}
+          label="Expand"
+          testId="drawer-expand"
           className="icon-btn"
-          title="Expand"
-          data-testid="drawer-expand"
           onClick={onToggle}
-          type="button"
-        >
-          ›
-        </button>
+        />
       </aside>
     );
   }
@@ -77,15 +75,13 @@ export function Drawer({
     <aside className="drawer" style={{ width }}>
       <div className="drawer-head">
         <span className="drawer-title">Repositories</span>
-        <button
+        <LabeledButton
+          icon={<CollapseIcon />}
+          label="Collapse"
+          testId="drawer-collapse"
           className="icon-btn"
-          title="Collapse"
-          data-testid="drawer-collapse"
           onClick={onToggle}
-          type="button"
-        >
-          ‹
-        </button>
+        />
       </div>
 
       <form className="drawer-add" onSubmit={submit}>
@@ -96,16 +92,14 @@ export function Drawer({
           value={path}
           onChange={(e) => setPath(e.target.value)}
         />
-        <button
-          type="button"
+        <LabeledButton
+          icon={<BrowseIcon />}
+          label="Browse"
+          testId="add-browse"
           className="browse"
-          title="Choose a folder…"
-          data-testid="add-browse"
           onClick={browse}
           disabled={adding}
-        >
-          📁
-        </button>
+        />
         <LabeledButton
           icon={<AddIcon />}
           label={adding ? "…" : "Add"}

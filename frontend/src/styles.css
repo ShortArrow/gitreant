@@ -100,15 +100,20 @@ body {
 }
 
 .drawer-collapsed {
-  width: 36px;
+  /* Wide enough for the icon rail, growing when the label setting is on. */
+  width: auto;
+  min-width: 36px;
   align-items: center;
-  padding-top: 8px;
+  padding: 8px 6px 0;
 }
 
 /* .icon-btn's margin-left:auto right-aligns it inside header rows; in the
  * collapsed rail the button must center instead. */
 .drawer-collapsed .icon-btn {
   margin-left: 0;
+  width: auto;
+  min-width: 24px;
+  padding: 0 4px;
 }
 
 .drawer-head {
@@ -354,6 +359,14 @@ body {
   color: var(--danger);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* The wrapper spans exist only for the theme swap; without this the SVG
+ * sits on the inline baseline and drifts a few pixels down. */
+.theme-toggle .sun,
+.theme-toggle .moon {
+  display: inline-flex;
+  align-items: center;
 }
 
 :root[data-theme="dark"] .theme-toggle .moon,
@@ -820,6 +833,13 @@ body {
 
 .btn-icon {
   flex: none;
+}
+
+/* Fixed-square icon buttons grow when a label is shown. */
+.labeled-btn.icon-btn {
+  width: auto;
+  min-width: 24px;
+  padding: 0 4px;
 }
 
 .detail-files {

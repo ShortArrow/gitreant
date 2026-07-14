@@ -691,10 +691,12 @@ test.describe.serial("gitreant UI", () => {
   test("the settings panel switches button display style", async ({
     page,
   }) => {
-    // Default: icon + label.
+    // Default: icon + label, in the drawer and the top bar alike.
     const add = page.getByTestId("add-submit");
+    const reload = page.getByTestId("reload");
     await expect(add).toContainText("Add");
     await expect(add.locator("svg")).toHaveCount(1);
+    await expect(reload).toContainText("Reload");
 
     await page.getByTestId("settings-toggle").click();
     await expect(page.getByTestId("settings-panel")).toBeVisible();
@@ -704,11 +706,13 @@ test.describe.serial("gitreant UI", () => {
     await expect(add).not.toContainText("Add");
     await expect(add.locator("svg")).toHaveCount(1);
     await expect(add).toHaveAttribute("title", "Add");
+    await expect(reload).not.toContainText("Reload");
 
     // Label only: no icon.
     await page.getByTestId("button-style-label").click();
     await expect(add).toContainText("Add");
     await expect(add.locator("svg")).toHaveCount(0);
+    await expect(reload).toContainText("Reload");
 
     // The choice survives a reload.
     await page.reload();

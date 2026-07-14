@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FileDiff } from "./api";
-import { InlineIcon, SplitIcon } from "./Icons";
+import { InlineIcon, LineMenuIcon, SplitIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import {
   inlineCells,
@@ -285,7 +285,7 @@ function LineMenu({
         type="button"
         onClick={() => setOpen((o) => !o)}
       >
-        ▾
+        <LineMenuIcon />
       </button>
       {open && (
         <div className="ctx-menu line-menu" data-testid="line-menu">

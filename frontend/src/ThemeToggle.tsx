@@ -1,3 +1,5 @@
+import { MoonThemeIcon, SunThemeIcon } from "./Icons";
+import { LabeledButton } from "./LabeledButton";
 import { applyTheme, coverRadius, currentTheme, toggleTheme } from "./theme";
 
 type ViewTransitionDocument = Document & {
@@ -42,15 +44,21 @@ export function ThemeToggle() {
   };
 
   return (
-    <button
-      className="theme-toggle"
-      type="button"
-      aria-label="テーマ切り替え"
-      data-testid="theme-toggle"
+    <LabeledButton
+      icon={
+        <>
+          <span className="sun">
+            <SunThemeIcon />
+          </span>
+          <span className="moon">
+            <MoonThemeIcon />
+          </span>
+        </>
+      }
+      label="Theme"
+      testId="theme-toggle"
+      className="topbar-btn theme-toggle"
       onClick={onClick}
-    >
-      <span className="sun">☀️</span>
-      <span className="moon">🌙</span>
-    </button>
+    />
   );
 }

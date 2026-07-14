@@ -9,6 +9,8 @@ import {
   type RepoView,
 } from "./api";
 import { Drawer } from "./Drawer";
+import { FetchIcon, LogIcon, ReloadIcon, SettingsIcon } from "./Icons";
+import { LabeledButton } from "./LabeledButton";
 import { LogPane } from "./LogPane";
 import { mergeLog, type UserAction } from "./logModel";
 import { RepoCard } from "./RepoCard";
@@ -211,46 +213,40 @@ export function App() {
             );
           })}
           </div>
-          <button
+          <LabeledButton
+            icon={<FetchIcon />}
+            label="Fetch"
+            testId="fetch"
             className="topbar-btn"
-            title="Fetch remotes"
-            data-testid="fetch"
             onClick={runFetch}
             disabled={fetching}
-            type="button"
-          >
-            ⇣
-          </button>
-          <button
-            className={`topbar-btn${logOpen ? " active" : ""}`}
-            title="Command log"
-            data-testid="log-toggle"
-            onClick={() => setLogOpen((open) => !open)}
-            type="button"
-          >
-            ≣
-          </button>
-          <button
+          />
+          <LabeledButton
+            icon={<LogIcon />}
+            label="Log"
+            testId="log-toggle"
             className="topbar-btn"
-            title="Reload repositories"
-            data-testid="reload"
+            active={logOpen}
+            onClick={() => setLogOpen((open) => !open)}
+          />
+          <LabeledButton
+            icon={<ReloadIcon />}
+            label="Reload"
+            testId="reload"
+            className="topbar-btn"
             onClick={() => {
               recordAction("Reload repositories");
               reload();
             }}
-            type="button"
-          >
-            ⟳
-          </button>
-          <button
-            className={`topbar-btn${settingsOpen ? " active" : ""}`}
-            title="Settings"
-            data-testid="settings-toggle"
+          />
+          <LabeledButton
+            icon={<SettingsIcon />}
+            label="Settings"
+            testId="settings-toggle"
+            className="topbar-btn"
+            active={settingsOpen}
             onClick={() => setSettingsOpen((open) => !open)}
-            type="button"
-          >
-            ⚙
-          </button>
+          />
           <ThemeToggle />
         </div>
 
