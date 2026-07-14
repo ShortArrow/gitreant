@@ -712,21 +712,35 @@ test.describe.serial("gitreant UI", () => {
       });
     await lineNo(3).click();
     await lineNo(5).click({ modifiers: ["Shift"] });
-    const bar = page.getByTestId("diff-select-bar");
-    await expect(bar).toContainText("3 lines");
 
-    await page.getByTestId("copy-lines").click();
+    // A dropdown trigger appears on the first selected line, GitHub-style.
+    const trigger = page.getByTestId("line-menu-trigger");
+    await expect(trigger).toBeVisible();
+    await expect(
+      page
+        .locator(".diff-line", { hasText: "delta" })
+        .getByTestId("line-menu-trigger"),
+    ).toBeVisible();
+
+    await trigger.click();
+    const menu = page.getByTestId("line-menu");
+    await expect(menu).toContainText("3 lines");
+    await menu.getByTestId("copy-lines").click();
     // The Windows clipboard round-trips LF as CRLF; normalize for comparison.
     const copied = await page.evaluate(() => navigator.clipboard.readText());
     expect(copied.replaceAll("\r\n", "\n")).toBe("delta\nepsilon\ngamma");
+    // Copying closes the menu; the selection stays.
+    await expect(menu).toHaveCount(0);
 
+    await trigger.click();
     await page.getByTestId("copy-permalink").click();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
       /^https:\/\/github\.com\/example\/repoK\/blob\/[0-9a-f]{40}\/list\.txt#L3-L5$/,
     );
 
-    await page.getByTestId("clear-selection").click();
-    await expect(bar).toHaveCount(0);
+    // Escape clears the selection and the trigger with it.
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("line-menu-trigger")).toHaveCount(0);
 
     // Restore the served set.
     const repoK = page.locator('[data-repo-name="repoK"]');

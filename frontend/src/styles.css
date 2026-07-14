@@ -581,9 +581,9 @@ body {
   padding: 1px 6px;
 }
 
-/* Context menu on branch badges. */
-.ref-menu {
-  position: fixed;
+/* Dropdown menus: branch badges (fixed at cursor) and diff selections. */
+.ref-menu,
+.ctx-menu {
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -595,7 +595,12 @@ body {
   box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
 }
 
-.ref-menu button {
+.ref-menu {
+  position: fixed;
+}
+
+.ref-menu button,
+.ctx-menu button {
   text-align: left;
   padding: 6px 10px;
   background: transparent;
@@ -604,21 +609,28 @@ body {
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  white-space: nowrap;
 }
 
-.ref-menu button:hover:not(:disabled) {
+.ref-menu button:hover:not(:disabled),
+.ctx-menu button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
-.ref-menu button:disabled {
+.ref-menu button:disabled,
+.ctx-menu button:disabled {
   color: var(--muted);
   cursor: default;
 }
 
-.ref-menu-question {
+.ref-menu-question,
+.ctx-menu-note {
   padding: 6px 10px;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  white-space: nowrap;
 }
 
 /* Link to the branch's open PR, appended as a badge segment. */
@@ -936,35 +948,36 @@ body {
   background: color-mix(in srgb, var(--accent) 16%, transparent) !important;
 }
 
-.diff-select-bar {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
+/* GitHub-style dropdown on the first selected line. */
+.diff-line,
+.split-row {
+  position: relative;
 }
 
-.diff-select-bar .diff-select-count {
-  color: var(--muted);
-  font-size: 12px;
+.line-menu-wrap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
 }
 
-.diff-select-bar button {
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 1px 8px;
-  font-size: 12px;
+.line-menu-trigger {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  line-height: 1;
+  font-size: 11px;
+  color: var(--bg-elev);
+  background: var(--accent);
+  border: none;
+  border-radius: 4px;
   cursor: pointer;
 }
 
-.diff-select-bar button:hover:not(:disabled) {
-  border-color: var(--accent);
-}
-
-.diff-select-bar button:disabled {
-  color: var(--muted);
-  cursor: default;
+.line-menu {
+  position: absolute;
+  left: 0;
+  top: 18px;
 }
 
 .split-text {

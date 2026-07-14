@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FileDiff } from "./api";
 import {
   inlineCells,
@@ -70,6 +70,14 @@ export function FileDiffPane({
     );
   };
 
+  useEffect(() => {
+    const clear = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelection(null);
+    };
+    window.addEventListener("keydown", clear);
+    return () => window.removeEventListener("keydown", clear);
+  }, []);
+
   return (
     <div className="diff-pane" data-testid="diff-pane">
       <header className="diff-head">
@@ -118,7 +126,6 @@ export function FileDiffPane({
             commitId={commitId}
             githubUrl={githubUrl}
             onSelectLine={selectLine}
-            onClearSelection={() => setSelection(null)}
           />
         ))}
       </div>
@@ -133,7 +140,6 @@ function FileSection({
   commitId,
   githubUrl,
   onSelectLine,
-  onClearSelection,
 }: {
   diff: FileDiff;
   view: DiffView;
@@ -141,7 +147,6 @@ function FileSection({
   commitId: string;
   githubUrl?: string;
   onSelectLine: (path: string, index: number, extend: boolean) => void;
-  onClearSelection: () => void;
 }) {
   const hunks = useMemo(() => parseUnified(diff.text), [diff.text]);
   // The display lines in order; selection indices point into this list.
@@ -160,6 +165,18 @@ function FileSection({
   const handleSelect = (index: number, extend: boolean) =>
     onSelectLine(diff.path, index, extend);
 
+  // GitHub-style: the dropdown trigger sits on the first selected line.
+  // Keying by the range remounts the menu (and closes it) on any change.
+  const anchor = selection ? (
+    <LineMenu
+      key={`${selection.from}-${selection.to}`}
+      selectedCells={selectedCells}
+      path={diff.path}
+      commitId={commitId}
+      githubUrl={githubUrl}
+    />
+  ) : null;
+
   return (
     <section className="diff-file-section" data-testid="diff-file-section">
       <div className="diff-file-head">
@@ -167,83 +184,101 @@ function FileSection({
           {diff.status}
         </span>
         <span className="diff-path">{diff.path}</span>
-        {selection && (
-          <SelectionActions
-            selectedCells={selectedCells}
-            path={diff.path}
-            commitId={commitId}
-            githubUrl={githubUrl}
-            onClear={onClearSelection}
-          />
-        )}
       </div>
       {diff.binary ? (
         <p className="diff-binary">Binary file — no text diff.</p>
       ) : view === "inline" ? (
-        <InlineDiff hunks={hunks} isSelected={isSelected} onSelect={handleSelect} />
+        <InlineDiff
+          hunks={hunks}
+          isSelected={isSelected}
+          onSelect={handleSelect}
+          anchorIndex={selection?.from ?? -1}
+          anchor={anchor}
+        />
       ) : (
-        <SplitDiff hunks={hunks} isSelected={isSelected} onSelect={handleSelect} />
+        <SplitDiff
+          hunks={hunks}
+          isSelected={isSelected}
+          onSelect={handleSelect}
+          anchorIndex={selection?.from ?? -1}
+          anchor={anchor}
+        />
       )}
     </section>
   );
 }
 
-/** Actions on the current gutter selection, shown next to the file name. */
-function SelectionActions({
+/** Dropdown on the first selected line: actions on the current selection. */
+function LineMenu({
   selectedCells,
   path,
   commitId,
   githubUrl,
-  onClear,
 }: {
   selectedCells: SplitCell[];
   path: string;
   commitId: string;
   githubUrl?: string;
-  onClear: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("mousedown", close);
+    return () => window.removeEventListener("mousedown", close);
+  }, [open]);
+
   const fragment = permalinkFragment(selectedCells);
   const permalink =
     githubUrl && fragment
       ? `${githubUrl}/blob/${commitId}/${path}${fragment}`
       : null;
-  const copy = (text: string) =>
+  const copy = (text: string) => {
     navigator.clipboard.writeText(text).catch(() => {});
+    setOpen(false);
+  };
 
   return (
-    <span className="diff-select-bar" data-testid="diff-select-bar">
-      <span className="diff-select-count">
-        {selectedCells.length} line{selectedCells.length === 1 ? "" : "s"}
-      </span>
+    <span className="line-menu-wrap" onMouseDown={(e) => e.stopPropagation()}>
       <button
+        className="line-menu-trigger"
+        data-testid="line-menu-trigger"
+        title="Selection actions"
         type="button"
-        data-testid="copy-lines"
-        onClick={() => copy(selectedLines(selectedCells))}
+        onClick={() => setOpen((o) => !o)}
       >
-        Copy lines
+        ▾
       </button>
-      <button
-        type="button"
-        data-testid="copy-permalink"
-        disabled={!permalink}
-        title={
-          permalink ??
-          (githubUrl
-            ? "Removed lines have no permalink on the new side"
-            : "No GitHub remote")
-        }
-        onClick={() => permalink && copy(permalink)}
-      >
-        Copy permalink
-      </button>
-      <button
-        type="button"
-        data-testid="clear-selection"
-        title="Clear selection"
-        onClick={onClear}
-      >
-        ×
-      </button>
+      {open && (
+        <div className="ctx-menu line-menu" data-testid="line-menu">
+          <span className="ctx-menu-note">
+            {selectedCells.length} line
+            {selectedCells.length === 1 ? "" : "s"} selected
+          </span>
+          <button
+            type="button"
+            data-testid="copy-lines"
+            onClick={() => copy(selectedLines(selectedCells))}
+          >
+            Copy lines
+          </button>
+          <button
+            type="button"
+            data-testid="copy-permalink"
+            disabled={!permalink}
+            title={
+              permalink ??
+              (githubUrl
+                ? "Removed lines have no permalink on the new side"
+                : "No GitHub remote")
+            }
+            onClick={() => permalink && copy(permalink)}
+          >
+            Copy permalink
+          </button>
+        </div>
+      )}
     </span>
   );
 }
@@ -254,10 +289,15 @@ function InlineDiff({
   hunks,
   isSelected,
   onSelect,
+  anchorIndex,
+  anchor,
 }: {
   hunks: DiffHunk[];
   isSelected: (index: number) => boolean;
   onSelect: (index: number, extend: boolean) => void;
+  /** Display index carrying the selection dropdown (-1 for none). */
+  anchorIndex: number;
+  anchor: React.ReactNode;
 }) {
   let base = 0;
   return (
@@ -276,6 +316,7 @@ function InlineDiff({
                   isSelected(offset + i) ? " line-selected" : ""
                 }`}
               >
+                {offset + i === anchorIndex && anchor}
                 <LineNo
                   no={cell.no}
                   onClick={(extend) => onSelect(offset + i, extend)}
@@ -333,10 +374,15 @@ function SplitDiff({
   hunks,
   isSelected,
   onSelect,
+  anchorIndex,
+  anchor,
 }: {
   hunks: DiffHunk[];
   isSelected: (index: number) => boolean;
   onSelect: (index: number, extend: boolean) => void;
+  /** Display index carrying the selection dropdown (-1 for none). */
+  anchorIndex: number;
+  anchor: React.ReactNode;
 }) {
   let base = 0;
   return (
@@ -354,6 +400,7 @@ function SplitDiff({
                   isSelected(offset + i) ? " line-selected" : ""
                 }`}
               >
+                {offset + i === anchorIndex && anchor}
                 <SplitSide
                   cell={row.left}
                   onSelect={(extend) => onSelect(offset + i, extend)}
