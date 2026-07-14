@@ -2,7 +2,16 @@ import { expect, test } from "vitest";
 import { signatureLabel, splitMessage } from "./CommitDetailPanel";
 import { signatureBadge } from "./RepoCard";
 import { clampWidth } from "./Resizer";
+import { parseButtonStyle } from "./settings";
 import { resolveTheme, toggleTheme } from "./theme";
+
+test("parseButtonStyle falls back to icon-label for unknown values", () => {
+  expect(parseButtonStyle("icon")).toBe("icon");
+  expect(parseButtonStyle("label")).toBe("label");
+  expect(parseButtonStyle("icon-label")).toBe("icon-label");
+  expect(parseButtonStyle(null)).toBe("icon-label");
+  expect(parseButtonStyle("garbage")).toBe("icon-label");
+});
 
 test("signatureBadge maps the verification verdict to a label", () => {
   expect(signatureBadge(true)).toMatchObject({

@@ -47,7 +47,8 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
   plus a reload button to pick up new commits
 - Native folder picker for adding repositories
 - Detaches from the terminal by default; `--shutdown` stops the server
-- Dark/light theme toggle
+- Dark/light theme toggle, and a settings panel to render action buttons
+  as icons, icons with labels, or labels only
 - Single self-contained binary — no runtime dependencies
 
 ## Install / Build

@@ -12,6 +12,12 @@ import { Drawer } from "./Drawer";
 import { LogPane } from "./LogPane";
 import { mergeLog, type UserAction } from "./logModel";
 import { RepoCard } from "./RepoCard";
+import {
+  SettingsContext,
+  storeButtonStyle,
+  storedButtonStyle,
+  type ButtonStyle,
+} from "./settings";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function App() {
@@ -153,7 +159,16 @@ export function App() {
 
   const activeRepo = activeId ? repoById.get(activeId) : undefined;
 
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [buttonStyle, setButtonStyle] = useState<ButtonStyle>(storedButtonStyle);
+  const changeButtonStyle = (style: ButtonStyle) => {
+    setButtonStyle(style);
+    storeButtonStyle(style);
+  };
+  const settings = useMemo(() => ({ buttonStyle }), [buttonStyle]);
+
   return (
+    <SettingsContext.Provider value={settings}>
     <div className={`layout${collapsed ? " layout-collapsed" : ""}`}>
       <Drawer
         repos={repos}
@@ -227,8 +242,41 @@ export function App() {
           >
             ⟳
           </button>
+          <button
+            className={`topbar-btn${settingsOpen ? " active" : ""}`}
+            title="Settings"
+            data-testid="settings-toggle"
+            onClick={() => setSettingsOpen((open) => !open)}
+            type="button"
+          >
+            ⚙
+          </button>
           <ThemeToggle />
         </div>
+
+        {settingsOpen && (
+          <div className="settings-panel" data-testid="settings-panel">
+            <span className="settings-title">Buttons</span>
+            {(
+              [
+                ["icon", "Icon"],
+                ["icon-label", "Icon + label"],
+                ["label", "Label"],
+              ] as const
+            ).map(([value, label]) => (
+              <label key={value} className="settings-option">
+                <input
+                  type="radio"
+                  name="button-style"
+                  data-testid={`button-style-${value}`}
+                  checked={buttonStyle === value}
+                  onChange={() => changeButtonStyle(value)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        )}
 
         {(loadError ?? fetchError) && (
           <p className="app-error">{loadError ?? fetchError}</p>
@@ -247,5 +295,6 @@ export function App() {
         {logOpen && <LogPane items={logItems} />}
       </main>
     </div>
+    </SettingsContext.Provider>
   );
 }

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { CommitDetail, FileChange } from "./api";
 import { CopyText } from "./CopyText";
+import { DiffAllIcon, FlatIcon, TreeIcon } from "./Icons";
+import { LabeledButton } from "./LabeledButton";
 import { buildFileTree, type FileTreeNode } from "./fileTree";
 import { shortId } from "./graph";
 import { ResizeHandle, useStoredWidth } from "./Resizer";
@@ -176,33 +178,29 @@ function DetailBody({
           {detail.files.length} file{detail.files.length === 1 ? "" : "s"}
         </span>
         {detail.files.length > 0 && (
-          <button
+          <LabeledButton
+            icon={<DiffAllIcon />}
+            label="Diff all"
+            testId="diff-all"
             className="diff-all-btn"
-            title="Show every file's diff"
-            data-testid="diff-all"
             onClick={onShowAllDiffs}
-            type="button"
-          >
-            Diff all
-          </button>
+          />
         )}
         <div className="files-view">
-          <button
-            className={view === "flat" ? "active" : ""}
-            data-testid="files-view-flat"
+          <LabeledButton
+            icon={<FlatIcon />}
+            label="Flat"
+            testId="files-view-flat"
+            active={view === "flat"}
             onClick={() => onChangeView("flat")}
-            type="button"
-          >
-            Flat
-          </button>
-          <button
-            className={view === "tree" ? "active" : ""}
-            data-testid="files-view-tree"
+          />
+          <LabeledButton
+            icon={<TreeIcon />}
+            label="Tree"
+            testId="files-view-tree"
+            active={view === "tree"}
             onClick={() => onChangeView("tree")}
-            type="button"
-          >
-            Tree
-          </button>
+          />
         </div>
       </div>
 

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { pickFolder, type RepoView } from "./api";
+import { AddIcon } from "./Icons";
+import { LabeledButton } from "./LabeledButton";
 import { ResizeHandle, useStoredWidth } from "./Resizer";
 
 interface DrawerProps {
@@ -104,9 +106,13 @@ export function Drawer({
         >
           📁
         </button>
-        <button type="submit" data-testid="add-submit" disabled={adding}>
-          {adding ? "…" : "Add"}
-        </button>
+        <LabeledButton
+          icon={<AddIcon />}
+          label={adding ? "…" : "Add"}
+          testId="add-submit"
+          type="submit"
+          disabled={adding}
+        />
       </form>
       {error && <p className="drawer-error">{error}</p>}
 

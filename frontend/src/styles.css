@@ -280,6 +280,28 @@ body {
   color: var(--text);
 }
 
+/* ---- Settings panel ---- */
+.settings-panel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+  font-size: 13px;
+}
+
+.settings-title {
+  color: var(--muted);
+}
+
+.settings-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
 /* ---- Command log pane ---- */
 .log-pane {
   flex: none;
@@ -786,6 +808,18 @@ body {
 .files-view button.active {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--text);
+}
+
+/* Buttons that follow the icon/label display setting. */
+.labeled-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.btn-icon {
+  flex: none;
 }
 
 .detail-files {

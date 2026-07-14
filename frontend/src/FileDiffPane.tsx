@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FileDiff } from "./api";
+import { InlineIcon, SplitIcon } from "./Icons";
+import { LabeledButton } from "./LabeledButton";
 import {
   inlineCells,
   parseUnified,
@@ -99,22 +101,20 @@ export function FileDiffPane({
           {files && files.length > 1 && `${files.length} files`}
         </span>
         <div className="files-view">
-          <button
-            className={view === "inline" ? "active" : ""}
-            data-testid="diff-view-inline"
+          <LabeledButton
+            icon={<InlineIcon />}
+            label="Inline"
+            testId="diff-view-inline"
+            active={view === "inline"}
             onClick={() => changeView("inline")}
-            type="button"
-          >
-            Inline
-          </button>
-          <button
-            className={view === "split" ? "active" : ""}
-            data-testid="diff-view-split"
+          />
+          <LabeledButton
+            icon={<SplitIcon />}
+            label="Split"
+            testId="diff-view-split"
+            active={view === "split"}
             onClick={() => changeView("split")}
-            type="button"
-          >
-            Split
-          </button>
+          />
         </div>
         <button
           className="icon-btn"

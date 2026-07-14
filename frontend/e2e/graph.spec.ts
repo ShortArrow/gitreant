@@ -688,6 +688,33 @@ test.describe.serial("gitreant UI", () => {
     await expect(link).toHaveAttribute("target", "_blank");
   });
 
+  test("the settings panel switches button display style", async ({
+    page,
+  }) => {
+    // Default: icon + label.
+    const add = page.getByTestId("add-submit");
+    await expect(add).toContainText("Add");
+    await expect(add.locator("svg")).toHaveCount(1);
+
+    await page.getByTestId("settings-toggle").click();
+    await expect(page.getByTestId("settings-panel")).toBeVisible();
+
+    // Icon only: the label leaves the text but stays as the tooltip.
+    await page.getByTestId("button-style-icon").click();
+    await expect(add).not.toContainText("Add");
+    await expect(add.locator("svg")).toHaveCount(1);
+    await expect(add).toHaveAttribute("title", "Add");
+
+    // Label only: no icon.
+    await page.getByTestId("button-style-label").click();
+    await expect(add).toContainText("Add");
+    await expect(add.locator("svg")).toHaveCount(0);
+
+    // The choice survives a reload.
+    await page.reload();
+    await expect(page.getByTestId("add-submit").locator("svg")).toHaveCount(0);
+  });
+
   test("diff lines can be selected, copied and permalinked", async ({
     page,
     context,
