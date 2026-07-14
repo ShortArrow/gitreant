@@ -24,6 +24,10 @@ fn init_repo_with_commit(dir: &Path) {
     };
     run(&["init", "-q", "-b", "main"]);
     run(&["config", "commit.gpgsign", "false"]);
+    // Repo-local identity: server-side merges create commits and CI runners
+    // have no global git config.
+    run(&["config", "user.name", "T"]);
+    run(&["config", "user.email", "t@e.com"]);
     run(&["commit", "--allow-empty", "-m", "root"]);
 }
 

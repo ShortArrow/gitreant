@@ -39,10 +39,14 @@ export function commit(
   });
 }
 
-/** Create an empty repository at `dir` with a `main` branch and no signing. */
+/** Create an empty repository at `dir` with a `main` branch and no signing.
+ * The identity is also written to the repo config: server-side merges create
+ * commits, and CI runners have no global git config. */
 export function initRepo(dir: string): string {
   mkdirSync(dir, { recursive: true });
   git(dir, ["init", "-q", "-b", "main"]);
   git(dir, ["config", "commit.gpgsign", "false"]);
+  git(dir, ["config", "user.name", "Tester"]);
+  git(dir, ["config", "user.email", "tester@example.com"]);
   return dir;
 }
