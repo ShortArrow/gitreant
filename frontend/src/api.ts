@@ -12,6 +12,8 @@ export interface CommitView {
   /** true = gpg verified the signature, false = judged it invalid;
    *  absent = unchecked (no gpg, unknown key, or unsigned). */
   verified?: boolean;
+  /** Signing key id, when gpg could attribute one. */
+  signature_key?: string;
 }
 
 export interface GraphEdge {
@@ -34,6 +36,10 @@ export interface RepoView {
   name: string;
   path: string;
   head: string | null;
+  /** Short name of the checked-out branch; absent when HEAD is detached. */
+  head_branch?: string;
+  /** Web URL of the origin remote, when it points at github.com. */
+  github_url?: string;
   refs: RefView[];
   commits: CommitView[];
   edges: GraphEdge[];
@@ -103,6 +109,46 @@ export interface CommandLogEntry {
   ok: boolean;
   /** stderr on failure, empty on success. */
   message: string;
+}
+
+export interface BranchOpResult {
+  ok: boolean;
+  /** git's stderr when the operation failed (e.g. merge conflicts). */
+  message: string;
+}
+
+async function branchOp(
+  endpoint: string,
+  repoId: string,
+  reference: string,
+): Promise<BranchOpResult> {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo: repoId, reference }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || `branch operation failed: ${response.status}`,
+    );
+  }
+  return response.json();
+}
+
+/** Switch the repository to a branch (server-side `git switch`). */
+export function checkoutRef(
+  repoId: string,
+  reference: string,
+): Promise<BranchOpResult> {
+  return branchOp("/api/checkout", repoId, reference);
+}
+
+/** Merge a reference into the checked-out branch (server-side `git merge`). */
+export function mergeRef(
+  repoId: string,
+  reference: string,
+): Promise<BranchOpResult> {
+  return branchOp("/api/merge", repoId, reference);
 }
 
 export interface PullRequestView {

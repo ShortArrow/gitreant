@@ -23,6 +23,8 @@ pub struct CommitMeta {
     /// Verification verdict, filled in later by the session when gpg is
     /// available: `Some(true)` valid, `Some(false)` invalid, `None` unchecked.
     pub verified: Option<bool>,
+    /// Signing key id (`%GK`), filled in alongside `verified`.
+    pub signature_key: Option<String>,
 }
 
 /// A named reference (branch/tag) pointing at a commit.
@@ -45,6 +47,10 @@ pub struct RepoData {
     pub commits: Vec<CommitMeta>,
     pub refs: Vec<RefInfo>,
     pub head: Option<String>,
+    /// Short name of the checked-out branch; None when HEAD is detached.
+    pub head_branch: Option<String>,
+    /// Web URL of the origin remote, when it points at github.com.
+    pub github_url: Option<String>,
 }
 
 impl RepoData {
@@ -79,6 +85,15 @@ pub fn read_repo(path: &Path) -> Result<RepoData, String> {
         .head_id()
         .ok()
         .map(|id| id.detach().to_string());
+    let head_branch = repo
+        .head_name()
+        .ok()
+        .flatten()
+        .map(|name| name.shorten().to_string());
+    let github_url = repo
+        .config_snapshot()
+        .string("remote.origin.url")
+        .and_then(|url| github_web_url(&url.to_string()));
 
     let tips: Vec<gix::ObjectId> = refs
         .iter()
@@ -101,6 +116,8 @@ pub fn read_repo(path: &Path) -> Result<RepoData, String> {
         commits,
         refs,
         head,
+        head_branch,
+        github_url,
     })
 }
 
@@ -129,6 +146,22 @@ fn collect_refs(repo: &gix::Repository) -> Vec<RefInfo> {
         }
     }
     refs
+}
+
+/// The GitHub web URL for a clone URL, when it points at github.com.
+///
+/// Handles "https://github.com/o/r(.git)", "git@github.com:o/r(.git)" and
+/// "ssh://git@github.com/o/r(.git)"; anything else is None.
+pub fn github_web_url(clone_url: &str) -> Option<String> {
+    let rest = clone_url
+        .strip_prefix("https://github.com/")
+        .or_else(|| clone_url.strip_prefix("git@github.com:"))
+        .or_else(|| clone_url.strip_prefix("ssh://git@github.com/"))?;
+    let path = rest.strip_suffix(".git").unwrap_or(rest).trim_end_matches('/');
+    let mut parts = path.splitn(2, '/');
+    let owner = parts.next().filter(|s| !s.is_empty())?;
+    let repo = parts.next().filter(|s| !s.is_empty() && !s.contains('/'))?;
+    Some(format!("https://github.com/{owner}/{repo}"))
 }
 
 /// Split a remote-tracking ref into its branch and remote names; anything else
@@ -250,6 +283,7 @@ fn topological_order(raw: Vec<RawCommit>) -> Vec<CommitMeta> {
             parents,
             signature: commit.signature.clone(),
             verified: None,
+            signature_key: None,
         });
         for parent in &commit.parents {
             if let Some(&pi) = index.get(parent) {
@@ -292,5 +326,33 @@ impl Ord for HeapItem {
 impl PartialOrd for HeapItem {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn github_web_url_normalizes_the_common_clone_forms() {
+        for url in [
+            "https://github.com/owner/repo.git",
+            "https://github.com/owner/repo",
+            "git@github.com:owner/repo.git",
+            "ssh://git@github.com/owner/repo.git",
+        ] {
+            assert_eq!(
+                github_web_url(url).as_deref(),
+                Some("https://github.com/owner/repo"),
+                "for {url}"
+            );
+        }
+    }
+
+    #[test]
+    fn github_web_url_rejects_other_hosts_and_shapes() {
+        assert_eq!(github_web_url("https://gitlab.com/o/r.git"), None);
+        assert_eq!(github_web_url("../local/path"), None);
+        assert_eq!(github_web_url("https://github.com/only-owner"), None);
     }
 }

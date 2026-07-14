@@ -25,6 +25,10 @@ pub fn gpg_available() -> bool {
     })
 }
 
+/// A commit's signature check: the raw `%G?` status and the signing key id
+/// (`%GK`, empty when git could not attribute one).
+pub type SignatureCheck = (char, Option<String>);
+
 /// `-c log.showsignature=false` keeps user config from injecting gpg output
 /// above the format lines; `--no-walk=unsorted` checks exactly the given ids.
 fn verify_args(ids: &[String]) -> Vec<String> {
@@ -33,7 +37,7 @@ fn verify_args(ids: &[String]) -> Vec<String> {
         "log.showsignature=false".to_string(),
         "log".to_string(),
         "--no-walk=unsorted".to_string(),
-        "--format=%H %G?".to_string(),
+        "--format=%H %G? %GK".to_string(),
     ];
     args.extend(ids.iter().cloned());
     args
@@ -48,10 +52,12 @@ pub fn verify_command(path: &Path, ids: &[String]) -> String {
     )
 }
 
-/// Ask git for the signature status (`%G?`) of each commit in `ids`.
-///
-/// Returns a map from full commit id to the raw status character.
-pub fn verify_signatures(path: &Path, ids: &[String]) -> Result<HashMap<String, char>, String> {
+/// Ask git for the signature status (`%G?`) and key id (`%GK`) of each
+/// commit in `ids`, keyed by full commit id.
+pub fn verify_signatures(
+    path: &Path,
+    ids: &[String],
+) -> Result<HashMap<String, SignatureCheck>, String> {
     let mut command = Command::new("git");
     command.arg("-C").arg(path).args(verify_args(ids));
     hide_console(&mut command);
@@ -78,14 +84,22 @@ pub fn verification_state(status: char) -> Option<bool> {
     }
 }
 
-fn parse_statuses(stdout: &str) -> HashMap<String, char> {
+fn parse_statuses(stdout: &str) -> HashMap<String, SignatureCheck> {
     stdout
         .lines()
         .filter_map(|line| {
-            let (id, status) = line.split_once(' ')?;
-            let status = status.trim();
-            (!id.is_empty() && !id.contains(' ') && status.len() == 1)
-                .then(|| (id.to_string(), status.chars().next().unwrap()))
+            let (id, rest) = line.split_once(' ')?;
+            let (status, key) = match rest.split_once(' ') {
+                Some((status, key)) => (status, key.trim()),
+                None => (rest.trim(), ""),
+            };
+            let looks_like_id =
+                id.len() >= 7 && id.chars().all(|c| c.is_ascii_hexdigit());
+            if !looks_like_id || status.chars().count() != 1 {
+                return None;
+            }
+            let key = (!key.is_empty()).then(|| key.to_string());
+            Some((id.to_string(), (status.chars().next().unwrap(), key)))
         })
         .collect()
 }
@@ -96,11 +110,17 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn parses_hash_and_status_pairs() {
-        let map = parse_statuses("1111aaaa G\n2222bbbb E\n\nnot a pair line\n");
-        assert_eq!(map.get("1111aaaa"), Some(&'G'));
-        assert_eq!(map.get("2222bbbb"), Some(&'E'));
-        assert_eq!(map.len(), 2);
+    fn parses_hash_status_and_key_id() {
+        let map = parse_statuses(
+            "1111aaaa G 89AB89AB89AB89AB\n2222bbbb E \n3333cccc N\n\nnot a line\n",
+        );
+        assert_eq!(
+            map.get("1111aaaa"),
+            Some(&('G', Some("89AB89AB89AB89AB".to_string())))
+        );
+        assert_eq!(map.get("2222bbbb"), Some(&('E', None)));
+        assert_eq!(map.get("3333cccc"), Some(&('N', None)));
+        assert_eq!(map.len(), 3);
     }
 
     #[test]
@@ -122,7 +142,7 @@ mod tests {
         );
         assert!(cmd.starts_with("git "));
         assert!(cmd.contains("-C /repos/demo"));
-        assert!(cmd.contains("%H %G?"));
+        assert!(cmd.contains("%H %G? %GK"));
         assert!(cmd.contains("1111aaaa 2222bbbb"));
     }
 }

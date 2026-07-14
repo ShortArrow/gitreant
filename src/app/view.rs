@@ -25,6 +25,9 @@ pub struct CommitView {
     /// invalid; absent when unchecked (no gpg, unknown key, unsigned).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verified: Option<bool>,
+    /// Signing key id, when gpg could attribute one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature_key: Option<String>,
 }
 
 /// A named reference pointing at a commit.
@@ -45,6 +48,12 @@ pub struct RepoView {
     pub name: String,
     pub path: String,
     pub head: Option<String>,
+    /// Short name of the checked-out branch; absent when HEAD is detached.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub head_branch: Option<String>,
+    /// Web URL of the origin remote, when it points at github.com.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub github_url: Option<String>,
     pub refs: Vec<RefView>,
     pub commits: Vec<CommitView>,
     pub edges: Vec<GraphEdge>,
@@ -65,6 +74,8 @@ impl RepoView {
                 .unwrap_or_else(|| "repo".to_string()),
             path: path.to_string_lossy().into_owned(),
             head: None,
+            head_branch: None,
+            github_url: None,
             refs: Vec::new(),
             commits: Vec::new(),
             edges: Vec::new(),
@@ -168,6 +179,7 @@ pub fn build_view(id: &Path, data: &RepoData) -> RepoView {
             time: meta.time,
             signature: meta.signature.clone(),
             verified: meta.verified,
+            signature_key: meta.signature_key.clone(),
         })
         .collect();
 
@@ -186,6 +198,8 @@ pub fn build_view(id: &Path, data: &RepoData) -> RepoView {
         name: data.name.clone(),
         path: data.path.to_string_lossy().into_owned(),
         head: data.head.clone(),
+        head_branch: data.head_branch.clone(),
+        github_url: data.github_url.clone(),
         refs,
         commits,
         edges: graph.edges,
@@ -209,8 +223,10 @@ mod tests {
             parents: parents.iter().map(|s| s.to_string()).collect(),
             signature: None,
             verified: None,
+            signature_key: None,
         }
     }
+
 
     #[test]
     fn merges_layout_with_metadata_in_order() {
@@ -223,6 +239,8 @@ mod tests {
             ],
             refs: vec![],
             head: Some("A".to_string()),
+            head_branch: Some("main".to_string()),
+            github_url: None,
         };
 
         let view = build_view(Path::new("/tmp/demo"), &data);

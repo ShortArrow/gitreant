@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { CommitHash } from "./CommitHash";
 import {
+  checkoutRef,
   fetchCommitDetail,
   fetchCommitDiff,
   fetchFileDiff,
   fetchPrs,
+  mergeRef,
+  type BranchOpResult,
   type CommitDetail,
   type FileDiff,
   type PullRequestView,
   type RefView,
   type RepoView,
 } from "./api";
+import { RefMenu, type RefMenuTarget } from "./RefMenu";
 import { CommitDetailPanel } from "./CommitDetailPanel";
 import { FileDiffPane } from "./FileDiffPane";
 import {
@@ -106,6 +110,21 @@ export function RepoCard({
     };
   }, [repo.id, loadPrs]);
 
+  const [refMenu, setRefMenu] = useState<RefMenuTarget | null>(null);
+  // Result of the last branch operation that failed; cleared on the next one.
+  const [opError, setOpError] = useState<string | null>(null);
+  const runBranchOp = (
+    op: (repoId: string, reference: string) => Promise<BranchOpResult>,
+    reference: string,
+  ) => {
+    setOpError(null);
+    op(repo.id, reference)
+      .then((result) => {
+        if (!result.ok) setOpError(result.message);
+      })
+      .catch((e) => setOpError(String(e)));
+  };
+
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<CommitDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -173,6 +192,9 @@ export function RepoCard({
 
   const width = graphWidth(repo.lane_count);
   const height = graphHeight(repo.commits.length);
+  const selectedCommit = selected
+    ? repo.commits.find((c) => c.id === selected)
+    : undefined;
 
   return (
     <section className="repo">
@@ -182,11 +204,29 @@ export function RepoCard({
         <span className="repo-count">{repo.commits.length} commits</span>
       </header>
 
+      {opError && (
+        <p className="repo-error" data-testid="op-error">
+          {opError}
+        </p>
+      )}
+
+      {refMenu && (
+        <RefMenu
+          target={refMenu}
+          headBranch={repo.head_branch}
+          onCheckout={(reference) => runBranchOp(checkoutRef, reference)}
+          onMerge={(reference) => runBranchOp(mergeRef, reference)}
+          onClose={() => setRefMenu(null)}
+        />
+      )}
+
       <div className="repo-body">
       {selected && diffTarget ? (
         <FileDiffPane
           files={diffFiles}
           error={diffError}
+          commitId={selected}
+          githubUrl={repo.github_url}
           onClose={() => setDiffTarget(null)}
         />
       ) : (
@@ -252,10 +292,22 @@ export function RepoCard({
                 {isHead && <span className="badge badge-head">HEAD</span>}
                 {refs.map((ref) => {
                   const pr = prByBranch.get(ref.name);
+                  const qualified = ref.remote
+                    ? `${ref.remote}/${ref.name}`
+                    : ref.name;
                   return (
                     <span
-                      key={ref.remote ? `${ref.remote}/${ref.name}` : ref.name}
+                      key={qualified}
                       className={`badge badge-ref${ref.remote ? " badge-remote" : ""}`}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setRefMenu({
+                          x: e.clientX,
+                          y: e.clientY,
+                          reference: qualified,
+                        });
+                      }}
                     >
                       {ref.remote && (
                         <span className="badge-remote-name" data-testid="badge-remote">
@@ -313,6 +365,8 @@ export function RepoCard({
         <CommitDetailPanel
           detail={detail}
           error={detailError}
+          verified={selectedCommit?.verified}
+          signatureKey={selectedCommit?.signature_key}
           onSelectFile={(path) => setDiffTarget({ kind: "file", path })}
           onShowAllDiffs={() => setDiffTarget({ kind: "all" })}
           onClose={() => {

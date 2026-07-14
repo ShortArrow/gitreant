@@ -1,5 +1,11 @@
 import { expect, test } from "vitest";
-import { inlineCells, intralineSegments, parseUnified } from "./diffModel";
+import {
+  inlineCells,
+  intralineSegments,
+  parseUnified,
+  permalinkFragment,
+  selectedLines,
+} from "./diffModel";
 
 test("pairs runs of removals and additions row by row", () => {
   const hunks = parseUnified("@@ -1,3 +1,2 @@\n ctx\n-a\n-b\n+A\n");
@@ -94,6 +100,32 @@ test("flattens rows back into unified order for the inline view", () => {
     ["add", "A"],
     ["context", "ctx"],
   ]);
+});
+
+test("inline context lines carry the new-side line number", () => {
+  // Old line 3 is new line 5; permalinks address the new side.
+  const hunks = parseUnified("@@ -3 +5 @@\n x\n");
+  expect(inlineCells(hunks[0].rows)[0].no).toBe(5);
+});
+
+test("selectedLines joins the selected cells' text", () => {
+  const hunks = parseUnified("@@ -1,2 +1,2 @@\n ctx\n-old\n+new\n");
+  const cells = inlineCells(hunks[0].rows);
+  expect(selectedLines(cells)).toBe("ctx\nold\nnew");
+});
+
+test("permalinkFragment uses new-side line numbers", () => {
+  const hunks = parseUnified("@@ -3,3 +3,3 @@\n a\n b\n c\n");
+  const cells = inlineCells(hunks[0].rows);
+  expect(permalinkFragment(cells)).toBe("#L3-L5");
+  expect(permalinkFragment(cells.slice(0, 1))).toBe("#L3");
+});
+
+test("permalinkFragment refuses removed lines and empty selections", () => {
+  const hunks = parseUnified("@@ -1,2 +1,1 @@\n keep\n-gone\n");
+  const cells = inlineCells(hunks[0].rows);
+  expect(permalinkFragment(cells)).toBeNull();
+  expect(permalinkFragment([])).toBeNull();
 });
 
 test("attaches segments to paired remove/add rows only", () => {

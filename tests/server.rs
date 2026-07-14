@@ -396,6 +396,107 @@ async fn fetch_endpoint_reports_per_repo_errors() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn checkout_and_merge_endpoints_mutate_the_repository() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    init_repo_with_commit(dir);
+    let run = |args: &[&str]| {
+        let status = Command::new("git")
+            .current_dir(dir)
+            .args(args)
+            .env("GIT_AUTHOR_NAME", "T")
+            .env("GIT_AUTHOR_EMAIL", "t@e.com")
+            .env("GIT_COMMITTER_NAME", "T")
+            .env("GIT_COMMITTER_EMAIL", "t@e.com")
+            .status()
+            .unwrap();
+        assert!(status.success(), "git {args:?} failed");
+    };
+    // Diverging branches: main gets m-2, topic branches off the root.
+    run(&["switch", "-c", "topic", "-q"]);
+    run(&["commit", "--allow-empty", "-q", "-m", "t-1"]);
+    run(&["switch", "main", "-q"]);
+    run(&["commit", "--allow-empty", "-q", "-m", "m-2"]);
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(Session::new())).await.unwrap();
+    });
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    let repo_path = dir.to_string_lossy().into_owned();
+    tokio::task::spawn_blocking(move || post_repo(port, &repo_path))
+        .await
+        .unwrap()
+        .expect("add repo");
+    let id = gitreant::app::canonical(dir).to_string_lossy().into_owned();
+
+    // The view names the checked-out branch.
+    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+        .await
+        .unwrap();
+    assert!(
+        repos.contains("\"head_branch\":\"main\""),
+        "head branch missing: {repos}"
+    );
+
+    // Checkout switches branches and notifies via the log.
+    let body = format!("{{\"repo\":{id:?},\"reference\":\"topic\"}}");
+    let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/checkout", &body))
+        .await
+        .unwrap();
+    assert!(resp.contains("200 OK"), "response: {resp}");
+    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+        .await
+        .unwrap();
+    assert!(
+        repos.contains("\"head_branch\":\"topic\""),
+        "checkout did not switch: {repos}"
+    );
+
+    // Merging main into topic adds a merge commit (3 commits -> 4).
+    assert_eq!(repos.matches("\"summary\"").count(), 3, "precondition: {repos}");
+    let body = format!("{{\"repo\":{id:?},\"reference\":\"main\"}}");
+    let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/merge", &body))
+        .await
+        .unwrap();
+    assert!(resp.contains("200 OK"), "response: {resp}");
+    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+        .await
+        .unwrap();
+    assert_eq!(
+        repos.matches("\"summary\"").count(),
+        4,
+        "expected a merge commit on top of 3: {repos}"
+    );
+
+    // Both executed commands are in the log; unknown repos are 404.
+    let log = tokio::task::spawn_blocking(move || http_get(port, "/api/log"))
+        .await
+        .unwrap();
+    assert!(log.contains("switch topic"), "checkout not logged: {log}");
+    assert!(log.contains("merge --no-edit main"), "merge not logged: {log}");
+    let resp = tokio::task::spawn_blocking(move || {
+        http_post_json(port, "/api/checkout", "{\"repo\":\"nope\",\"reference\":\"x\"}")
+    })
+    .await
+    .unwrap();
+    assert!(resp.contains("404"), "response: {resp}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn prs_endpoint_answers_empty_without_github_and_404_for_unknown_repos() {
     let tmp = tempfile::tempdir().unwrap();
     init_repo_with_commit(tmp.path());

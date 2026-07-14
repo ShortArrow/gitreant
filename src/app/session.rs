@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use crate::git::{
     discover_repo, gpg_available, read_repo, verification_state, verify_command,
-    verify_signatures, RepoData,
+    verify_signatures, RepoData, SignatureCheck,
 };
 
 use super::view::{build_view, RepoView};
@@ -27,9 +27,10 @@ pub struct ExecutedCommand {
 #[derive(Default)]
 pub struct Session {
     paths: Vec<PathBuf>,
-    /// Raw `%G?` status per commit id. Commits are immutable, so a verdict
-    /// never has to be re-checked (a keyring change needs a server restart).
-    verify_cache: HashMap<String, char>,
+    /// Raw `%G?` status and `%GK` key id per commit id. Commits are
+    /// immutable, so a verdict never has to be re-checked (a keyring change
+    /// needs a server restart).
+    verify_cache: HashMap<String, SignatureCheck>,
 }
 
 impl Session {
@@ -121,7 +122,7 @@ impl Session {
             // Cache failures as "unknown" so a broken gpg setup does not
             // re-run (and re-log) the check on every view read.
             for id in &pending {
-                self.verify_cache.entry(id.clone()).or_insert('?');
+                self.verify_cache.entry(id.clone()).or_insert(('?', None));
             }
             Some(ExecutedCommand {
                 repo: path.to_string_lossy().into_owned(),
@@ -135,11 +136,10 @@ impl Session {
 
         for commit in &mut data.commits {
             if commit.signature.is_some() {
-                commit.verified = self
-                    .verify_cache
-                    .get(&commit.id)
-                    .copied()
-                    .and_then(verification_state);
+                if let Some((status, key)) = self.verify_cache.get(&commit.id) {
+                    commit.verified = verification_state(*status);
+                    commit.signature_key = key.clone();
+                }
             }
         }
         command
@@ -317,6 +317,11 @@ mod tests {
         let (views, executed) = session.views();
         assert_eq!(views[0].commits[0].signature.as_deref(), Some("openpgp"));
         assert_eq!(views[0].commits[0].verified, Some(true));
+        let key = views[0].commits[0].signature_key.as_deref().unwrap_or("");
+        assert!(
+            key.len() >= 8 && key.chars().all(|c| c.is_ascii_hexdigit()),
+            "expected a hex key id, got {key:?}"
+        );
         assert_eq!(executed.len(), 1);
         assert!(executed[0].command.contains("%H %G?"));
         assert!(executed[0].ok);

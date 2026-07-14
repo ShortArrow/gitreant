@@ -28,9 +28,14 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
 
 - Commit graph rendering with lanes and colors computed server-side;
   merge-commit messages are dimmed, and clicking a hash copies the full id
-- Click a commit to see its full message, signature state, and changed files
-  (flat or tree view) with line counts; click a file (or "Diff all") to see
-  diffs inline or side-by-side, with intra-line changes highlighted
+- Right-click a branch badge to copy its name, check it out, or merge it
+  into the current branch (server-side `git switch` / `git merge`)
+- Click a commit to see its full message, signature state (with the signing
+  key id, click to copy), and changed files (flat or tree view) with line
+  counts; click a file (or "Diff all") to see diffs inline or side-by-side,
+  with intra-line changes highlighted
+- Select diff lines via the line-number gutter (shift-click for ranges) to
+  copy them or a GitHub permalink
 - Fetch button runs `git fetch` for every shown repository (requires git);
   a toggleable bottom pane logs the executed commands and your UI actions
 - Signed commits carry a badge in the graph: Verified / Unverified when a

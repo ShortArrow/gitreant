@@ -87,9 +87,11 @@ export function inlineCells(rows: SplitRow[]): SplitCell[] {
   };
 
   for (const row of rows) {
-    if (row.left?.kind === "context") {
+    if (row.right?.kind === "context") {
+      // Context lines exist on both sides; show the new-side number so
+      // selections and permalinks address the file at this commit.
       flush();
-      cells.push(row.left);
+      cells.push(row.right);
     } else {
       if (row.left) removes.push(row.left);
       if (row.right) adds.push(row.right);
@@ -97,6 +99,25 @@ export function inlineCells(rows: SplitRow[]): SplitCell[] {
   }
   flush();
   return cells;
+}
+
+/** The text of a selected run of lines, ready for the clipboard. */
+export function selectedLines(cells: SplitCell[]): string {
+  return cells.map((c) => c.text).join("\n");
+}
+
+/** GitHub-style line fragment ("#L3" / "#L3-L5") for a selected run.
+ *
+ * Permalinks address the file at the commit, so every selected line must
+ * exist on the new side — a selection containing removals has no fragment.
+ */
+export function permalinkFragment(cells: SplitCell[]): string | null {
+  if (cells.length === 0 || cells.some((c) => c.kind === "remove")) {
+    return null;
+  }
+  const start = cells[0].no;
+  const end = cells[cells.length - 1].no;
+  return end > start ? `#L${start}-L${end}` : `#L${start}`;
 }
 
 export function parseUnified(text: string): DiffHunk[] {

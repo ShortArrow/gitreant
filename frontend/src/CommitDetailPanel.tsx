@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CommitDetail, FileChange } from "./api";
+import { CopyText } from "./CopyText";
 import { buildFileTree, type FileTreeNode } from "./fileTree";
 import { shortId } from "./graph";
 import { ResizeHandle, useStoredWidth } from "./Resizer";
@@ -41,6 +42,8 @@ function storedFilesView(): FilesView {
 export function CommitDetailPanel({
   detail,
   error,
+  verified,
+  signatureKey,
   onSelectFile,
   onShowAllDiffs,
   onClose,
@@ -48,6 +51,10 @@ export function CommitDetailPanel({
   /** null while loading. */
   detail: CommitDetail | null;
   error: string | null;
+  /** Verification verdict from the graph view, when gpg checked it. */
+  verified?: boolean;
+  /** Signing key id from the graph view, when gpg attributed one. */
+  signatureKey?: string;
   /** Called with the repository-relative path of a clicked file. */
   onSelectFile: (path: string) => void;
   /** Called when every changed file's diff should open at once. */
@@ -95,6 +102,8 @@ export function CommitDetailPanel({
         {detail && (
           <DetailBody
             detail={detail}
+            verified={verified}
+            signatureKey={signatureKey}
             view={view}
             onChangeView={changeView}
             onSelectFile={onSelectFile}
@@ -108,12 +117,16 @@ export function CommitDetailPanel({
 
 function DetailBody({
   detail,
+  verified,
+  signatureKey,
   view,
   onChangeView,
   onSelectFile,
   onShowAllDiffs,
 }: {
   detail: CommitDetail;
+  verified?: boolean;
+  signatureKey?: string;
   view: FilesView;
   onChangeView: (view: FilesView) => void;
   onSelectFile: (path: string) => void;
@@ -135,6 +148,20 @@ function DetailBody({
         <dt>Signature</dt>
         <dd data-testid="detail-signature">
           {signatureLabel(detail.signature)}
+          {verified === true && " — Verified"}
+          {verified === false && " — Unverified"}
+          {signatureKey && (
+            <>
+              {" "}
+              <CopyText
+                value={signatureKey}
+                display={signatureKey}
+                className="detail-key"
+                testId="detail-signature-key"
+                title="Copy the signing key id"
+              />
+            </>
+          )}
         </dd>
         {detail.parents.length > 0 && (
           <>

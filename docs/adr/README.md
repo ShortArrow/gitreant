@@ -18,3 +18,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0011](0011-signature-verification.md) | 署名検証はgit/gpg CLIに委譲し結果をキャッシュする | Accepted |
 | [0012](0012-user-action-log.md) | ユーザー操作はクライアント側で記録しマージ表示する | Accepted |
 | [0013](0013-pr-links-via-gh.md) | PR情報はgh CLIに委譲しTTLキャッシュ付き遅延取得にする | Accepted |
+| [0014](0014-branch-operations.md) | ブランチ操作はバッジの右クリックメニューからgit CLIに委譲する | Accepted |

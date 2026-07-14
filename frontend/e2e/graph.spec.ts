@@ -15,6 +15,8 @@ const fixtures = JSON.parse(
   repoH: string;
   /** null when gpg is not installed on this machine. */
   repoI: string | null;
+  repoJ: string;
+  repoK: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -99,8 +101,8 @@ test.describe.serial("gitreant UI", () => {
     await expect(pane).toBeVisible();
     await expect(pane).toContainText("README.md");
     await expect(pane).toContainText("@@");
-    await expect(pane.locator(".diff-line-add")).toHaveText("+two");
-    await expect(pane.locator(".diff-line-context")).toHaveText(" one");
+    await expect(pane.locator(".diff-line-add")).toContainText("+two");
+    await expect(pane.locator(".diff-line-context")).toContainText(" one");
     await expect(page.getByTestId("graph")).toHaveCount(0);
 
     await page.getByTestId("diff-close").click();
@@ -295,7 +297,7 @@ test.describe.serial("gitreant UI", () => {
       .filter({ hasText: "README.md" })
       .click();
     const pane = page.getByTestId("diff-pane");
-    await expect(pane.locator(".diff-line-add")).toHaveText("+two");
+    await expect(pane.locator(".diff-line-add")).toContainText("+two");
 
     await pane.getByTestId("diff-view-split").click();
     // main-1 turned "one" into "one\ntwo": the split view pairs the context
@@ -309,7 +311,7 @@ test.describe.serial("gitreant UI", () => {
     );
 
     await pane.getByTestId("diff-view-inline").click();
-    await expect(pane.locator(".diff-line-add")).toHaveText("+two");
+    await expect(pane.locator(".diff-line-add")).toContainText("+two");
   });
 
   test("the whole commit diff can be opened at once", async ({ page }) => {
@@ -327,7 +329,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(sections).toHaveCount(2);
     await expect(sections.nth(0)).toContainText("src/lib/one.ts");
     await expect(sections.nth(1)).toContainText("src/lib/two.ts");
-    await expect(sections.nth(0).locator(".diff-line-add")).toHaveText("+1");
+    await expect(sections.nth(0).locator(".diff-line-add")).toContainText("+1");
 
     await page.getByTestId("diff-close").click();
     await expect(page.getByTestId("graph")).toBeVisible();
@@ -472,9 +474,18 @@ test.describe.serial("gitreant UI", () => {
 
     await page.getByTestId("drawer-collapse").click();
     await expect(page.getByTestId("repo-item")).toHaveCount(0);
-    await expect(page.getByTestId("drawer-expand")).toBeVisible();
+    const expand = page.getByTestId("drawer-expand");
+    await expect(expand).toBeVisible();
 
-    await page.getByTestId("drawer-expand").click();
+    // The expand button sits horizontally centered in the collapsed rail
+    // (a stray margin-left:auto used to push it against the right edge).
+    const drawer = (await page.locator(".drawer-collapsed").boundingBox())!;
+    const button = (await expand.boundingBox())!;
+    const drawerCenter = drawer.x + drawer.width / 2;
+    const buttonCenter = button.x + button.width / 2;
+    expect(Math.abs(buttonCenter - drawerCenter)).toBeLessThanOrEqual(2);
+
+    await expand.click();
     await expect(page.getByTestId("repo-item")).toHaveCount(2);
   });
 
@@ -566,6 +577,7 @@ test.describe.serial("gitreant UI", () => {
 
   test("a commit signed with a known gpg key shows a Verified badge", async ({
     page,
+    context,
   }) => {
     test.skip(!fixtures.repoI, "gpg is not installed on this machine");
     await page.getByTestId("add-input").fill(fixtures.repoI!);
@@ -578,6 +590,21 @@ test.describe.serial("gitreant UI", () => {
     const badge = verified.getByTestId("badge-signed");
     await expect(badge).toHaveText("Verified");
     await expect(badge).toHaveClass(/badge-verified/);
+
+    // The detail pane names the verdict and the signing key, which copies.
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await verified.click();
+    await expect(page.getByTestId("detail-signature")).toContainText(
+      "Signed (OpenPGP) — Verified",
+    );
+    const key = page.getByTestId("detail-signature-key");
+    const keyText = (await key.textContent()) ?? "";
+    expect(keyText).toMatch(/^[0-9A-Fa-f]{8,}$/);
+    await key.click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      keyText,
+    );
+    await page.getByTestId("detail-close").click();
 
     // The verification command lands in the command log.
     await page.getByTestId("log-toggle").click();
@@ -659,6 +686,104 @@ test.describe.serial("gitreant UI", () => {
       "https://github.com/o/r/pull/7",
     );
     await expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  test("diff lines can be selected, copied and permalinked", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.getByTestId("add-input").fill(fixtures.repoK);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoK"]')).toBeVisible();
+
+    await page.getByTestId("commit-row").filter({ hasText: "k-2" }).click();
+    await page
+      .getByTestId("detail-file")
+      .filter({ hasText: "list.txt" })
+      .click();
+    await expect(page.getByTestId("diff-pane")).toBeVisible();
+    await page.getByTestId("diff-view-inline").click();
+
+    // k-2 inserted delta/epsilon as new lines 3-4; gamma follows as line 5.
+    const lineNo = (no: number) =>
+      page.locator('[data-testid="line-no"]', {
+        hasText: new RegExp(`^${no}$`),
+      });
+    await lineNo(3).click();
+    await lineNo(5).click({ modifiers: ["Shift"] });
+    const bar = page.getByTestId("diff-select-bar");
+    await expect(bar).toContainText("3 lines");
+
+    await page.getByTestId("copy-lines").click();
+    // The Windows clipboard round-trips LF as CRLF; normalize for comparison.
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copied.replaceAll("\r\n", "\n")).toBe("delta\nepsilon\ngamma");
+
+    await page.getByTestId("copy-permalink").click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
+      /^https:\/\/github\.com\/example\/repoK\/blob\/[0-9a-f]{40}\/list\.txt#L3-L5$/,
+    );
+
+    await page.getByTestId("clear-selection").click();
+    await expect(bar).toHaveCount(0);
+
+    // Restore the served set.
+    const repoK = page.locator('[data-repo-name="repoK"]');
+    await repoK.hover();
+    await repoK.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoK"]')).toHaveCount(0);
+  });
+
+  test("the branch badge menu copies, checks out and merges", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.getByTestId("add-input").fill(fixtures.repoJ);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoJ"]')).toBeVisible();
+    await expect(page.getByTestId("commit-row")).toHaveCount(3);
+
+    const badge = (name: string) =>
+      page.locator(".badge-ref", { hasText: name }).first();
+
+    // Copy the branch name.
+    await badge("topic").click({ button: "right" });
+    await page.getByTestId("ref-menu-copy").click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      "topic",
+    );
+    await expect(page.getByTestId("ref-menu")).toHaveCount(0);
+
+    // Checkout topic: HEAD moves to the t-1 row.
+    await badge("topic").click({ button: "right" });
+    await page.getByTestId("ref-menu-checkout").click();
+    await page.getByTestId("ref-menu-confirm").click();
+    await expect(
+      page
+        .getByTestId("commit-row")
+        .filter({ hasText: "t-1" })
+        .locator(".badge-head"),
+      // The server broadcasts an update; the row re-renders with HEAD.
+    ).toBeVisible({ timeout: 15_000 });
+
+    // Merge main into topic: a merge commit appears on top.
+    await badge("main").click({ button: "right" });
+    await page.getByTestId("ref-menu-merge").click();
+    await page.getByTestId("ref-menu-confirm").click();
+    await expect(page.getByTestId("commit-row")).toHaveCount(4, {
+      timeout: 15_000,
+    });
+    await expect(
+      page.getByTestId("commit-row").filter({ hasText: "Merge branch 'main'" }),
+    ).toBeVisible();
+
+    // Restore the served set (the on-disk mutation is repoJ-local).
+    const repoJ = page.locator('[data-repo-name="repoJ"]');
+    await repoJ.hover();
+    await repoJ.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoJ"]')).toHaveCount(0);
   });
 
   test("merge commit messages are dimmed", async ({ page }) => {

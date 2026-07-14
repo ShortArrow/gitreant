@@ -163,6 +163,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/diff", post(file_diff))
         .route("/api/commit-diff", post(commit_diff))
         .route("/api/fetch", post(fetch_remotes))
+        .route("/api/checkout", post(checkout))
+        .route("/api/merge", post(merge))
         .route("/api/prs", post(list_prs))
         .route("/api/log", get(command_log))
         .route("/api/events", get(events))
@@ -328,6 +330,69 @@ async fn fetch_remotes(State(state): State<AppState>) -> Json<FetchResponse> {
     .unwrap_or_default();
     let _ = state.updates.send(());
     Json(FetchResponse { errors })
+}
+
+#[derive(Deserialize)]
+struct BranchOpRequest {
+    /// The repository id (its canonical path, as returned in `RepoView::id`).
+    repo: String,
+    /// A local branch name, or a remote-tracking ref like "origin/main".
+    reference: String,
+}
+
+#[derive(Serialize)]
+struct BranchOpResponse {
+    ok: bool,
+    /// git's stderr when the operation failed (e.g. merge conflicts).
+    message: String,
+}
+
+/// Run one branch operation via the git CLI, log it, and notify SSE listeners
+/// so every client re-reads the changed repository.
+async fn branch_op(
+    state: AppState,
+    req: BranchOpRequest,
+    command: fn(&std::path::Path, &str) -> String,
+    run: fn(&std::path::Path, &str) -> Result<(), String>,
+) -> Result<Json<BranchOpResponse>, (StatusCode, String)> {
+    let Some(path) = state.repo_path(&req.repo) else {
+        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+    };
+    let logger = state.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        let result = run(&path, &req.reference);
+        logger.push_log(CommandLogEntry {
+            time: epoch_now(),
+            repo: req.repo,
+            command: command(&path, &req.reference),
+            ok: result.is_ok(),
+            message: result.as_ref().err().cloned().unwrap_or_default(),
+        });
+        result
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let _ = state.updates.send(());
+    Ok(Json(BranchOpResponse {
+        ok: result.is_ok(),
+        message: result.err().unwrap_or_default(),
+    }))
+}
+
+/// Switch the checked-out branch of one repository.
+async fn checkout(
+    State(state): State<AppState>,
+    Json(req): Json<BranchOpRequest>,
+) -> Result<Json<BranchOpResponse>, (StatusCode, String)> {
+    branch_op(state, req, crate::git::checkout_command, crate::git::checkout).await
+}
+
+/// Merge a reference into the checked-out branch of one repository.
+async fn merge(
+    State(state): State<AppState>,
+    Json(req): Json<BranchOpRequest>,
+) -> Result<Json<BranchOpResponse>, (StatusCode, String)> {
+    branch_op(state, req, crate::git::merge_command, crate::git::merge).await
 }
 
 #[derive(Deserialize)]

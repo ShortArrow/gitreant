@@ -234,6 +234,37 @@ function gpgHomePath(gpg: string, home: string): string {
   return home.replaceAll("\\", "/");
 }
 
+/** repoJ: two diverged branches for the branch-menu (checkout/merge) test,
+ * which mutates it — no other test may depend on its state. */
+function makeRepoJ(): string {
+  const dir = initRepo("repoJ");
+  const t = 1_700_000_000;
+  commit(dir, "j-1", t);
+  git(dir, ["switch", "-c", "topic", "-q"]);
+  commit(dir, "t-1", t + 10);
+  git(dir, ["switch", "main", "-q"]);
+  commit(dir, "j-2", t + 20);
+  return dir; // 3 commits
+}
+
+/** repoK: a multi-line file change plus a github.com origin URL (never
+ * fetched), for the diff line-selection and permalink test. */
+function makeRepoK(): string {
+  const dir = initRepo("repoK");
+  const t = 1_700_000_000;
+  writeFileSync(path.join(dir, "list.txt"), "alpha\nbeta\ngamma\n");
+  git(dir, ["add", "."]);
+  commit(dir, "k-1", t);
+  writeFileSync(
+    path.join(dir, "list.txt"),
+    "alpha\nbeta\ndelta\nepsilon\ngamma\n",
+  );
+  git(dir, ["add", "."]);
+  commit(dir, "k-2", t + 10);
+  git(dir, ["remote", "add", "origin", "https://github.com/example/repoK.git"]);
+  return dir; // 2 commits
+}
+
 /** Set by makeRepoI; the teardown must talk to the same gpg installation. */
 let gpgconfBin = "gpgconf";
 
@@ -253,6 +284,8 @@ export default async function globalSetup(_config: FullConfig) {
   const repoG = makeRepoG();
   const repoH = makeRepoH();
   const repoI = makeRepoI();
+  const repoJ = makeRepoJ();
+  const repoK = makeRepoK();
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
@@ -270,6 +303,8 @@ export default async function globalSetup(_config: FullConfig) {
         repoG,
         repoH,
         repoI,
+        repoJ,
+        repoK,
       },
       null,
       2,

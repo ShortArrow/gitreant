@@ -105,6 +105,12 @@ body {
   padding-top: 8px;
 }
 
+/* .icon-btn's margin-left:auto right-aligns it inside header rows; in the
+ * collapsed rail the button must center instead. */
+.drawer-collapsed .icon-btn {
+  margin-left: 0;
+}
+
 .drawer-head {
   display: flex;
   align-items: center;
@@ -522,7 +528,8 @@ body {
   padding-left: 12px;
 }
 
-.commit-hash {
+.commit-hash,
+.detail-key {
   background: none;
   border: none;
   padding: 0;
@@ -531,9 +538,16 @@ body {
   cursor: pointer;
 }
 
-.commit-hash:hover {
+.commit-hash:hover,
+.detail-key:hover {
   text-decoration: underline;
   color: var(--fg);
+}
+
+.detail-key {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .badge {
@@ -565,6 +579,46 @@ body {
 
 .badge-remote .badge-ref-name {
   padding: 1px 6px;
+}
+
+/* Context menu on branch badges. */
+.ref-menu {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 4px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+}
+
+.ref-menu button {
+  text-align: left;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.ref-menu button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.ref-menu button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.ref-menu-question {
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 /* Link to the branch's open PR, appended as a badge segment. */
@@ -854,12 +908,63 @@ body {
   border-left: none;
 }
 
-.split-no {
+/* Clickable line-number gutter (inline and split views). */
+.line-no {
   flex: none;
   width: 32px;
   text-align: right;
   color: var(--muted);
   user-select: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Inline rows have no flex gap, so the gutter spaces itself. */
+.diff-line .line-no {
+  margin-right: 8px;
+}
+
+.line-no:hover {
+  color: var(--accent);
+}
+
+.line-selected,
+.line-selected .split-cell {
+  background: color-mix(in srgb, var(--accent) 16%, transparent) !important;
+}
+
+.diff-select-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.diff-select-bar .diff-select-count {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.diff-select-bar button {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.diff-select-bar button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.diff-select-bar button:disabled {
+  color: var(--muted);
+  cursor: default;
 }
 
 .split-text {

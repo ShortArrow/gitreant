@@ -41,6 +41,8 @@ main (CLI) ──▶ server (axum) ──▶ app (session) ──▶ domain (gra
 | POST   | `/api/diff`    | Unified diff of `{ "repo", "id", "path" }` against the first parent |
 | POST   | `/api/commit-diff` | Unified diffs of every file `{ "repo", "id" }` changed |
 | POST   | `/api/fetch`   | `git fetch --all --prune` every displayed repository (needs git CLI) |
+| POST   | `/api/checkout` | `git switch` to `{ "repo": "<id>", "reference": "<branch>" }` (remote refs detach) |
+| POST   | `/api/merge`   | `git merge --no-edit` `{ "repo": "<id>", "reference": "<ref>" }` into the checked-out branch |
 | POST   | `/api/prs`     | Open PRs of `{ "repo": "<id>" }` via `gh pr list` (empty without gh; cached 5 min) |
 | GET    | `/api/log`     | Executed external commands (ring buffer of 200), oldest first |
 | POST   | `/api/pick`    | Open a native folder picker on the server machine     |
