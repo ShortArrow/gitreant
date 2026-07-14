@@ -40,6 +40,13 @@ const COMMAND_LOG_CAPACITY: usize = 200;
 /// How long a repository's PR lookup stays cached before `gh` runs again.
 const PR_CACHE_TTL: Duration = Duration::from_secs(300);
 
+/// One repository's cached `gh` lookup: open PRs and recently merged ones.
+#[derive(Clone, Default)]
+struct PrLookup {
+    open: Vec<crate::git::PullRequest>,
+    merged: Vec<crate::git::MergedPullRequest>,
+}
+
 /// Shared, cloneable server state.
 #[derive(Clone)]
 pub struct AppState {
@@ -47,7 +54,7 @@ pub struct AppState {
     updates: broadcast::Sender<()>,
     shutdown: watch::Sender<bool>,
     command_log: Arc<Mutex<VecDeque<CommandLogEntry>>>,
-    pr_cache: Arc<Mutex<HashMap<String, (Instant, Vec<crate::git::PullRequest>)>>>,
+    pr_cache: Arc<Mutex<HashMap<String, (Instant, PrLookup)>>>,
 }
 
 impl AppState {
@@ -63,18 +70,18 @@ impl AppState {
         }
     }
 
-    /// The cached PR list of a repository, unless it went stale.
-    fn cached_prs(&self, repo: &str) -> Option<Vec<crate::git::PullRequest>> {
+    /// The cached PR lookup of a repository, unless it went stale.
+    fn cached_prs(&self, repo: &str) -> Option<PrLookup> {
         let cache = self.pr_cache.lock().expect("pr cache mutex");
         cache
             .get(repo)
             .filter(|(at, _)| at.elapsed() < PR_CACHE_TTL)
-            .map(|(_, prs)| prs.clone())
+            .map(|(_, lookup)| lookup.clone())
     }
 
-    fn store_prs(&self, repo: &str, prs: Vec<crate::git::PullRequest>) {
+    fn store_prs(&self, repo: &str, lookup: PrLookup) {
         let mut cache = self.pr_cache.lock().expect("pr cache mutex");
-        cache.insert(repo.to_string(), (Instant::now(), prs));
+        cache.insert(repo.to_string(), (Instant::now(), lookup));
     }
 
     fn push_log(&self, entry: CommandLogEntry) {
@@ -406,11 +413,13 @@ struct PrsResponse {
     /// Open pull requests, keyed by their head branch name. Empty when gh is
     /// missing, unauthenticated, or the repository has no GitHub remote.
     prs: Vec<crate::git::PullRequest>,
+    /// Recently merged pull requests, for squash-merge links in the graph.
+    merged: Vec<crate::git::MergedPullRequest>,
 }
 
-/// Open pull requests of one repository, via the user's `gh` CLI. Results are
-/// cached per repository for a few minutes; executed lookups land in the
-/// command log.
+/// Open and recently merged pull requests of one repository, via the user's
+/// `gh` CLI. Results are cached per repository for a few minutes; executed
+/// lookups land in the command log.
 async fn list_prs(
     State(state): State<AppState>,
     Json(req): Json<PrsRequest>,
@@ -418,29 +427,44 @@ async fn list_prs(
     let Some(path) = state.repo_path(&req.repo) else {
         return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
     };
-    if let Some(prs) = state.cached_prs(&req.repo) {
-        return Ok(Json(PrsResponse { prs }));
+    if let Some(lookup) = state.cached_prs(&req.repo) {
+        return Ok(Json(PrsResponse { prs: lookup.open, merged: lookup.merged }));
     }
     if !crate::git::gh_available() {
-        return Ok(Json(PrsResponse { prs: Vec::new() }));
+        return Ok(Json(PrsResponse { prs: Vec::new(), merged: Vec::new() }));
     }
     let logger = state.clone();
     let repo = req.repo.clone();
-    let prs = tokio::task::spawn_blocking(move || {
-        let result = crate::git::list_prs(&path);
-        logger.push_log(CommandLogEntry {
-            time: epoch_now(),
-            repo,
-            command: crate::git::pr_command(),
-            ok: result.is_ok(),
-            message: result.as_ref().err().cloned().unwrap_or_default(),
-        });
-        result.unwrap_or_default()
+    let lookup = tokio::task::spawn_blocking(move || {
+        let log = |command: String, error: Option<&String>| {
+            logger.push_log(CommandLogEntry {
+                time: epoch_now(),
+                repo: repo.clone(),
+                command,
+                ok: error.is_none(),
+                message: error.cloned().unwrap_or_default(),
+            });
+        };
+        let open = crate::git::list_prs(&path);
+        log(crate::git::pr_command(), open.as_ref().err());
+        // A failed open lookup (no gh auth, non-GitHub remote) would fail
+        // again here; skip the second call and its log noise.
+        let merged = if open.is_ok() {
+            let merged = crate::git::list_merged_prs(&path);
+            log(crate::git::merged_pr_command(), merged.as_ref().err());
+            merged.unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        PrLookup {
+            open: open.unwrap_or_default(),
+            merged,
+        }
     })
     .await
     .unwrap_or_default();
-    state.store_prs(&req.repo, prs.clone());
-    Ok(Json(PrsResponse { prs }))
+    state.store_prs(&req.repo, lookup.clone());
+    Ok(Json(PrsResponse { prs: lookup.open, merged: lookup.merged }))
 }
 
 fn epoch_now() -> i64 {

@@ -670,6 +670,8 @@ body {
 
 /* Link to the branch's open PR, appended as a badge segment. */
 .badge-pr {
+  display: inline-flex;
+  align-items: center;
   padding: 1px 6px;
   color: var(--accent);
   text-decoration: none;
@@ -677,7 +679,7 @@ body {
 }
 
 .badge-pr:hover {
-  text-decoration: underline;
+  color: var(--text);
 }
 
 .badge-head {

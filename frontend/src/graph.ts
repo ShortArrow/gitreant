@@ -1,4 +1,9 @@
-import type { CommitView, GraphEdge } from "./api";
+import type {
+  CommitView,
+  GraphEdge,
+  MergedPullRequestView,
+  RepoView,
+} from "./api";
 
 /** Grid geometry shared by the SVG graph and the commit list beside it. */
 export const ROW_HEIGHT = 32;
@@ -78,4 +83,36 @@ export function rowIndex(commits: CommitView[]): Map<string, number> {
 
 export function shortId(id: string): string {
   return id.slice(0, 7);
+}
+
+/**
+ * Dashed pseudo-edges for squash-merged PRs: a surviving local branch tip has
+ * no ancestry line to the commit its PR landed as, so one is drawn from the
+ * merged-PR data. Endpoints keep real-edge order (upper row first) and take
+ * the branch tip's color.
+ */
+export function squashEdges(
+  repo: RepoView,
+  merged: MergedPullRequestView[],
+): GraphEdge[] {
+  const byId = new Map(repo.commits.map((c) => [c.id, c]));
+  const edges: GraphEdge[] = [];
+  for (const pr of merged) {
+    const tipId = repo.refs.find(
+      (r) => !r.remote && r.name === pr.branch,
+    )?.target;
+    if (!tipId || tipId === pr.merge_commit) continue;
+    const tip = byId.get(tipId);
+    const landed = byId.get(pr.merge_commit);
+    if (!tip || !landed) continue;
+    const [from, to] = landed.row <= tip.row ? [landed, tip] : [tip, landed];
+    edges.push({
+      from: from.id,
+      to: to.id,
+      from_lane: from.lane,
+      to_lane: to.lane,
+      color: tip.color,
+    });
+  }
+  return edges;
 }

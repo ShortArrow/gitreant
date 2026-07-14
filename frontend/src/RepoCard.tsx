@@ -10,10 +10,13 @@ import {
   type BranchOpResult,
   type CommitDetail,
   type FileDiff,
+  type MergedPullRequestView,
+  type PrLookupView,
   type PullRequestView,
   type RefView,
   type RepoView,
 } from "./api";
+import { PrLinkIcon } from "./Icons";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
 import { CommitDetailPanel } from "./CommitDetailPanel";
 import { FileDiffPane } from "./FileDiffPane";
@@ -27,6 +30,7 @@ import {
   rowIndex,
   ROW_HEIGHT,
   NODE_RADIUS,
+  squashEdges,
 } from "./graph";
 
 /** Group refs by the commit id they point at, so each row can show its badges. */
@@ -88,21 +92,25 @@ export function RepoCard({
     path: string,
   ) => Promise<FileDiff>;
   loadCommitDiff?: (repoId: string, commitId: string) => Promise<FileDiff[]>;
-  loadPrs?: (repoId: string) => Promise<PullRequestView[]>;
+  loadPrs?: (repoId: string) => Promise<PrLookupView>;
 }) {
   const rowOf = useMemo(() => rowIndex(repo.commits), [repo.commits]);
   const refMap = useMemo(() => refsByCommit(repo), [repo.refs]);
 
-  // Open PRs by head branch name; loads lazily and silently stays empty when
-  // the server has no gh (or the repo no GitHub remote).
+  // PRs by head branch name (open) plus merged ones for squash links; loads
+  // lazily and silently stays empty when the server has no gh (or the repo
+  // no GitHub remote).
   const [prByBranch, setPrByBranch] = useState<Map<string, PullRequestView>>(
     new Map(),
   );
+  const [mergedPrs, setMergedPrs] = useState<MergedPullRequestView[]>([]);
   useEffect(() => {
     let stale = false;
     loadPrs(repo.id)
-      .then((prs) => {
-        if (!stale) setPrByBranch(new Map(prs.map((pr) => [pr.branch, pr])));
+      .then((lookup) => {
+        if (stale) return;
+        setPrByBranch(new Map(lookup.prs.map((pr) => [pr.branch, pr])));
+        setMergedPrs(lookup.merged);
       })
       .catch(() => {});
     return () => {
@@ -248,6 +256,20 @@ export function RepoCard({
               strokeWidth={2}
             />
           ))}
+          {squashEdges(repo, mergedPrs).map((edge, i) => (
+            // A squash-merged PR's branch has no ancestry line to the commit
+            // it landed as; the dashed link comes from GitHub's PR data.
+            <path
+              key={`q${i}`}
+              data-testid="squash-edge"
+              d={edgePath(edge, rowOf)}
+              fill="none"
+              stroke={laneColor(edge.color)}
+              strokeWidth={2}
+              strokeDasharray="4 3"
+              opacity={0.7}
+            />
+          ))}
           {repo.commits.map((commit) =>
             commit.id === repo.head ? (
               // HEAD: a ring in the branch color with the center punched out
@@ -326,7 +348,7 @@ export function RepoCard({
                           title={`Open pull request #${pr.number} on GitHub`}
                           onClick={(e) => e.stopPropagation()}
                         >
-                          #{pr.number}
+                          <PrLinkIcon />
                         </a>
                       )}
                     </span>

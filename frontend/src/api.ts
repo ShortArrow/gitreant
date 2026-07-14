@@ -158,9 +158,25 @@ export interface PullRequestView {
   branch: string;
 }
 
-/** Open PRs of one repository via the server's `gh` lookup. Empty when gh is
+export interface MergedPullRequestView {
+  number: number;
+  url: string;
+  /** Head branch name the PR belonged to. */
+  branch: string;
+  /** The commit the PR landed as on the base branch (squash or merge). */
+  merge_commit: string;
+}
+
+export interface PrLookupView {
+  /** Open pull requests. */
+  prs: PullRequestView[];
+  /** Recently merged pull requests, for squash-merge links in the graph. */
+  merged: MergedPullRequestView[];
+}
+
+/** PRs of one repository via the server's `gh` lookup. Empty when gh is
  *  missing, unauthenticated, or the repository has no GitHub remote. */
-export async function fetchPrs(repoId: string): Promise<PullRequestView[]> {
+export async function fetchPrs(repoId: string): Promise<PrLookupView> {
   const response = await fetch("/api/prs", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -169,8 +185,7 @@ export async function fetchPrs(repoId: string): Promise<PullRequestView[]> {
   if (!response.ok) {
     throw new Error(`pr lookup failed: ${response.status}`);
   }
-  const data = (await response.json()) as { prs: PullRequestView[] };
-  return data.prs;
+  return response.json();
 }
 
 /** The external commands the server executed, oldest first. */

@@ -663,7 +663,14 @@ test.describe.serial("gitreant UI", () => {
     page,
   }) => {
     // PR data comes from the user's gh CLI on the server; stub the endpoint
-    // and verify the badge wiring end to end.
+    // and verify the badge and squash-link wiring end to end.
+    const repos = (await (await page.request.get("/api/repos")).json()) as {
+      name: string;
+      commits: { id: string; summary: string }[];
+    }[];
+    const mergeCommit = repos
+      .find((r) => r.name === "repoA")!
+      .commits.find((c) => c.summary === "merge feature")!;
     await page.route("**/api/prs", (route) =>
       route.fulfill({
         json: {
@@ -674,13 +681,30 @@ test.describe.serial("gitreant UI", () => {
               branch: "feature",
             },
           ],
+          merged: [
+            {
+              number: 6,
+              url: "https://github.com/o/r/pull/6",
+              branch: "feature",
+              merge_commit: mergeCommit.id,
+            },
+          ],
         },
       }),
     );
     await page.locator('[data-repo-name="repoA"]').click();
 
+    // The merged PR draws a dashed link between the surviving branch tip
+    // and the commit it landed as.
+    const squash = page.getByTestId("squash-edge");
+    await expect(squash).toHaveCount(1);
+    await expect(squash).toHaveAttribute("stroke-dasharray", "4 3");
+
+    // A GitHub mark on the badge, lazygit-style; the number lives in the
+    // tooltip.
     const link = page.getByTestId("badge-pr");
-    await expect(link).toHaveText("#7");
+    await expect(link.locator("svg")).toHaveCount(1);
+    await expect(link).toHaveAttribute("title", /#7/);
     await expect(link).toHaveAttribute(
       "href",
       "https://github.com/o/r/pull/7",

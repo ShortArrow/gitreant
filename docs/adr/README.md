@@ -21,3 +21,5 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0014](0014-branch-operations.md) | ブランチ操作はバッジの右クリックメニューからgit CLIに委譲する | Accepted |
 | [0015](0015-client-settings.md) | クライアント設定はlocalStorageに保存しボタン表示形式を提供 | Accepted |
 | [0016](0016-octicons.md) | アイコンはOcticonsを採用する | Accepted |
+| [0017](0017-primer-design-direction.md) | UIデザインの判断に迷ったらGitHub Primerに従う | Accepted |
+| [0018](0018-squash-merge-links.md) | squashマージの点線はghのmerged PR情報で描く | Accepted |

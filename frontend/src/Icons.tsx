@@ -4,6 +4,7 @@
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  MarkGithubIcon,
   ColumnsIcon,
   DiffIcon,
   DownloadIcon,
@@ -100,4 +101,9 @@ export function MoonThemeIcon() {
 /** The dropdown trigger on a selected diff line. */
 export function LineMenuIcon() {
   return <TriangleDownIcon size={12} />;
+}
+
+/** The GitHub mark on a branch badge that links to its pull request. */
+export function PrLinkIcon() {
+  return <MarkGithubIcon size={12} />;
 }

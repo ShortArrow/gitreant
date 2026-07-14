@@ -40,8 +40,9 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
   a toggleable bottom pane logs the executed commands and your UI actions
 - Signed commits carry a badge in the graph: Verified / Unverified when a
   local gpg can check the signature, plain Signed otherwise
-- Branch badges link to their open pull request when the `gh` CLI is
-  installed and authenticated
+- Branch badges carry a GitHub mark linking to their open pull request when
+  the `gh` CLI is installed and authenticated; squash-merged branches that
+  still exist get a dashed link to the commit their PR landed as
 - Multiple repositories in one SPA: a drawer to list/add/remove, tabs to switch
 - Live updates via Server-Sent Events when repositories are added or removed,
   plus a reload button to pick up new commits
