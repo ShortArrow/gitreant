@@ -948,25 +948,29 @@ body {
   background: color-mix(in srgb, var(--accent) 16%, transparent) !important;
 }
 
-/* GitHub-style dropdown on the first selected line. */
-.diff-line,
-.split-row {
-  position: relative;
-}
-
+/* GitHub-style dropdown replacing the first selected line's number. */
 .line-menu-wrap {
-  position: absolute;
-  left: 0;
-  top: 0;
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 32px;
+  justify-content: flex-end;
   z-index: 10;
 }
 
+.diff-line .line-menu-wrap {
+  margin-right: 8px;
+}
+
 .line-menu-trigger {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 17px;
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
-  font-size: 11px;
+  font-size: 15px;
   color: var(--bg-elev);
   background: var(--accent);
   border: none;
@@ -977,7 +981,7 @@ body {
 .line-menu {
   position: absolute;
   left: 0;
-  top: 18px;
+  top: 19px;
 }
 
 .split-text {

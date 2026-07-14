@@ -226,6 +226,7 @@ export function RepoCard({
           files={diffFiles}
           error={diffError}
           commitId={selected}
+          parentId={selectedCommit?.parents[0]}
           githubUrl={repo.github_url}
           onClose={() => setDiffTarget(null)}
         />

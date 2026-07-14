@@ -6,6 +6,7 @@ import {
   permalinkFragment,
   selectedLines,
   type DiffHunk,
+  type DiffSide,
   type SplitCell,
 } from "./diffModel";
 
@@ -21,9 +22,12 @@ function storedDiffView(): DiffView {
   }
 }
 
-/** A run of display lines selected via the line-number gutter of one file. */
+/** A run of display lines selected via the line-number gutter of one file.
+ * In the split view the selection belongs to one side: the old side is the
+ * parent commit's file, the new side this commit's. */
 interface Selection {
   path: string;
+  side: DiffSide;
   from: number;
   to: number;
 }
@@ -33,14 +37,17 @@ export function FileDiffPane({
   files,
   error,
   commitId,
+  parentId,
   githubUrl,
   onClose,
 }: {
   /** null while loading; one entry per shown file. */
   files: FileDiff[] | null;
   error: string | null;
-  /** The commit the diffs belong to; permalinks address the file at it. */
+  /** The commit the diffs belong to; new-side permalinks address it. */
   commitId: string;
+  /** Its first parent; old-side permalinks address it. */
+  parentId?: string;
   /** Web URL of the repository on GitHub, when it has such a remote. */
   githubUrl?: string;
   onClose: () => void;
@@ -58,15 +65,21 @@ export function FileDiffPane({
     }
   };
 
-  const selectLine = (path: string, index: number, extend: boolean) => {
+  const selectLine = (
+    path: string,
+    side: DiffSide,
+    index: number,
+    extend: boolean,
+  ) => {
     setSelection((prev) =>
-      extend && prev && prev.path === path
+      extend && prev && prev.path === path && prev.side === side
         ? {
             path,
+            side,
             from: Math.min(prev.from, index),
             to: Math.max(prev.to, index),
           }
-        : { path, from: index, to: index },
+        : { path, side, from: index, to: index },
     );
   };
 
@@ -124,6 +137,7 @@ export function FileDiffPane({
             view={view}
             selection={selection?.path === diff.path ? selection : null}
             commitId={commitId}
+            parentId={parentId}
             githubUrl={githubUrl}
             onSelectLine={selectLine}
           />
@@ -138,6 +152,7 @@ function FileSection({
   view,
   selection,
   commitId,
+  parentId,
   githubUrl,
   onSelectLine,
 }: {
@@ -145,37 +160,54 @@ function FileSection({
   view: DiffView;
   selection: Selection | null;
   commitId: string;
+  parentId?: string;
   githubUrl?: string;
-  onSelectLine: (path: string, index: number, extend: boolean) => void;
+  onSelectLine: (
+    path: string,
+    side: DiffSide,
+    index: number,
+    extend: boolean,
+  ) => void;
 }) {
   const hunks = useMemo(() => parseUnified(diff.text), [diff.text]);
-  // The display lines in order; selection indices point into this list.
-  const cells = useMemo(
-    () =>
-      view === "inline"
-        ? hunks.flatMap((h) => inlineCells(h.rows))
-        : hunks.flatMap((h) => h.rows.map((r) => (r.right ?? r.left)!)),
-    [hunks, view],
-  );
-  const selectedCells = selection
-    ? cells.slice(selection.from, selection.to + 1)
-    : [];
-  const isSelected = (index: number) =>
-    selection !== null && index >= selection.from && index <= selection.to;
-  const handleSelect = (index: number, extend: boolean) =>
-    onSelectLine(diff.path, index, extend);
+  // The selected side's display lines; selection indices point into rows
+  // (split) or the flattened inline cells.
+  const selectedCells: (SplitCell | undefined)[] = useMemo(() => {
+    if (!selection) return [];
+    if (view === "inline") {
+      return hunks
+        .flatMap((h) => inlineCells(h.rows))
+        .slice(selection.from, selection.to + 1);
+    }
+    return hunks
+      .flatMap((h) => h.rows)
+      .slice(selection.from, selection.to + 1)
+      .map((r) => (selection.side === "new" ? r.right : r.left));
+  }, [hunks, view, selection]);
 
-  // GitHub-style: the dropdown trigger sits on the first selected line.
-  // Keying by the range remounts the menu (and closes it) on any change.
+  const isSelected = (index: number, side: DiffSide) =>
+    selection !== null &&
+    selection.side === side &&
+    index >= selection.from &&
+    index <= selection.to;
+  const handleSelect = (side: DiffSide, index: number, extend: boolean) =>
+    onSelectLine(diff.path, side, index, extend);
+
+  // GitHub-style: the dropdown trigger replaces the first selected line's
+  // number on the selected side. Keying by the range remounts (and closes)
+  // the menu on any change.
   const anchor = selection ? (
     <LineMenu
-      key={`${selection.from}-${selection.to}`}
+      key={`${selection.side}-${selection.from}-${selection.to}`}
       selectedCells={selectedCells}
+      side={selection.side}
       path={diff.path}
-      commitId={commitId}
+      commitId={selection.side === "new" ? commitId : parentId}
       githubUrl={githubUrl}
     />
   ) : null;
+  const anchorIndex = selection?.from ?? -1;
+  const anchorSide = selection?.side ?? "new";
 
   return (
     <section className="diff-file-section" data-testid="diff-file-section">
@@ -190,9 +222,9 @@ function FileSection({
       ) : view === "inline" ? (
         <InlineDiff
           hunks={hunks}
-          isSelected={isSelected}
-          onSelect={handleSelect}
-          anchorIndex={selection?.from ?? -1}
+          isSelected={(i) => isSelected(i, "new")}
+          onSelect={(i, extend) => handleSelect("new", i, extend)}
+          anchorIndex={anchorIndex}
           anchor={anchor}
         />
       ) : (
@@ -200,7 +232,8 @@ function FileSection({
           hunks={hunks}
           isSelected={isSelected}
           onSelect={handleSelect}
-          anchorIndex={selection?.from ?? -1}
+          anchorIndex={anchorIndex}
+          anchorSide={anchorSide}
           anchor={anchor}
         />
       )}
@@ -211,13 +244,17 @@ function FileSection({
 /** Dropdown on the first selected line: actions on the current selection. */
 function LineMenu({
   selectedCells,
+  side,
   path,
   commitId,
   githubUrl,
 }: {
-  selectedCells: SplitCell[];
+  selectedCells: (SplitCell | undefined)[];
+  side: DiffSide;
   path: string;
-  commitId: string;
+  /** The commit this side's permalink addresses; absent for a root commit's
+   * old side. */
+  commitId?: string;
   githubUrl?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -229,9 +266,9 @@ function LineMenu({
     return () => window.removeEventListener("mousedown", close);
   }, [open]);
 
-  const fragment = permalinkFragment(selectedCells);
+  const fragment = permalinkFragment(selectedCells, side);
   const permalink =
-    githubUrl && fragment
+    githubUrl && commitId && fragment
       ? `${githubUrl}/blob/${commitId}/${path}${fragment}`
       : null;
   const copy = (text: string) => {
@@ -270,7 +307,7 @@ function LineMenu({
             title={
               permalink ??
               (githubUrl
-                ? "Removed lines have no permalink on the new side"
+                ? "The selection has no permalink on this side"
                 : "No GitHub remote")
             }
             onClick={() => permalink && copy(permalink)}
@@ -316,11 +353,14 @@ function InlineDiff({
                   isSelected(offset + i) ? " line-selected" : ""
                 }`}
               >
-                {offset + i === anchorIndex && anchor}
-                <LineNo
-                  no={cell.no}
-                  onClick={(extend) => onSelect(offset + i, extend)}
-                />
+                {offset + i === anchorIndex ? (
+                  anchor
+                ) : (
+                  <LineNo
+                    no={cell.no}
+                    onClick={(extend) => onSelect(offset + i, extend)}
+                  />
+                )}
                 {INLINE_PREFIX[cell.kind]}
                 <CellText cell={cell} />
               </div>
@@ -375,13 +415,15 @@ function SplitDiff({
   isSelected,
   onSelect,
   anchorIndex,
+  anchorSide,
   anchor,
 }: {
   hunks: DiffHunk[];
-  isSelected: (index: number) => boolean;
-  onSelect: (index: number, extend: boolean) => void;
-  /** Display index carrying the selection dropdown (-1 for none). */
+  isSelected: (index: number, side: DiffSide) => boolean;
+  onSelect: (side: DiffSide, index: number, extend: boolean) => void;
+  /** Display index and side carrying the selection dropdown (-1 for none). */
   anchorIndex: number;
+  anchorSide: DiffSide;
   anchor: React.ReactNode;
 }) {
   let base = 0;
@@ -394,20 +436,26 @@ function SplitDiff({
           <div key={hunk.header}>
             <div className="diff-line diff-line-hunk">{hunk.header}</div>
             {hunk.rows.map((row, i) => (
-              <div
-                key={i}
-                className={`split-row${
-                  isSelected(offset + i) ? " line-selected" : ""
-                }`}
-              >
-                {offset + i === anchorIndex && anchor}
+              <div key={i} className="split-row">
                 <SplitSide
                   cell={row.left}
-                  onSelect={(extend) => onSelect(offset + i, extend)}
+                  selected={isSelected(offset + i, "old")}
+                  anchor={
+                    offset + i === anchorIndex && anchorSide === "old"
+                      ? anchor
+                      : null
+                  }
+                  onSelect={(extend) => onSelect("old", offset + i, extend)}
                 />
                 <SplitSide
                   cell={row.right}
-                  onSelect={(extend) => onSelect(offset + i, extend)}
+                  selected={isSelected(offset + i, "new")}
+                  anchor={
+                    offset + i === anchorIndex && anchorSide === "new"
+                      ? anchor
+                      : null
+                  }
+                  onSelect={(extend) => onSelect("new", offset + i, extend)}
                 />
               </div>
             ))}
@@ -420,17 +468,25 @@ function SplitDiff({
 
 function SplitSide({
   cell,
+  selected,
+  anchor,
   onSelect,
 }: {
   cell: SplitCell | undefined;
+  selected: boolean;
+  anchor: React.ReactNode;
   onSelect: (extend: boolean) => void;
 }) {
   if (!cell) {
     return <div className="split-cell split-cell-empty" />;
   }
   return (
-    <div className={`split-cell split-cell-${cell.kind}`}>
-      <LineNo no={cell.no} onClick={onSelect} />
+    <div
+      className={`split-cell split-cell-${cell.kind}${
+        selected ? " line-selected" : ""
+      }`}
+    >
+      {anchor ?? <LineNo no={cell.no} onClick={onSelect} />}
       <span className="split-text">
         <CellText cell={cell} />
       </span>

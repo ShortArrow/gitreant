@@ -734,13 +734,33 @@ test.describe.serial("gitreant UI", () => {
 
     await trigger.click();
     await page.getByTestId("copy-permalink").click();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(
+    const newLink = await page.evaluate(() => navigator.clipboard.readText());
+    expect(newLink).toMatch(
       /^https:\/\/github\.com\/example\/repoK\/blob\/[0-9a-f]{40}\/list\.txt#L3-L5$/,
     );
 
     // Escape clears the selection and the trigger with it.
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("line-menu-trigger")).toHaveCount(0);
+
+    // Split view: selecting on the old (left) side permalinks the parent
+    // commit's file with old-side line numbers.
+    await page.getByTestId("diff-view-split").click();
+    await page
+      .locator('.split-cell:first-child [data-testid="line-no"]', {
+        hasText: /^2$/,
+      })
+      .click();
+    await page.getByTestId("line-menu-trigger").click();
+    await page.getByTestId("copy-permalink").click();
+    const oldLink = await page.evaluate(() => navigator.clipboard.readText());
+    expect(oldLink).toMatch(
+      /^https:\/\/github\.com\/example\/repoK\/blob\/[0-9a-f]{40}\/list\.txt#L2$/,
+    );
+    // The old side addresses the parent commit, not this one.
+    const sha = (link: string) => /blob\/([0-9a-f]{40})/.exec(link)![1];
+    expect(sha(oldLink)).not.toBe(sha(newLink));
+    await page.keyboard.press("Escape");
 
     // Restore the served set.
     const repoK = page.locator('[data-repo-name="repoK"]');

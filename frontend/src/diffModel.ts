@@ -101,22 +101,34 @@ export function inlineCells(rows: SplitRow[]): SplitCell[] {
   return cells;
 }
 
-/** The text of a selected run of lines, ready for the clipboard. */
-export function selectedLines(cells: SplitCell[]): string {
-  return cells.map((c) => c.text).join("\n");
+/** Which version of the file a split-view selection addresses. */
+export type DiffSide = "old" | "new";
+
+/** The text of a selected run of lines, ready for the clipboard. Rows that
+ * do not exist on the chosen side are skipped. */
+export function selectedLines(cells: (SplitCell | undefined)[]): string {
+  return cells
+    .filter((c): c is SplitCell => c !== undefined)
+    .map((c) => c.text)
+    .join("\n");
 }
 
 /** GitHub-style line fragment ("#L3" / "#L3-L5") for a selected run.
  *
- * Permalinks address the file at the commit, so every selected line must
- * exist on the new side — a selection containing removals has no fragment.
+ * A permalink addresses the file at one commit, so every selected line must
+ * exist on that side: removals are absent from the new side, additions from
+ * the old one, and side-less rows from both.
  */
-export function permalinkFragment(cells: SplitCell[]): string | null {
-  if (cells.length === 0 || cells.some((c) => c.kind === "remove")) {
+export function permalinkFragment(
+  cells: (SplitCell | undefined)[],
+  side: DiffSide = "new",
+): string | null {
+  const absent = side === "new" ? "remove" : "add";
+  if (cells.length === 0 || cells.some((c) => !c || c.kind === absent)) {
     return null;
   }
-  const start = cells[0].no;
-  const end = cells[cells.length - 1].no;
+  const start = cells[0]!.no;
+  const end = cells[cells.length - 1]!.no;
   return end > start ? `#L${start}-L${end}` : `#L${start}`;
 }
 

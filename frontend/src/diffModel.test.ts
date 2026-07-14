@@ -128,6 +128,25 @@ test("permalinkFragment refuses removed lines and empty selections", () => {
   expect(permalinkFragment([])).toBeNull();
 });
 
+test("permalinkFragment addresses the old side with old-side rules", () => {
+  // The extra addition pairs with nothing: its row has no old side.
+  const hunks = parseUnified("@@ -3,2 +5,3 @@\n both\n-gone\n+added\n+extra\n");
+  const left = hunks[0].rows.map((r) => r.left);
+
+  // Old side: context (old no 3) + removal (old no 4) both exist there.
+  expect(permalinkFragment(left.slice(0, 2), "old")).toBe("#L3-L4");
+  // A row missing on the old side breaks the permalink.
+  expect(permalinkFragment(left, "old")).toBeNull();
+});
+
+test("selectedLines skips rows missing on the chosen side", () => {
+  const hunks = parseUnified("@@ -1,2 +1,1 @@\n keep\n-gone\n");
+  const left = hunks[0].rows.map((r) => r.left);
+  const right = hunks[0].rows.map((r) => r.right);
+  expect(selectedLines(left)).toBe("keep\ngone");
+  expect(selectedLines(right)).toBe("keep");
+});
+
 test("attaches segments to paired remove/add rows only", () => {
   const hunks = parseUnified(
     "@@ -1,3 +1,3 @@\n-foo(a, b)\n+foo(a, c, b)\n ctx\n-lonely\n",
