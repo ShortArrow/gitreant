@@ -17,6 +17,7 @@ const fixtures = JSON.parse(
   repoI: string | null;
   repoJ: string;
   repoK: string;
+  repoL: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -949,6 +950,38 @@ test.describe.serial("gitreant UI", () => {
     await repoJ.hover();
     await repoJ.getByTestId("repo-remove").click();
     await expect(page.locator('[data-repo-name="repoJ"]')).toHaveCount(0);
+  });
+
+  test("tags and the stash render apart from branch badges", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoL);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoL"]')).toBeVisible();
+
+    const tag = page.locator(".badge-kind-tag", { hasText: "v1.0" });
+    await expect(tag).toBeVisible();
+    await expect(tag.locator("svg")).toHaveCount(1);
+
+    const stash = page.locator(".badge-kind-stash", { hasText: "stash" });
+    await expect(stash).toBeVisible();
+    await expect(stash.locator("svg")).toHaveCount(1);
+
+    // The branch keeps its plain badge, and only branches open the
+    // checkout/merge menu.
+    await expect(
+      page.locator(".badge-kind-branch", { hasText: "main" }),
+    ).toBeVisible();
+    await stash.click({ button: "right" });
+    await expect(page.getByTestId("ref-menu")).toHaveCount(0);
+    await tag.click({ button: "right" });
+    await expect(page.getByTestId("ref-menu")).toHaveCount(0);
+
+    // Restore the served set.
+    const repoL = page.locator('[data-repo-name="repoL"]');
+    await repoL.hover();
+    await repoL.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoL"]')).toHaveCount(0);
   });
 
   test("merge commit messages are dimmed", async ({ page }) => {

@@ -5,6 +5,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   MarkGithubIcon,
+  StackIcon,
+  TagIcon,
   ColumnsIcon,
   DiffIcon,
   DownloadIcon,
@@ -106,4 +108,14 @@ export function LineMenuIcon() {
 /** The GitHub mark on a branch badge that links to its pull request. */
 export function PrLinkIcon() {
   return <MarkGithubIcon size={12} />;
+}
+
+/** Marks a tag badge apart from branch badges. */
+export function TagBadgeIcon() {
+  return <TagIcon size={12} />;
+}
+
+/** Marks the stash badge apart from branch badges. */
+export function StashBadgeIcon() {
+  return <StackIcon size={12} />;
 }

@@ -36,9 +36,9 @@ export const mergeRepo: RepoView = {
   path: "/home/user/repos/demo",
   head: "m",
   refs: [
-    { name: "main", target: "m" },
-    { name: "main", target: "m", remote: "origin" },
-    { name: "feature", target: "f1" },
+    { name: "main", target: "m", kind: "branch" },
+    { name: "main", target: "m", remote: "origin", kind: "branch" },
+    { name: "feature", target: "f1", kind: "branch" },
   ],
   commits: [
     { ...commit("m", 0, 0, 0, ["a2", "f1"], "merge feature branch"), signature: "openpgp" },
@@ -70,8 +70,8 @@ export const longMergeRepo: RepoView = (() => {
     path: "/home/user/repos/long",
     head: "m",
     refs: [
-      { name: "main", target: "m" },
-      { name: "feature", target: "f1" },
+      { name: "main", target: "m", kind: "branch" },
+      { name: "feature", target: "f1", kind: "branch" },
     ],
     commits: [
       commit("m", 0, 0, 0, ["a10", "f1"], "merge feature"),
@@ -95,7 +95,7 @@ export const linearRepo: RepoView = {
   name: "notes",
   path: "/home/user/repos/notes",
   head: "n2",
-  refs: [{ name: "main", target: "n2" }],
+  refs: [{ name: "main", target: "n2", kind: "branch" }],
   commits: [
     commit("n2", 0, 0, 0, ["n1"], "add second note"),
     commit("n1", 1, 0, 0, [], "add first note"),

@@ -269,6 +269,19 @@ function makeRepoK(): string {
   return dir; // 2 commits
 }
 
+/** repoL: a tag and a stash next to a branch, for the badge-kind test. */
+function makeRepoL(): string {
+  const dir = initRepo("repoL");
+  const t = 1_700_000_000;
+  writeFileSync(path.join(dir, "note.txt"), "one\n");
+  git(dir, ["add", "."]);
+  commit(dir, "l-1", t);
+  git(dir, ["tag", "v1.0"]);
+  writeFileSync(path.join(dir, "note.txt"), "two\n");
+  git(dir, ["stash", "push", "-q"], atTime(t + 10));
+  return dir;
+}
+
 /** Set by makeRepoI; the teardown must talk to the same gpg installation. */
 let gpgconfBin = "gpgconf";
 
@@ -290,6 +303,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoI = makeRepoI();
   const repoJ = makeRepoJ();
   const repoK = makeRepoK();
+  const repoL = makeRepoL();
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
@@ -309,6 +323,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoI,
         repoJ,
         repoK,
+        repoL,
       },
       null,
       2,

@@ -29,6 +29,8 @@ export interface RefView {
   name: string;
   target: string;
   remote?: string;
+  /** "branch", "tag", "stash" or "other" — rendered as distinct badges. */
+  kind: string;
 }
 
 export interface RepoView {

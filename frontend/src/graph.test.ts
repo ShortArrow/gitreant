@@ -60,7 +60,7 @@ function repoWith(overrides: Partial<RepoView>): RepoView {
     name: "r",
     path: "/r",
     head: null,
-    refs: [{ name: "feature", target: "tip" }],
+    refs: [{ name: "feature", target: "tip", kind: "branch" }],
     commits: [
       commit("squash", 0, 0, 0),
       commit("tip", 1, 1, 1),
@@ -90,7 +90,7 @@ test("squashLinks reuse a free real lane instead of drifting right", () => {
   // the corridor takes lane 2, not a virtual lane at 4.
   const repo = repoWith({
     lane_count: 4,
-    refs: [{ name: "feature", target: "tip" }],
+    refs: [{ name: "feature", target: "tip", kind: "branch" }],
     commits: [
       commit("squash", 0, 0, 0),
       commit("mid", 2, 1, 1),
@@ -125,8 +125,8 @@ test("squashLinks share a lane when their row ranges do not overlap", () => {
   const repo = repoWith({
     lane_count: 2,
     refs: [
-      { name: "feature", target: "tip" },
-      { name: "other", target: "tip2" },
+      { name: "feature", target: "tip", kind: "branch" },
+      { name: "other", target: "tip2", kind: "branch" },
     ],
     commits: [
       commit("squash", 0, 0, 0),
@@ -147,8 +147,8 @@ test("squashLinks stack overlapping corridors on separate lanes", () => {
   const repo = repoWith({
     lane_count: 2,
     refs: [
-      { name: "feature", target: "tip" },
-      { name: "other", target: "tip2" },
+      { name: "feature", target: "tip", kind: "branch" },
+      { name: "other", target: "tip2", kind: "branch" },
     ],
     commits: [
       commit("squash", 0, 0, 0),
@@ -174,7 +174,7 @@ test("squashLinks skips PRs whose branch or commit left the graph", () => {
 
   // A remote-only ref does not count as a surviving local branch.
   const remoteOnly = repoWith({
-    refs: [{ name: "feature", target: "tip", remote: "origin" }],
+    refs: [{ name: "feature", target: "tip", remote: "origin", kind: "branch" }],
   });
   expect(
     squashLinks(remoteOnly, [

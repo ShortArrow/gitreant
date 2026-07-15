@@ -38,6 +38,8 @@ pub struct RefView {
     pub target: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub remote: Option<String>,
+    /// "branch", "tag", "stash" or "other" — rendered as distinct badges.
+    pub kind: String,
 }
 
 /// One repository as the SPA consumes it.
@@ -190,6 +192,7 @@ pub fn build_view(id: &Path, data: &RepoData) -> RepoView {
             name: r.name.clone(),
             target: r.target.clone(),
             remote: r.remote.clone(),
+            kind: r.kind.clone(),
         })
         .collect();
 

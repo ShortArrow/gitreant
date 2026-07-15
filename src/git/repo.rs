@@ -27,7 +27,7 @@ pub struct CommitMeta {
     pub signature_key: Option<String>,
 }
 
-/// A named reference (branch/tag) pointing at a commit.
+/// A named reference (branch/tag/stash) pointing at a commit.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RefInfo {
     /// Short name; for remote-tracking refs the remote prefix is split off
@@ -35,6 +35,8 @@ pub struct RefInfo {
     pub name: String,
     pub target: String,
     pub remote: Option<String>,
+    /// "branch", "tag", "stash" or "other" — the UI renders them apart.
+    pub kind: String,
 }
 
 /// Everything read from one repository.
@@ -133,7 +135,7 @@ fn collect_refs(repo: &gix::Repository) -> Vec<RefInfo> {
     let mut refs = Vec::new();
     for reference in iter.filter_map(Result::ok) {
         let mut reference = reference;
-        let (name, remote) = split_remote(
+        let (name, remote, kind) = classify(
             &reference.name().as_bstr().to_string(),
             &reference.name().shorten().to_string(),
         );
@@ -142,10 +144,35 @@ fn collect_refs(repo: &gix::Repository) -> Vec<RefInfo> {
                 name,
                 target: id.detach().to_string(),
                 remote,
+                kind,
             });
         }
     }
     refs
+}
+
+/// Break a full ref name into its display name, remote and kind.
+fn classify(full: &str, short: &str) -> (String, Option<String>, String) {
+    if let Some((remote, branch)) = full
+        .strip_prefix("refs/remotes/")
+        .and_then(|rest| rest.split_once('/'))
+    {
+        return (
+            branch.to_string(),
+            Some(remote.to_string()),
+            "branch".to_string(),
+        );
+    }
+    if let Some(name) = full.strip_prefix("refs/heads/") {
+        return (name.to_string(), None, "branch".to_string());
+    }
+    if let Some(name) = full.strip_prefix("refs/tags/") {
+        return (name.to_string(), None, "tag".to_string());
+    }
+    if full == "refs/stash" {
+        return ("stash".to_string(), None, "stash".to_string());
+    }
+    (short.to_string(), None, "other".to_string())
 }
 
 /// The GitHub web URL for a clone URL, when it points at github.com.
@@ -162,15 +189,6 @@ pub fn github_web_url(clone_url: &str) -> Option<String> {
     let owner = parts.next().filter(|s| !s.is_empty())?;
     let repo = parts.next().filter(|s| !s.is_empty() && !s.contains('/'))?;
     Some(format!("https://github.com/{owner}/{repo}"))
-}
-
-/// Split a remote-tracking ref into its branch and remote names; anything else
-/// keeps its short name.
-fn split_remote(full: &str, short: &str) -> (String, Option<String>) {
-    full.strip_prefix("refs/remotes/")
-        .and_then(|rest| rest.split_once('/'))
-        .map(|(remote, branch)| (branch.to_string(), Some(remote.to_string())))
-        .unwrap_or_else(|| (short.to_string(), None))
 }
 
 /// A commit collected before ordering.
@@ -347,6 +365,30 @@ mod tests {
                 "for {url}"
             );
         }
+    }
+
+    #[test]
+    fn classify_separates_branches_tags_stash_and_remotes() {
+        assert_eq!(
+            classify("refs/heads/main", "main"),
+            ("main".into(), None, "branch".into())
+        );
+        assert_eq!(
+            classify("refs/remotes/origin/main", "origin/main"),
+            ("main".into(), Some("origin".into()), "branch".into())
+        );
+        assert_eq!(
+            classify("refs/tags/v1.0", "v1.0"),
+            ("v1.0".into(), None, "tag".into())
+        );
+        assert_eq!(
+            classify("refs/stash", "stash"),
+            ("stash".into(), None, "stash".into())
+        );
+        assert_eq!(
+            classify("refs/notes/commits", "notes/commits"),
+            ("notes/commits".into(), None, "other".into())
+        );
     }
 
     #[test]

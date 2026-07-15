@@ -16,7 +16,7 @@ import {
   type RefView,
   type RepoView,
 } from "./api";
-import { PrLinkIcon } from "./Icons";
+import { PrLinkIcon, StashBadgeIcon, TagBadgeIcon } from "./Icons";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
 import { useT } from "./settings";
 import { CommitDetailPanel } from "./CommitDetailPanel";
@@ -323,15 +323,20 @@ export function RepoCard({
               >
                 {isHead && <span className="badge badge-head">HEAD</span>}
                 {refs.map((ref) => {
-                  const pr = prByBranch.get(ref.name);
+                  const isBranch = ref.kind === "branch";
+                  const pr = isBranch ? prByBranch.get(ref.name) : undefined;
                   const qualified = ref.remote
                     ? `${ref.remote}/${ref.name}`
                     : ref.name;
                   return (
                     <span
-                      key={qualified}
-                      className={`badge badge-ref${ref.remote ? " badge-remote" : ""}`}
+                      key={`${ref.kind}:${qualified}`}
+                      className={`badge badge-ref badge-kind-${ref.kind}${
+                        ref.remote ? " badge-remote" : ""
+                      }`}
                       onContextMenu={(e) => {
+                        // Checkout/merge only make sense for branches.
+                        if (!isBranch) return;
                         e.preventDefault();
                         e.stopPropagation();
                         setRefMenu({
@@ -346,7 +351,11 @@ export function RepoCard({
                           {ref.remote}
                         </span>
                       )}
-                      <span className="badge-ref-name">{ref.name}</span>
+                      <span className="badge-ref-name">
+                        {ref.kind === "tag" && <TagBadgeIcon />}
+                        {ref.kind === "stash" && <StashBadgeIcon />}
+                        {ref.name}
+                      </span>
                       {pr && (
                         <a
                           className="badge-pr"
