@@ -2,6 +2,10 @@
 
 [English](../README.md) | [日本語](README.jp.md)
 
+Gitリポジトリの森を見渡し、整え、育てるための管理ツール。
+
+Gitreant は「Git」と、森を守る樹人「Treant」を組み合わせた造語です。Gitリポジトリの森を見渡し、枝を整え、健全に保つツールという意味を込めています。
+
 ローカル git リポジトリのコミットグラフを、単一の SPA 上にまとめて表示する
 Web アプリ。[k1LoW/mo](https://github.com/k1LoW/mo) の体験を参考に、Rust 単一
 バイナリに React 製 SPA を埋め込んで配布する。

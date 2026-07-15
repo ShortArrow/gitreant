@@ -2,6 +2,10 @@
 
 [English](README.md) | [日本語](docs/README.jp.md)
 
+Manage, inspect, and maintain multiple Git repositories from one place.
+
+Gitreant combines “Git” with “Treant,” a mythical guardian of the forest. The name represents a tool that watches over, organizes, and maintains a forest of Git repositories.
+
 A web app that shows commit graphs of local git repositories side by side in a
 single-page app. Inspired by [k1LoW/mo](https://github.com/k1LoW/mo), it ships
 as a single Rust binary with an embedded React SPA.
