@@ -682,30 +682,29 @@ body {
   border: 1px solid var(--border);
 }
 
+/* Branch badges are segmented pills: every segment (remote name, branch
+ * name, PR mark) carries its own uniform padding and the pill itself none,
+ * so local and remote variants space identically. */
 .badge-ref {
-  /* Flex keeps appended segments (the PR mark) vertically centered on
-   * local badges too, not just on the flexed remote variant. */
   display: inline-flex;
-  align-items: center;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-/* Remote-tracking refs: the remote name gets its own badge segment. */
-.badge-remote {
-  padding: 0;
-  overflow: hidden;
+.badge-ref-name {
+  padding: 1px 6px;
 }
 
 .badge-remote .badge-remote-name {
+  display: inline-flex;
+  align-items: center;
   padding: 1px 6px;
   background: color-mix(in srgb, var(--accent) 28%, transparent);
   border-right: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-}
-
-.badge-remote .badge-ref-name {
-  padding: 1px 6px;
 }
 
 /* Dropdown menus: branch badges (fixed at cursor) and diff selections. */
@@ -835,6 +834,27 @@ body {
   font-size: 14px;
   margin: 8px 0 0;
   word-break: break-word;
+}
+
+.detail-message code,
+.detail-code {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  background: color-mix(in srgb, var(--border) 35%, transparent);
+  border-radius: 4px;
+}
+
+.detail-message code {
+  padding: 0 4px;
+  font-size: 12px;
+}
+
+.detail-code {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
 }
 
 .detail-message {

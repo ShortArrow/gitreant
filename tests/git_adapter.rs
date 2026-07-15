@@ -371,7 +371,7 @@ fn reads_branch_and_merge_repo() {
     assert!(repo.head.is_some());
 
     // The layout spans two lanes (main + feature) and places every commit.
-    let graph = layout(&repo.commit_inputs());
+    let graph = layout(&repo.commit_inputs(), repo.head.as_deref());
     assert_eq!(graph.nodes.len(), 5);
     assert!(graph.lane_count >= 2, "expected >=2 lanes, got {}", graph.lane_count);
 }

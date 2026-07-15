@@ -161,7 +161,7 @@ impl From<FileDiff> for FileDiffView {
 
 /// Build the view for `data`, keyed by `id` (its canonical path).
 pub fn build_view(id: &Path, data: &RepoData) -> RepoView {
-    let graph = layout(&data.commit_inputs());
+    let graph = layout(&data.commit_inputs(), data.head.as_deref());
 
     // `layout` preserves input order, so node[i] aligns with commits[i].
     let commits = graph

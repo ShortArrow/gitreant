@@ -71,6 +71,9 @@ test.describe.serial("gitreant UI", () => {
     await expect(panel).toBeVisible();
     await expect(panel).toContainText("main-1");
     await expect(panel).toContainText("Second line of the description.");
+    // Fenced blocks in the body render as code, without the backticks.
+    await expect(panel.getByTestId("detail-code")).toHaveText("cargo test");
+    await expect(panel).not.toContainText("```");
     await expect(panel).toContainText("Tester");
     // Fixture commits are unsigned; the signature state is always shown.
     await expect(panel.getByTestId("detail-signature")).toHaveText("Not signed");

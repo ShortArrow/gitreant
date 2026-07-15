@@ -3,6 +3,7 @@ import type { CommitDetail, FileChange } from "./api";
 import { CopyText } from "./CopyText";
 import { DiffAllIcon, FlatIcon, TreeIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
+import { inlineSpans, messageBlocks } from "./message";
 import { useT } from "./settings";
 import { buildFileTree, type FileTreeNode } from "./fileTree";
 import { shortId } from "./graph";
@@ -141,7 +142,20 @@ function DetailBody({
   return (
     <>
       <h3 className="detail-summary">{summary}</h3>
-      {body && <pre className="detail-message">{body}</pre>}
+      {body &&
+        messageBlocks(body).map((block, i) =>
+          block.kind === "code" ? (
+            <pre key={i} className="detail-code" data-testid="detail-code">
+              {block.text}
+            </pre>
+          ) : (
+            <pre key={i} className="detail-message">
+              {inlineSpans(block.text).map((span, j) =>
+                span.code ? <code key={j}>{span.text}</code> : span.text,
+              )}
+            </pre>
+          ),
+        )}
 
       <dl className="detail-meta">
         <dt>{t("author")}</dt>

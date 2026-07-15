@@ -27,7 +27,11 @@ function makeRepoA(): string {
   commit(dir, "root", t);
   writeFileSync(path.join(dir, "README.md"), "one\ntwo\n");
   git(dir, ["add", "."]);
-  commit(dir, "main-1\n\nSecond line of the description.", t + 10);
+  commit(
+    dir,
+    "main-1\n\nSecond line of the description.\n```\ncargo test\n```",
+    t + 10,
+  );
   git(dir, ["switch", "-c", "feature", "-q"]);
   commit(dir, "feature-1", t + 20);
   git(dir, ["switch", "main", "-q"]);

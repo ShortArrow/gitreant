@@ -31,7 +31,8 @@ import {
   rowIndex,
   ROW_HEIGHT,
   NODE_RADIUS,
-  squashEdges,
+  linkPath,
+  squashLinks,
 } from "./graph";
 
 /** Group refs by the commit id they point at, so each row can show its badges. */
@@ -200,7 +201,9 @@ export function RepoCard({
     );
   }
 
-  const width = graphWidth(repo.lane_count);
+  const links = squashLinks(repo, mergedPrs);
+  // Virtual lanes for the squash links widen the drawing.
+  const width = graphWidth(repo.lane_count + links.length);
   const height = graphHeight(repo.commits.length);
   const selectedCommit = selected
     ? repo.commits.find((c) => c.id === selected)
@@ -260,15 +263,16 @@ export function RepoCard({
               strokeWidth={2}
             />
           ))}
-          {squashEdges(repo, mergedPrs).map((edge, i) => (
+          {links.map((link, i) => (
             // A squash-merged PR's branch has no ancestry line to the commit
-            // it landed as; the dashed link comes from GitHub's PR data.
+            // it landed as; the dashed link comes from GitHub's PR data and
+            // runs through its own virtual lane so it crosses nothing.
             <path
               key={`q${i}`}
               data-testid="squash-edge"
-              d={edgePath(edge, rowOf)}
+              d={linkPath(link)}
               fill="none"
-              stroke={laneColor(edge.color)}
+              stroke={laneColor(link.color)}
               strokeWidth={2}
               strokeDasharray="4 3"
               opacity={0.7}

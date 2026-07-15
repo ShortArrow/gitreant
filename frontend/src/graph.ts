@@ -85,18 +85,30 @@ export function shortId(id: string): string {
   return id.slice(0, 7);
 }
 
+/** A dashed squash-merge link, routed through its own virtual lane. */
+export interface SquashLink {
+  fromRow: number;
+  fromLane: number;
+  toRow: number;
+  toLane: number;
+  /** The virtual lane (>= lane_count) whose vertical corridor is free. */
+  via: number;
+  color: number;
+}
+
 /**
- * Dashed pseudo-edges for squash-merged PRs: a surviving local branch tip has
- * no ancestry line to the commit its PR landed as, so one is drawn from the
- * merged-PR data. Endpoints keep real-edge order (upper row first) and take
- * the branch tip's color.
+ * Dashed links for squash-merged PRs: a surviving local branch tip has no
+ * ancestry line to the commit its PR landed as, so one is drawn from the
+ * merged-PR data. Real lanes are dense with nodes and edges, so each link
+ * gets a virtual lane right of the graph for its vertical run (the caller
+ * widens the SVG by the number of links).
  */
-export function squashEdges(
+export function squashLinks(
   repo: RepoView,
   merged: MergedPullRequestView[],
-): GraphEdge[] {
+): SquashLink[] {
   const byId = new Map(repo.commits.map((c) => [c.id, c]));
-  const edges: GraphEdge[] = [];
+  const links: SquashLink[] = [];
   for (const pr of merged) {
     const tipId = repo.refs.find(
       (r) => !r.remote && r.name === pr.branch,
@@ -106,13 +118,41 @@ export function squashEdges(
     const landed = byId.get(pr.merge_commit);
     if (!tip || !landed) continue;
     const [from, to] = landed.row <= tip.row ? [landed, tip] : [tip, landed];
-    edges.push({
-      from: from.id,
-      to: to.id,
-      from_lane: from.lane,
-      to_lane: to.lane,
+    links.push({
+      fromRow: from.row,
+      fromLane: from.lane,
+      toRow: to.row,
+      toLane: to.lane,
+      via: repo.lane_count + links.length,
       color: tip.color,
     });
   }
-  return edges;
+  return links;
+}
+
+/**
+ * The dashed link's path: bend from the upper node into the via lane within
+ * one row, run vertically, and bend back into the lower node within its row.
+ * Adjacent rows skip the corridor and draw a single curve.
+ */
+export function linkPath(link: SquashLink): string {
+  const x1 = nodeX(link.fromLane);
+  const y1 = nodeY(link.fromRow);
+  const xv = nodeX(link.via);
+  const x2 = nodeX(link.toLane);
+  const y2 = nodeY(link.toRow);
+
+  if (link.toRow - link.fromRow <= 1) {
+    const ym = (y1 + y2) / 2;
+    return `M${x1},${y1} C${x1},${ym} ${x2},${ym} ${x2},${y2}`;
+  }
+
+  const yb1 = y1 + ROW_HEIGHT;
+  const yb2 = y2 - ROW_HEIGHT;
+  const ym1 = (y1 + yb1) / 2;
+  const ym2 = (yb2 + y2) / 2;
+  return (
+    `M${x1},${y1} C${x1},${ym1} ${xv},${ym1} ${xv},${yb1} ` +
+    `L${xv},${yb2} C${xv},${ym2} ${x2},${ym2} ${x2},${y2}`
+  );
 }

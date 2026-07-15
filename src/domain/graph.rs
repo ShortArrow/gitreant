@@ -52,12 +52,24 @@ pub struct Graph {
 /// Assign lanes and colors to `commits`, which must be in topological order
 /// (child before parents).
 ///
+/// Two principles keep the picture readable: the checked-out branch (`head`'s
+/// first-parent chain, the "spine") pins column 0 as a straight line, and
+/// merge parents never take a column left of the merge commit — branches fork
+/// to the right, merges come back from the right.
+///
 /// Invariant the renderer relies on: once a pending parent is assigned a lane,
 /// that lane stays reserved until the parent itself is placed. Edges to that
 /// parent can therefore run vertically along `to_lane` across all intermediate
 /// rows without colliding with any node.
-pub fn layout(commits: &[CommitInput]) -> Graph {
+pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
+    let spine = spine_of(commits, head);
     let mut state = LayoutState::default();
+    if let Some(head_id) = head.filter(|h| spine.contains(*h)) {
+        // Reserve the spine's column up front so nothing else takes lane 0.
+        let idx = state.alloc_after(None);
+        state.colors[idx] = state.take_color();
+        state.lanes[idx] = Some(head_id.to_string());
+    }
     let mut nodes = Vec::with_capacity(commits.len());
     let mut edges = Vec::new();
 
@@ -78,7 +90,12 @@ pub fn layout(commits: &[CommitInput]) -> Graph {
         } else {
             for (index, parent) in commit.parents.iter().enumerate() {
                 let is_first = index == 0;
-                let target_lane = state.route_to_parent(parent, my_lane, is_first);
+                let target_lane = state.route_to_parent(
+                    parent,
+                    my_lane,
+                    is_first,
+                    spine.contains(parent.as_str()),
+                );
                 edges.push(GraphEdge {
                     from: commit.id.clone(),
                     to: parent.clone(),
@@ -101,6 +118,27 @@ pub fn layout(commits: &[CommitInput]) -> Graph {
     }
 }
 
+/// The ids on `head`'s first-parent chain, as far as it stays inside
+/// `commits`. Empty when there is no head (or it is not displayed).
+fn spine_of(commits: &[CommitInput], head: Option<&str>) -> std::collections::HashSet<String> {
+    use std::collections::{HashMap, HashSet};
+    let first_parent: HashMap<&str, &str> = commits
+        .iter()
+        .filter_map(|c| c.parents.first().map(|p| (c.id.as_str(), p.as_str())))
+        .collect();
+    let ids: HashSet<&str> = commits.iter().map(|c| c.id.as_str()).collect();
+
+    let mut spine = HashSet::new();
+    let mut current = head;
+    while let Some(id) = current {
+        if !ids.contains(id) || !spine.insert(id.to_string()) {
+            break;
+        }
+        current = first_parent.get(id).copied();
+    }
+    spine
+}
+
 /// Mutable bookkeeping while laying out the graph.
 ///
 /// `lanes[i]` holds the commit id currently expected next in column `i`, or
@@ -121,7 +159,7 @@ impl LayoutState {
         match self.find(id) {
             Some(idx) => idx,
             None => {
-                let idx = self.alloc();
+                let idx = self.alloc_after(None);
                 self.colors[idx] = self.take_color();
                 self.lanes[idx] = Some(id.to_string());
                 idx
@@ -129,10 +167,17 @@ impl LayoutState {
         }
     }
 
-    /// Reserve a column for `parent` and return it. The first parent continues in
-    /// the child's column (or merges into a column already reserved for it); any
-    /// further (merge) parent takes its own column.
-    fn route_to_parent(&mut self, parent: &str, my_lane: usize, is_first: bool) -> usize {
+    /// Reserve a column for `parent` and return it. The first parent continues
+    /// in the child's column (or converges into a column already reserved for
+    /// it); a spine parent always lives in column 0; any further (merge)
+    /// parent takes a fresh column right of the merge commit.
+    fn route_to_parent(
+        &mut self,
+        parent: &str,
+        my_lane: usize,
+        is_first: bool,
+        parent_on_spine: bool,
+    ) -> usize {
         if let Some(existing) = self.find(parent) {
             if is_first && existing != my_lane {
                 // The child's column converges into the parent's existing column.
@@ -140,11 +185,22 @@ impl LayoutState {
             }
             return existing;
         }
+        if parent_on_spine {
+            // Column 0 belongs to the spine. Only the spine itself hands the
+            // reservation down; other children just converge into it.
+            if is_first && my_lane == 0 {
+                self.lanes[0] = Some(parent.to_string());
+            } else if is_first {
+                self.free(my_lane);
+            }
+            return 0;
+        }
         if is_first {
             self.lanes[my_lane] = Some(parent.to_string());
             my_lane
         } else {
-            let idx = self.alloc();
+            // Merges come back from the right: never left of the merge commit.
+            let idx = self.alloc_after(Some(my_lane));
             self.colors[idx] = self.take_color();
             self.lanes[idx] = Some(parent.to_string());
             idx
@@ -159,9 +215,16 @@ impl LayoutState {
         self.lanes[lane] = None;
     }
 
-    /// Reuse the lowest free column, or grow by one.
-    fn alloc(&mut self) -> usize {
-        match self.lanes.iter().position(|l| l.is_none()) {
+    /// Reuse the lowest free column (strictly right of `after`, when given),
+    /// or grow by one.
+    fn alloc_after(&mut self, after: Option<usize>) -> usize {
+        let start = after.map_or(0, |lane| lane + 1);
+        match self
+            .lanes
+            .iter()
+            .enumerate()
+            .position(|(i, l)| i >= start && l.is_none())
+        {
             Some(idx) => idx,
             None => {
                 self.lanes.push(None);
@@ -191,7 +254,7 @@ mod tests {
 
     #[test]
     fn empty_history_is_empty_graph() {
-        let g = layout(&[]);
+        let g = layout(&[], None);
         assert!(g.nodes.is_empty());
         assert!(g.edges.is_empty());
         assert_eq!(g.lane_count, 0);
@@ -199,7 +262,7 @@ mod tests {
 
     #[test]
     fn single_root_commit() {
-        let g = layout(&[ci("A", &[])]);
+        let g = layout(&[ci("A", &[])], None);
         assert_eq!(g.nodes.len(), 1);
         assert_eq!(g.nodes[0].row, 0);
         assert_eq!(g.nodes[0].lane, 0);
@@ -211,7 +274,7 @@ mod tests {
     #[test]
     fn linear_history_stays_in_one_lane() {
         // A -> B -> C, newest first.
-        let g = layout(&[ci("A", &["B"]), ci("B", &["C"]), ci("C", &[])]);
+        let g = layout(&[ci("A", &["B"]), ci("B", &["C"]), ci("C", &[])], None);
 
         assert_eq!(g.lane_count, 1);
         for (row, node) in g.nodes.iter().enumerate() {
@@ -232,12 +295,15 @@ mod tests {
         //   B    parent  [Base]
         //   A    parent  [Base]
         //   Base root
-        let g = layout(&[
-            ci("M", &["A", "B"]),
-            ci("B", &["Base"]),
-            ci("A", &["Base"]),
-            ci("Base", &[]),
-        ]);
+        let g = layout(
+            &[
+                ci("M", &["A", "B"]),
+                ci("B", &["Base"]),
+                ci("A", &["Base"]),
+                ci("Base", &[]),
+            ],
+            None,
+        );
 
         assert_eq!(g.lane_count, 2);
 
@@ -264,12 +330,15 @@ mod tests {
         // converges into Base, which sits in B's lane (color 1). That segment
         // is main's own line, so it must keep main's color instead of
         // switching to the lane it converges into.
-        let g = layout(&[
-            ci("M", &["A", "B"]),
-            ci("B", &["Base"]),
-            ci("A", &["Base"]),
-            ci("Base", &[]),
-        ]);
+        let g = layout(
+            &[
+                ci("M", &["A", "B"]),
+                ci("B", &["Base"]),
+                ci("A", &["Base"]),
+                ci("Base", &[]),
+            ],
+            None,
+        );
 
         let a_edge = g.edges.iter().find(|e| e.from == "A").unwrap();
         assert_eq!(a_edge.color, 0);
@@ -280,6 +349,63 @@ mod tests {
     }
 
     #[test]
+    fn merge_parents_take_lanes_right_of_the_merge_commit() {
+        // Lane 0 frees before the merge commit A (lane 1) routes its second
+        // parent C. Reusing the freed lane would draw the merge coming from
+        // the LEFT; the principle is: branches fork right, merges come back
+        // from the right.
+        //   T  [X, A]
+        //   X  []        (root: frees lane 0)
+        //   A  [B, C]    (in lane 1; C must NOT take the freed lane 0)
+        //   B  []
+        //   C  []
+        let g = layout(
+            &[
+                ci("T", &["X", "A"]),
+                ci("X", &[]),
+                ci("A", &["B", "C"]),
+                ci("B", &[]),
+                ci("C", &[]),
+            ],
+            None,
+        );
+
+        let lane_of = |id: &str| g.nodes.iter().find(|n| n.id == id).unwrap().lane;
+        assert_eq!(lane_of("A"), 1);
+        assert!(
+            lane_of("C") > lane_of("A"),
+            "merge parent went left: C={} A={}",
+            lane_of("C"),
+            lane_of("A")
+        );
+        let merge_edge = g.edges.iter().find(|e| e.from == "A" && e.to == "C").unwrap();
+        assert!(merge_edge.to_lane > merge_edge.from_lane);
+    }
+
+    #[test]
+    fn the_head_first_parent_chain_pins_lane_zero() {
+        // The checked-out branch (M -> Base) must form the straight left
+        // spine even when another branch tip is newer; the newer tip forks
+        // to the right and converges into the spine.
+        //   F    [Base]   (newer tip of an unmerged branch)
+        //   M    [Base]   (HEAD)
+        //   Base []
+        let g = layout(
+            &[ci("F", &["Base"]), ci("M", &["Base"]), ci("Base", &[])],
+            Some("M"),
+        );
+
+        let lane_of = |id: &str| g.nodes.iter().find(|n| n.id == id).unwrap().lane;
+        assert_eq!(lane_of("M"), 0);
+        assert_eq!(lane_of("Base"), 0);
+        assert_eq!(lane_of("F"), 1);
+
+        // F's fork edge converges into the spine from the right.
+        let f_edge = g.edges.iter().find(|e| e.from == "F").unwrap();
+        assert_eq!((f_edge.from_lane, f_edge.to_lane), (1, 0));
+    }
+
+    #[test]
     fn freed_lane_is_reused_to_stay_compact() {
         // A side branch that ends (root) frees its lane; a later independent tip
         // should reuse lane 1 rather than growing to lane 2.
@@ -287,12 +413,10 @@ mod tests {
         //   B    parent []      (independent root, occupies a temporary 2nd lane)
         //   C    parent []
         //   D    parent []      (new independent tip -> should reuse a freed lane)
-        let g = layout(&[
-            ci("A", &["C"]),
-            ci("B", &[]),
-            ci("C", &[]),
-            ci("D", &[]),
-        ]);
+        let g = layout(
+            &[ci("A", &["C"]), ci("B", &[]), ci("C", &[]), ci("D", &[])],
+            None,
+        );
         // At most two lanes are ever simultaneously active.
         assert!(g.lane_count <= 2, "expected compact layout, got {}", g.lane_count);
     }

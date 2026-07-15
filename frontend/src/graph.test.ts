@@ -1,6 +1,13 @@
 import { expect, test } from "vitest";
 import type { GraphEdge, RepoView } from "./api";
-import { edgePath, ROW_HEIGHT, squashEdges } from "./graph";
+import {
+  edgePath,
+  linkPath,
+  nodeX,
+  nodeY,
+  ROW_HEIGHT,
+  squashLinks,
+} from "./graph";
 
 function edge(fromLane: number, toLane: number): GraphEdge {
   return { from: "child", to: "parent", from_lane: fromLane, to_lane: toLane, color: 0 };
@@ -64,31 +71,62 @@ function repoWith(overrides: Partial<RepoView>): RepoView {
   };
 }
 
-test("squashEdges links a surviving branch tip to its merge commit", () => {
-  const edges = squashEdges(repoWith({}), [
+test("squashLinks route through their own virtual lane on the right", () => {
+  const links = squashLinks(repoWith({}), [
     { number: 7, url: "u", branch: "feature", merge_commit: "squash" },
   ]);
 
-  // Upper endpoint first (like real edges), colored by the branch tip.
-  expect(edges).toEqual([
-    { from: "squash", to: "tip", from_lane: 0, to_lane: 1, color: 1 },
+  // Upper endpoint first, colored by the branch tip; the via lane sits
+  // beyond the real lanes (lane_count 2 -> via 2) so the vertical run
+  // cannot cross nodes or real edges.
+  expect(links).toEqual([
+    { fromRow: 0, fromLane: 0, toRow: 1, toLane: 1, via: 2, color: 1 },
   ]);
 });
 
-test("squashEdges skips PRs whose branch or commit left the graph", () => {
+test("squashLinks skips PRs whose branch or commit left the graph", () => {
   const merged = [
     { number: 1, url: "u", branch: "gone-branch", merge_commit: "squash" },
     { number: 2, url: "u", branch: "feature", merge_commit: "not-here" },
   ];
-  expect(squashEdges(repoWith({}), merged)).toEqual([]);
+  expect(squashLinks(repoWith({}), merged)).toEqual([]);
 
   // A remote-only ref does not count as a surviving local branch.
   const remoteOnly = repoWith({
     refs: [{ name: "feature", target: "tip", remote: "origin" }],
   });
   expect(
-    squashEdges(remoteOnly, [
+    squashLinks(remoteOnly, [
       { number: 3, url: "u", branch: "feature", merge_commit: "squash" },
     ]),
   ).toEqual([]);
+});
+
+test("linkPath bends into the via lane, runs vertically, and bends back", () => {
+  const path = linkPath({
+    fromRow: 0,
+    fromLane: 0,
+    toRow: 5,
+    toLane: 1,
+    via: 2,
+    color: 1,
+  });
+
+  const xv = nodeX(2);
+  // Vertical corridor in the via lane between the two bends.
+  expect(path).toContain(`L${xv},${nodeY(5) - ROW_HEIGHT}`);
+  expect(path.startsWith(`M${nodeX(0)},${nodeY(0)}`)).toBe(true);
+  expect(path.endsWith(`${nodeX(1)},${nodeY(5)}`)).toBe(true);
+});
+
+test("linkPath degenerates to one curve for adjacent rows", () => {
+  const path = linkPath({
+    fromRow: 0,
+    fromLane: 0,
+    toRow: 1,
+    toLane: 1,
+    via: 2,
+    color: 1,
+  });
+  expect(path).not.toContain(" L");
 });
