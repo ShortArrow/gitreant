@@ -1,11 +1,13 @@
 import type { LogItem } from "./logModel";
+import { useT } from "./settings";
 
 /** Bottom pane listing user actions and the external commands the server
  * executed, newest first. Toggled from the top bar. */
 export function LogPane({ items }: { items: LogItem[] }) {
+  const t = useT();
   return (
     <div className="log-pane" data-testid="log-pane">
-      {items.length === 0 && <p className="log-empty">No activity yet.</p>}
+      {items.length === 0 && <p className="log-empty">{t("noActivity")}</p>}
       <ul className="log-entries">
         {[...items].reverse().map((item, i) => (
           <li

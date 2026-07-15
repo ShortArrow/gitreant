@@ -17,10 +17,13 @@ import { type PaletteCommand } from "./palette";
 import { applyTheme, currentTheme, toggleTheme } from "./theme";
 import { mergeLog, type UserAction } from "./logModel";
 import { RepoCard } from "./RepoCard";
+import { resolveLang, MESSAGES, format, type LangSetting } from "./i18n";
 import {
   SettingsContext,
   storeButtonStyle,
   storedButtonStyle,
+  storeLangSetting,
+  storedLangSetting,
   type ButtonStyle,
 } from "./settings";
 import { ThemeToggle } from "./ThemeToggle";
@@ -170,7 +173,15 @@ export function App() {
     setButtonStyle(style);
     storeButtonStyle(style);
   };
-  const settings = useMemo(() => ({ buttonStyle }), [buttonStyle]);
+  const [langSetting, setLangSetting] = useState<LangSetting>(storedLangSetting);
+  const changeLangSetting = (setting: LangSetting) => {
+    setLangSetting(setting);
+    storeLangSetting(setting);
+  };
+  const lang = resolveLang(langSetting, navigator.language);
+  const settings = useMemo(() => ({ buttonStyle, lang }), [buttonStyle, lang]);
+  const t = (key: keyof typeof MESSAGES.en, params?: Record<string, string | number>) =>
+    format(MESSAGES[lang][key], params);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   useEffect(() => {
@@ -188,41 +199,42 @@ export function App() {
   }, []);
 
   const paletteCommands = useMemo<PaletteCommand[]>(
-    () => [
-      { id: "fetch", title: "Fetch remotes", run: runFetch },
-      {
-        id: "reload",
-        title: "Reload repositories",
-        run: () => {
-          recordAction("Reload repositories");
-          reload();
+    () => {
+      const m = MESSAGES[lang];
+      return [
+        { id: "fetch", title: m.cmdFetch, run: runFetch },
+        {
+          id: "reload",
+          title: m.cmdReload,
+          run: () => {
+            recordAction("Reload repositories");
+            reload();
+          },
         },
-      },
-      {
-        id: "log",
-        title: "Toggle command log",
-        run: () => setLogOpen((open) => !open),
-      },
-      { id: "settings", title: "Open settings", run: () => setSettingsOpen(true) },
-      {
-        id: "theme",
-        title: "Toggle theme",
-        run: () => applyTheme(toggleTheme(currentTheme())),
-      },
-      {
-        id: "drawer",
-        title: collapsed
-          ? "Expand the repository list"
-          : "Collapse the repository list",
-        run: () => setCollapsed((c) => !c),
-      },
-      ...repos.map((repo) => ({
-        id: `open:${repo.id}`,
-        title: `Open repository: ${repo.name}`,
-        run: () => openTab(repo.id),
-      })),
-    ],
-    [repos, collapsed, runFetch, reload, recordAction, openTab],
+        {
+          id: "log",
+          title: m.cmdToggleLog,
+          run: () => setLogOpen((open) => !open),
+        },
+        { id: "settings", title: m.cmdOpenSettings, run: () => setSettingsOpen(true) },
+        {
+          id: "theme",
+          title: m.cmdToggleTheme,
+          run: () => applyTheme(toggleTheme(currentTheme())),
+        },
+        {
+          id: "drawer",
+          title: collapsed ? m.cmdExpandDrawer : m.cmdCollapseDrawer,
+          run: () => setCollapsed((c) => !c),
+        },
+        ...repos.map((repo) => ({
+          id: `open:${repo.id}`,
+          title: format(m.cmdOpenRepo, { name: repo.name }),
+          run: () => openTab(repo.id),
+        })),
+      ];
+    },
+    [repos, collapsed, lang, runFetch, reload, recordAction, openTab],
   );
 
   return (
@@ -255,7 +267,7 @@ export function App() {
                 <span className="tab-name">{repo.name}</span>
                 <button
                   className="tab-close"
-                  title="Close tab"
+                  title={t("closeTab")}
                   data-testid="tab-close"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -271,7 +283,7 @@ export function App() {
           </div>
           <LabeledButton
             icon={<FetchIcon />}
-            label="Fetch"
+            label={t("fetch")}
             testId="fetch"
             className="topbar-btn"
             onClick={runFetch}
@@ -279,7 +291,7 @@ export function App() {
           />
           <LabeledButton
             icon={<LogIcon />}
-            label="Log"
+            label={t("log")}
             testId="log-toggle"
             className="topbar-btn"
             active={logOpen}
@@ -287,7 +299,7 @@ export function App() {
           />
           <LabeledButton
             icon={<ReloadIcon />}
-            label="Reload"
+            label={t("reload")}
             testId="reload"
             className="topbar-btn"
             onClick={() => {
@@ -297,7 +309,7 @@ export function App() {
           />
           <LabeledButton
             icon={<SettingsIcon />}
-            label="Settings"
+            label={t("settings")}
             testId="settings-toggle"
             className="topbar-btn"
             active={settingsOpen}
@@ -317,10 +329,10 @@ export function App() {
               onMouseDown={(e) => e.stopPropagation()}
             >
               <header className="modal-head">
-                <h3>Settings</h3>
+                <h3>{t("settings")}</h3>
                 <button
                   className="icon-btn"
-                  title="Close settings"
+                  title={t("closeSettings")}
                   data-testid="settings-close"
                   onClick={() => setSettingsOpen(false)}
                   type="button"
@@ -329,12 +341,12 @@ export function App() {
                 </button>
               </header>
               <fieldset className="settings-group">
-                <legend>Buttons</legend>
+                <legend>{t("settingsButtons")}</legend>
                 {(
                   [
-                    ["icon", "Icon"],
-                    ["icon-label", "Icon + label"],
-                    ["label", "Label"],
+                    ["icon", t("buttonsIcon")],
+                    ["icon-label", t("buttonsIconLabel")],
+                    ["label", t("buttonsLabel")],
                   ] as const
                 ).map(([value, label]) => (
                   <label key={value} className="settings-option">
@@ -344,6 +356,27 @@ export function App() {
                       data-testid={`button-style-${value}`}
                       checked={buttonStyle === value}
                       onChange={() => changeButtonStyle(value)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </fieldset>
+              <fieldset className="settings-group">
+                <legend>{t("settingsLanguage")}</legend>
+                {(
+                  [
+                    ["auto", t("langAuto")],
+                    ["en", t("langEn")],
+                    ["ja", t("langJa")],
+                  ] as const
+                ).map(([value, label]) => (
+                  <label key={value} className="settings-option">
+                    <input
+                      type="radio"
+                      name="language"
+                      data-testid={`language-${value}`}
+                      checked={langSetting === value}
+                      onChange={() => changeLangSetting(value)}
                     />
                     {label}
                   </label>
@@ -369,7 +402,7 @@ export function App() {
             <RepoCard key={activeRepo.id} repo={activeRepo} />
           ) : (
             <div className="pane-empty" data-testid="pane-empty">
-              左のドロワーからリポジトリを選択してください。
+              {t("emptyPane")}
             </div>
           )}
         </div>

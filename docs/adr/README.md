@@ -23,3 +23,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0016](0016-octicons.md) | アイコンはOcticonsを採用する | Accepted |
 | [0017](0017-primer-design-direction.md) | UIデザインの判断に迷ったらGitHub Primerに従う | Accepted |
 | [0018](0018-squash-merge-links.md) | squashマージの点線はghのmerged PR情報で描く | Accepted |
+| [0019](0019-i18n.md) | i18nは型付き自前辞書で行い言語は設定から切替 | Accepted |

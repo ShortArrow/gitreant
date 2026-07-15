@@ -50,8 +50,9 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
 - Detaches from the terminal by default; `--shutdown` stops the server
 - A command palette (Ctrl+K / Cmd+K) for switching repositories and
   running fetch, reload, theme and other actions from the keyboard
-- Dark/light theme toggle, and a settings dialog to render action buttons
-  as icons, icons with labels, or labels only
+- Dark/light theme toggle, and a settings dialog for the UI language
+  (auto / English / Japanese) and for rendering action buttons as icons,
+  icons with labels, or labels only
 - Single self-contained binary — no runtime dependencies
 
 ## Install / Build

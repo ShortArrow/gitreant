@@ -10,6 +10,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   reporter: [["list"]],
   globalSetup: "./e2e/global-setup.ts",
+  // Several flows run real subprocesses (git fetch/merge, gpg verification)
+  // behind the assertions; 5s flakes on loaded machines.
+  expect: { timeout: 15_000 },
   use: {
     baseURL: "http://127.0.0.1:4599",
     trace: "on-first-retry",

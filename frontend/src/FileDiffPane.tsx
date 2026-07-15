@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FileDiff } from "./api";
 import { InlineIcon, LineMenuIcon, SplitIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
+import { useT } from "./settings";
 import {
   inlineCells,
   parseUnified,
@@ -54,6 +55,7 @@ export function FileDiffPane({
   githubUrl?: string;
   onClose: () => void;
 }) {
+  const t = useT();
   const [view, setView] = useState<DiffView>(storedDiffView);
   const [selection, setSelection] = useState<Selection | null>(null);
   const changeView = (next: DiffView) => {
@@ -103,14 +105,14 @@ export function FileDiffPane({
         <div className="files-view">
           <LabeledButton
             icon={<InlineIcon />}
-            label="Inline"
+            label={t("inline")}
             testId="diff-view-inline"
             active={view === "inline"}
             onClick={() => changeView("inline")}
           />
           <LabeledButton
             icon={<SplitIcon />}
-            label="Split"
+            label={t("split")}
             testId="diff-view-split"
             active={view === "split"}
             onClick={() => changeView("split")}
@@ -118,7 +120,7 @@ export function FileDiffPane({
         </div>
         <button
           className="icon-btn"
-          title="Close diff"
+          title={t("closeDiff")}
           data-testid="diff-close"
           onClick={onClose}
           type="button"
@@ -129,7 +131,7 @@ export function FileDiffPane({
 
       <div className="diff-scroll">
         {error && <p className="detail-error">{error}</p>}
-        {!error && !files && <p className="detail-loading">Loading…</p>}
+        {!error && !files && <p className="detail-loading">{t("loading")}</p>}
         {files?.map((diff) => (
           <FileSection
             key={diff.path}
@@ -169,6 +171,7 @@ function FileSection({
     extend: boolean,
   ) => void;
 }) {
+  const t = useT();
   const hunks = useMemo(() => parseUnified(diff.text), [diff.text]);
   // The selected side's display lines; selection indices point into rows
   // (split) or the flattened inline cells.
@@ -218,7 +221,7 @@ function FileSection({
         <span className="diff-path">{diff.path}</span>
       </div>
       {diff.binary ? (
-        <p className="diff-binary">Binary file — no text diff.</p>
+        <p className="diff-binary">{t("binaryFile")}</p>
       ) : view === "inline" ? (
         <InlineDiff
           hunks={hunks}
@@ -257,6 +260,7 @@ function LineMenu({
   commitId?: string;
   githubUrl?: string;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -281,7 +285,7 @@ function LineMenu({
       <button
         className="line-menu-trigger"
         data-testid="line-menu-trigger"
-        title="Selection actions"
+        title={t("selectionActions")}
         type="button"
         onClick={() => setOpen((o) => !o)}
       >
@@ -290,15 +294,17 @@ function LineMenu({
       {open && (
         <div className="ctx-menu line-menu" data-testid="line-menu">
           <span className="ctx-menu-note">
-            {selectedCells.length} line
-            {selectedCells.length === 1 ? "" : "s"} selected
+            {t(
+              selectedCells.length === 1 ? "lineSelected" : "linesSelected",
+              { n: selectedCells.length },
+            )}
           </span>
           <button
             type="button"
             data-testid="copy-lines"
             onClick={() => copy(selectedLines(selectedCells))}
           >
-            Copy lines
+            {t("copyLines")}
           </button>
           <button
             type="button"
@@ -306,13 +312,11 @@ function LineMenu({
             disabled={!permalink}
             title={
               permalink ??
-              (githubUrl
-                ? "The selection has no permalink on this side"
-                : "No GitHub remote")
+              (githubUrl ? t("noPermalinkSide") : t("noGithubRemote"))
             }
             onClick={() => permalink && copy(permalink)}
           >
-            Copy permalink
+            {t("copyPermalink")}
           </button>
         </div>
       )}

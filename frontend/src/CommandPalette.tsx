@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { filterCommands, type PaletteCommand } from "./palette";
+import { useT } from "./settings";
 
 /** GitHub-style command palette: type to filter, arrows to move, Enter to
  * run. The caller owns the open state and the command list. */
@@ -10,6 +11,7 @@ export function CommandPalette({
   commands: PaletteCommand[];
   onClose: () => void;
 }) {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -42,7 +44,7 @@ export function CommandPalette({
         <input
           ref={inputRef}
           data-testid="palette-input"
-          placeholder="Type a command…"
+          placeholder={t("paletteHint")}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -75,7 +77,7 @@ export function CommandPalette({
             </li>
           ))}
           {matches.length === 0 && (
-            <li className="palette-empty">No matching commands</li>
+            <li className="palette-empty">{t("paletteEmpty")}</li>
           )}
         </ul>
       </div>

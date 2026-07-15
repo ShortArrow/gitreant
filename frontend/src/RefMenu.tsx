@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useT } from "./settings";
 
 /** Where and for which reference the context menu is open. */
 export interface RefMenuTarget {
@@ -27,6 +28,7 @@ export function RefMenu({
   onMerge: (reference: string) => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const [confirm, setConfirm] = useState<"checkout" | "merge" | null>(null);
 
   useEffect(() => {
@@ -61,31 +63,34 @@ export function RefMenu({
               onClose();
             }}
           >
-            Copy branch name
+            {t("refCopyName")}
           </button>
           <button
             type="button"
             data-testid="ref-menu-checkout"
             onClick={() => setConfirm("checkout")}
           >
-            Checkout {target.reference}
+            {t("refCheckout", { reference: target.reference })}
           </button>
           <button
             type="button"
             data-testid="ref-menu-merge"
             disabled={!canMerge}
-            title={canMerge ? undefined : "No branch is checked out"}
+            title={canMerge ? undefined : t("noBranchCheckedOut")}
             onClick={() => setConfirm("merge")}
           >
-            Merge into {headBranch ?? "…"}
+            {t("refMergeInto", { branch: headBranch ?? "…" })}
           </button>
         </>
       ) : (
         <>
           <span className="ref-menu-question">
             {confirm === "checkout"
-              ? `Checkout ${target.reference}?`
-              : `Merge ${target.reference} into ${headBranch}?`}
+              ? t("refCheckoutQuestion", { reference: target.reference })
+              : t("refMergeQuestion", {
+                  reference: target.reference,
+                  branch: headBranch ?? "…",
+                })}
           </span>
           <button
             type="button"
@@ -95,10 +100,10 @@ export function RefMenu({
               onClose();
             }}
           >
-            Yes
+            {t("yes")}
           </button>
           <button type="button" data-testid="ref-menu-cancel" onClick={onClose}>
-            Cancel
+            {t("cancel")}
           </button>
         </>
       )}

@@ -18,6 +18,7 @@ import {
 } from "./api";
 import { PrLinkIcon } from "./Icons";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
+import { useT } from "./settings";
 import { CommitDetailPanel } from "./CommitDetailPanel";
 import { FileDiffPane } from "./FileDiffPane";
 import {
@@ -94,6 +95,7 @@ export function RepoCard({
   loadCommitDiff?: (repoId: string, commitId: string) => Promise<FileDiff[]>;
   loadPrs?: (repoId: string) => Promise<PrLookupView>;
 }) {
+  const t = useT();
   const rowOf = useMemo(() => rowIndex(repo.commits), [repo.commits]);
   const refMap = useMemo(() => refsByCommit(repo), [repo.refs]);
 
@@ -209,7 +211,9 @@ export function RepoCard({
       <header className="repo-header">
         <h2>{repo.name}</h2>
         <span className="repo-path">{repo.path}</span>
-        <span className="repo-count">{repo.commits.length} commits</span>
+        <span className="repo-count">
+          {t("commitsCount", { n: repo.commits.length })}
+        </span>
       </header>
 
       {opError && (
@@ -345,7 +349,7 @@ export function RepoCard({
                           href={pr.url}
                           target="_blank"
                           rel="noreferrer"
-                          title={`Open pull request #${pr.number} on GitHub`}
+                          title={t("openPr", { number: pr.number })}
                           onClick={(e) => e.stopPropagation()}
                         >
                           <PrLinkIcon />

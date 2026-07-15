@@ -582,7 +582,11 @@ test.describe.serial("gitreant UI", () => {
     test.skip(!fixtures.repoI, "gpg is not installed on this machine");
     await page.getByTestId("add-input").fill(fixtures.repoI!);
     await page.getByTestId("add-submit").click();
-    await expect(page.locator('[data-tab-name="repoI"]')).toBeVisible();
+    // Adding repoI verifies its signature through gpg subprocesses; allow
+    // more than the default 5 seconds on a loaded machine.
+    await expect(page.locator('[data-tab-name="repoI"]')).toBeVisible({
+      timeout: 15_000,
+    });
 
     const verified = page
       .getByTestId("commit-row")
@@ -749,6 +753,25 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("settings-panel")).toHaveCount(0);
   });
 
+  test("the language setting switches the UI language", async ({ page }) => {
+    // The test browser reports an English locale, so "auto" starts English.
+    const add = page.getByTestId("add-submit");
+    await expect(add).toContainText("Add");
+
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("language-ja").click();
+    await expect(add).toContainText("追加");
+    await expect(page.locator(".drawer-title")).toHaveText("リポジトリ");
+
+    // The choice survives a reload; back to English restores the labels.
+    await page.reload();
+    await expect(page.getByTestId("add-submit")).toContainText("追加");
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("language-en").click();
+    await expect(page.getByTestId("add-submit")).toContainText("Add");
+    await page.keyboard.press("Escape");
+  });
+
   test("the command palette opens with Ctrl+K and runs commands", async ({
     page,
   }) => {
@@ -901,7 +924,7 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("ref-menu-merge").click();
     await page.getByTestId("ref-menu-confirm").click();
     await expect(page.getByTestId("commit-row")).toHaveCount(4, {
-      timeout: 15_000,
+      timeout: 30_000,
     });
     await expect(
       page.getByTestId("commit-row").filter({ hasText: "Merge branch 'main'" }),

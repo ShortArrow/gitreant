@@ -3,6 +3,7 @@ import { pickFolder, type RepoView } from "./api";
 import { AddIcon, BrowseIcon, CollapseIcon, ExpandIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { ResizeHandle, useStoredWidth } from "./Resizer";
+import { useT } from "./settings";
 
 interface DrawerProps {
   repos: RepoView[];
@@ -23,6 +24,7 @@ export function Drawer({
   onRemove,
   onAdd,
 }: DrawerProps) {
+  const t = useT();
   const [path, setPath] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export function Drawer({
       <aside className="drawer drawer-collapsed">
         <LabeledButton
           icon={<ExpandIcon />}
-          label="Expand"
+          label={t("expand")}
           testId="drawer-expand"
           className="icon-btn"
           onClick={onToggle}
@@ -74,10 +76,10 @@ export function Drawer({
   return (
     <aside className="drawer" style={{ width }}>
       <div className="drawer-head">
-        <span className="drawer-title">Repositories</span>
+        <span className="drawer-title">{t("repositories")}</span>
         <LabeledButton
           icon={<CollapseIcon />}
-          label="Collapse"
+          label={t("collapse")}
           testId="drawer-collapse"
           className="icon-btn"
           onClick={onToggle}
@@ -87,14 +89,14 @@ export function Drawer({
       <form className="drawer-add" onSubmit={submit}>
         <input
           type="text"
-          placeholder="Add repository path…"
+          placeholder={t("addRepoPlaceholder")}
           data-testid="add-input"
           value={path}
           onChange={(e) => setPath(e.target.value)}
         />
         <LabeledButton
           icon={<BrowseIcon />}
-          label="Browse"
+          label={t("browse")}
           testId="add-browse"
           className="browse"
           onClick={browse}
@@ -102,7 +104,7 @@ export function Drawer({
         />
         <LabeledButton
           icon={<AddIcon />}
-          label={adding ? "…" : "Add"}
+          label={adding ? "…" : t("add")}
           testId="add-submit"
           type="submit"
           disabled={adding}
@@ -125,7 +127,7 @@ export function Drawer({
             </span>
             <button
               className="icon-btn repo-remove"
-              title="Remove from view"
+              title={t("removeFromView")}
               data-testid="repo-remove"
               onClick={(e) => {
                 e.stopPropagation();
@@ -137,7 +139,9 @@ export function Drawer({
             </button>
           </li>
         ))}
-        {repos.length === 0 && <li className="repo-empty">No repositories.</li>}
+        {repos.length === 0 && (
+          <li className="repo-empty">{t("noRepositories")}</li>
+        )}
       </ul>
 
       <ResizeHandle

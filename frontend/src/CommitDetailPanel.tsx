@@ -3,6 +3,7 @@ import type { CommitDetail, FileChange } from "./api";
 import { CopyText } from "./CopyText";
 import { DiffAllIcon, FlatIcon, TreeIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
+import { useT } from "./settings";
 import { buildFileTree, type FileTreeNode } from "./fileTree";
 import { shortId } from "./graph";
 import { ResizeHandle, useStoredWidth } from "./Resizer";
@@ -63,6 +64,7 @@ export function CommitDetailPanel({
   onShowAllDiffs: () => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const [view, setView] = useState<FilesView>(storedFilesView);
   const [width, setWidth] = useStoredWidth("gitreant-detail-width", 340, 240, 640);
   const changeView = (next: FilesView) => {
@@ -90,7 +92,7 @@ export function CommitDetailPanel({
           </span>
           <button
             className="icon-btn"
-            title="Close details"
+            title={t("closeDetails")}
             data-testid="detail-close"
             onClick={onClose}
             type="button"
@@ -100,7 +102,7 @@ export function CommitDetailPanel({
         </header>
 
         {error && <p className="detail-error">{error}</p>}
-        {!error && !detail && <p className="detail-loading">Loading…</p>}
+        {!error && !detail && <p className="detail-loading">{t("loading")}</p>}
         {detail && (
           <DetailBody
             detail={detail}
@@ -134,6 +136,7 @@ function DetailBody({
   onSelectFile: (path: string) => void;
   onShowAllDiffs: () => void;
 }) {
+  const t = useT();
   const { summary, body } = splitMessage(detail.message);
   return (
     <>
@@ -141,13 +144,13 @@ function DetailBody({
       {body && <pre className="detail-message">{body}</pre>}
 
       <dl className="detail-meta">
-        <dt>Author</dt>
+        <dt>{t("author")}</dt>
         <dd>
           {detail.author} &lt;{detail.email}&gt;
         </dd>
-        <dt>Date</dt>
+        <dt>{t("date")}</dt>
         <dd>{new Date(detail.time * 1000).toLocaleString()}</dd>
-        <dt>Signature</dt>
+        <dt>{t("signature")}</dt>
         <dd data-testid="detail-signature">
           {signatureLabel(detail.signature)}
           {verified === true && " — Verified"}
@@ -160,14 +163,14 @@ function DetailBody({
                 display={signatureKey}
                 className="detail-key"
                 testId="detail-signature-key"
-                title="Copy the signing key id"
+                title={t("copyKeyId")}
               />
             </>
           )}
         </dd>
         {detail.parents.length > 0 && (
           <>
-            <dt>Parents</dt>
+            <dt>{t("parents")}</dt>
             <dd>{detail.parents.map(shortId).join(", ")}</dd>
           </>
         )}
@@ -175,12 +178,14 @@ function DetailBody({
 
       <div className="files-head">
         <span className="files-count">
-          {detail.files.length} file{detail.files.length === 1 ? "" : "s"}
+          {t(detail.files.length === 1 ? "fileCount" : "filesCount", {
+            n: detail.files.length,
+          })}
         </span>
         {detail.files.length > 0 && (
           <LabeledButton
             icon={<DiffAllIcon />}
-            label="Diff all"
+            label={t("diffAll")}
             testId="diff-all"
             className="diff-all-btn"
             onClick={onShowAllDiffs}
@@ -189,14 +194,14 @@ function DetailBody({
         <div className="files-view">
           <LabeledButton
             icon={<FlatIcon />}
-            label="Flat"
+            label={t("flat")}
             testId="files-view-flat"
             active={view === "flat"}
             onClick={() => onChangeView("flat")}
           />
           <LabeledButton
             icon={<TreeIcon />}
-            label="Tree"
+            label={t("tree")}
             testId="files-view-tree"
             active={view === "tree"}
             onClick={() => onChangeView("tree")}
@@ -206,7 +211,7 @@ function DetailBody({
 
       <ul className="detail-files">
         {detail.files.length === 0 && (
-          <li className="detail-no-files">No file changes</li>
+          <li className="detail-no-files">{t("noFileChanges")}</li>
         )}
         {view === "flat" &&
           detail.files.map((file) => (

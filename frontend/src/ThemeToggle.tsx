@@ -1,5 +1,6 @@
 import { MoonThemeIcon, SunThemeIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
+import { useT } from "./settings";
 import { applyTheme, coverRadius, currentTheme, toggleTheme } from "./theme";
 
 type ViewTransitionDocument = Document & {
@@ -11,6 +12,7 @@ type ViewTransitionDocument = Document & {
  * (skipped when the View Transition API is unavailable or motion is reduced).
  */
 export function ThemeToggle() {
+  const t = useT();
   const onClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     const apply = () => applyTheme(toggleTheme(currentTheme()));
     const doc = document as ViewTransitionDocument;
@@ -55,7 +57,7 @@ export function ThemeToggle() {
           </span>
         </>
       }
-      label="Theme"
+      label={t("theme")}
       testId="theme-toggle"
       className="topbar-btn theme-toggle"
       onClick={onClick}
