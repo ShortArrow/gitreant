@@ -708,6 +708,17 @@ test.describe.serial("gitreant UI", () => {
     // tooltip.
     const link = page.getByTestId("badge-pr");
     await expect(link.locator("svg")).toHaveCount(1);
+
+    // The mark sits vertically centered on the (local, single-segment)
+    // badge — it used to drift toward the top there.
+    const badge = (await page
+      .locator(".badge-ref", { hasText: "feature" })
+      .first()
+      .boundingBox())!;
+    const mark = (await link.boundingBox())!;
+    const badgeCenter = badge.y + badge.height / 2;
+    const markCenter = mark.y + mark.height / 2;
+    expect(Math.abs(markCenter - badgeCenter)).toBeLessThanOrEqual(1.5);
     await expect(link).toHaveAttribute("title", /#7/);
     await expect(link).toHaveAttribute(
       "href",

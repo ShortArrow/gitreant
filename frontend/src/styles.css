@@ -683,6 +683,10 @@ body {
 }
 
 .badge-ref {
+  /* Flex keeps appended segments (the PR mark) vertically centered on
+   * local badges too, not just on the flexed remote variant. */
+  display: inline-flex;
+  align-items: center;
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -690,7 +694,6 @@ body {
 
 /* Remote-tracking refs: the remote name gets its own badge segment. */
 .badge-remote {
-  display: inline-flex;
   padding: 0;
   overflow: hidden;
 }
