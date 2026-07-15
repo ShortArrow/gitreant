@@ -6,8 +6,14 @@ import {
   nodeX,
   nodeY,
   ROW_HEIGHT,
+  rowTime,
   squashLinks,
 } from "./graph";
+
+test("rowTime renders a fixed-width local timestamp", () => {
+  expect(rowTime(new Date(2026, 6, 15, 9, 5))).toBe("2026-07-15 09:05");
+  expect(rowTime(new Date(2023, 11, 1, 23, 59))).toBe("2023-12-01 23:59");
+});
 
 function edge(fromLane: number, toLane: number): GraphEdge {
   return { from: "child", to: "parent", from_lane: fromLane, to_lane: toLane, color: 0 };

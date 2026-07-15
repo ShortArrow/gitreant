@@ -739,8 +739,19 @@ body {
   box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
 }
 
-.ref-menu {
+.ref-menu,
+.tag-menu {
   position: fixed;
+}
+
+.tag-menu input {
+  margin: 4px 6px;
+  padding: 4px 8px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
 }
 
 .ref-menu button,

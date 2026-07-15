@@ -7,11 +7,13 @@ export interface RefMenuTarget {
   y: number;
   /** Qualified reference: "feature", or "origin/main" for remote refs. */
   reference: string;
+  /** What the badge is; tags get delete instead of checkout/merge. */
+  kind: "branch" | "tag";
 }
 
 /**
- * Context menu for a branch badge: copy the name, check the branch out, or
- * merge it into the checked-out branch. Mutating actions ask for an inline
+ * Context menu for a branch or tag badge: copy the name, then check out /
+ * merge (branches) or delete (tags). Mutating actions ask for an inline
  * confirmation first.
  */
 export function RefMenu({
@@ -19,6 +21,7 @@ export function RefMenu({
   headBranch,
   onCheckout,
   onMerge,
+  onDeleteTag,
   onClose,
 }: {
   target: RefMenuTarget;
@@ -26,10 +29,13 @@ export function RefMenu({
   headBranch?: string;
   onCheckout: (reference: string) => void;
   onMerge: (reference: string) => void;
+  onDeleteTag: (name: string) => void;
   onClose: () => void;
 }) {
   const t = useT();
-  const [confirm, setConfirm] = useState<"checkout" | "merge" | null>(null);
+  const [confirm, setConfirm] = useState<
+    "checkout" | "merge" | "delete-tag" | null
+  >(null);
 
   useEffect(() => {
     const close = (e: MouseEvent | KeyboardEvent) => {
@@ -63,40 +69,57 @@ export function RefMenu({
               onClose();
             }}
           >
-            {t("refCopyName")}
+            {t(target.kind === "tag" ? "copyTagName" : "refCopyName")}
           </button>
-          <button
-            type="button"
-            data-testid="ref-menu-checkout"
-            onClick={() => setConfirm("checkout")}
-          >
-            {t("refCheckout", { reference: target.reference })}
-          </button>
-          <button
-            type="button"
-            data-testid="ref-menu-merge"
-            disabled={!canMerge}
-            title={canMerge ? undefined : t("noBranchCheckedOut")}
-            onClick={() => setConfirm("merge")}
-          >
-            {t("refMergeInto", { branch: headBranch ?? "…" })}
-          </button>
+          {target.kind === "branch" ? (
+            <>
+              <button
+                type="button"
+                data-testid="ref-menu-checkout"
+                onClick={() => setConfirm("checkout")}
+              >
+                {t("refCheckout", { reference: target.reference })}
+              </button>
+              <button
+                type="button"
+                data-testid="ref-menu-merge"
+                disabled={!canMerge}
+                title={canMerge ? undefined : t("noBranchCheckedOut")}
+                onClick={() => setConfirm("merge")}
+              >
+                {t("refMergeInto", { branch: headBranch ?? "…" })}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              data-testid="ref-menu-delete-tag"
+              onClick={() => setConfirm("delete-tag")}
+            >
+              {t("deleteTag")}
+            </button>
+          )}
         </>
       ) : (
         <>
           <span className="ref-menu-question">
-            {confirm === "checkout"
-              ? t("refCheckoutQuestion", { reference: target.reference })
-              : t("refMergeQuestion", {
-                  reference: target.reference,
-                  branch: headBranch ?? "…",
-                })}
+            {confirm === "checkout" &&
+              t("refCheckoutQuestion", { reference: target.reference })}
+            {confirm === "merge" &&
+              t("refMergeQuestion", {
+                reference: target.reference,
+                branch: headBranch ?? "…",
+              })}
+            {confirm === "delete-tag" &&
+              t("deleteTagQuestion", { name: target.reference })}
           </span>
           <button
             type="button"
             data-testid="ref-menu-confirm"
             onClick={() => {
-              (confirm === "checkout" ? onCheckout : onMerge)(target.reference);
+              if (confirm === "checkout") onCheckout(target.reference);
+              else if (confirm === "merge") onMerge(target.reference);
+              else onDeleteTag(target.reference);
               onClose();
             }}
           >

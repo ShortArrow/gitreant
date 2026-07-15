@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CommitHash } from "./CommitHash";
 import {
   checkoutRef,
+  createTag,
+  deleteTag,
   fetchCommitDetail,
   fetchCommitDiff,
   fetchFileDiff,
@@ -18,7 +20,7 @@ import {
 } from "./api";
 import { PrLinkIcon, StashBadgeIcon, TagBadgeIcon } from "./Icons";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
-import { useT } from "./settings";
+import { useSquashLinks, useT } from "./settings";
 import { CommitDetailPanel } from "./CommitDetailPanel";
 import { FileDiffPane } from "./FileDiffPane";
 import {
@@ -33,6 +35,8 @@ import {
   NODE_RADIUS,
   laneSpan,
   linkPath,
+  rowTime,
+  shortId,
   squashLinks,
 } from "./graph";
 
@@ -123,6 +127,26 @@ export function RepoCard({
   }, [repo.id, loadPrs]);
 
   const [refMenu, setRefMenu] = useState<RefMenuTarget | null>(null);
+  // Right-clicking a commit row offers to create a tag at that commit.
+  const [tagMenu, setTagMenu] = useState<{
+    x: number;
+    y: number;
+    commit: string;
+  } | null>(null);
+  const [tagName, setTagName] = useState("");
+  useEffect(() => {
+    if (!tagMenu) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      setTagMenu(null);
+    };
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", close);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", close);
+    };
+  }, [tagMenu]);
   // Result of the last branch operation that failed; cleared on the next one.
   const [opError, setOpError] = useState<string | null>(null);
   const runBranchOp = (
@@ -202,7 +226,8 @@ export function RepoCard({
     );
   }
 
-  const links = squashLinks(repo, mergedPrs);
+  const showSquashLinks = useSquashLinks();
+  const links = showSquashLinks ? squashLinks(repo, mergedPrs) : [];
   // Link corridors beyond the real lanes widen the drawing.
   const width = graphWidth(laneSpan(repo.lane_count, links));
   const height = graphHeight(repo.commits.length);
@@ -232,8 +257,41 @@ export function RepoCard({
           headBranch={repo.head_branch}
           onCheckout={(reference) => runBranchOp(checkoutRef, reference)}
           onMerge={(reference) => runBranchOp(mergeRef, reference)}
+          onDeleteTag={(name) => runBranchOp(deleteTag, name)}
           onClose={() => setRefMenu(null)}
         />
+      )}
+
+      {tagMenu && (
+        <form
+          className="ctx-menu tag-menu"
+          data-testid="tag-menu"
+          style={{ left: tagMenu.x, top: tagMenu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onSubmit={(e) => {
+            e.preventDefault();
+            const name = tagName.trim();
+            if (!name) return;
+            runBranchOp(
+              (repoId, value) => createTag(repoId, value, tagMenu.commit),
+              name,
+            );
+            setTagMenu(null);
+            setTagName("");
+          }}
+        >
+          <span className="ctx-menu-note">{shortId(tagMenu.commit)}</span>
+          <input
+            data-testid="tag-name-input"
+            placeholder={t("tagNamePlaceholder")}
+            value={tagName}
+            autoFocus
+            onChange={(e) => setTagName(e.target.value)}
+          />
+          <button type="submit" data-testid="tag-create">
+            {t("createTag")}
+          </button>
+        </form>
       )}
 
       <div className="repo-body">
@@ -320,6 +378,11 @@ export function RepoCard({
                   setSelected((s) => (s === commit.id ? null : commit.id));
                   setDiffTarget(null);
                 }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setTagName("");
+                  setTagMenu({ x: e.clientX, y: e.clientY, commit: commit.id });
+                }}
               >
                 {isHead && <span className="badge badge-head">HEAD</span>}
                 {refs.map((ref) => {
@@ -335,14 +398,16 @@ export function RepoCard({
                         ref.remote ? " badge-remote" : ""
                       }`}
                       onContextMenu={(e) => {
-                        // Checkout/merge only make sense for branches.
-                        if (!isBranch) return;
+                        // Branches get checkout/merge, tags get delete; the
+                        // stash and other refs have no operations.
+                        if (ref.kind !== "branch" && ref.kind !== "tag") return;
                         e.preventDefault();
                         e.stopPropagation();
                         setRefMenu({
                           x: e.clientX,
                           y: e.clientY,
                           reference: qualified,
+                          kind: ref.kind,
                         });
                       }}
                     >
@@ -393,7 +458,15 @@ export function RepoCard({
                         </span>
                       );
                     })()}
-                  {commit.author} · <CommitHash id={commit.id} />
+                  {commit.author} ·{" "}
+                  <span
+                    className="commit-time"
+                    data-testid="commit-time"
+                    title={new Date(commit.time * 1000).toLocaleString()}
+                  >
+                    {rowTime(new Date(commit.time * 1000))}
+                  </span>{" "}
+                  · <CommitHash id={commit.id} />
                 </span>
               </li>
             );

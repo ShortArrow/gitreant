@@ -153,6 +153,40 @@ export function mergeRef(
   return branchOp("/api/merge", repoId, reference);
 }
 
+async function tagOp(
+  method: "POST" | "DELETE",
+  body: Record<string, string>,
+): Promise<BranchOpResult> {
+  const response = await fetch("/api/tag", {
+    method,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || `tag operation failed: ${response.status}`,
+    );
+  }
+  return response.json();
+}
+
+/** Create a lightweight tag at a commit (server-side `git tag`). */
+export function createTag(
+  repoId: string,
+  name: string,
+  commit: string,
+): Promise<BranchOpResult> {
+  return tagOp("POST", { repo: repoId, name, commit });
+}
+
+/** Delete a local tag (server-side `git tag -d`). */
+export function deleteTag(
+  repoId: string,
+  name: string,
+): Promise<BranchOpResult> {
+  return tagOp("DELETE", { repo: repoId, name });
+}
+
 export interface PullRequestView {
   number: number;
   url: string;

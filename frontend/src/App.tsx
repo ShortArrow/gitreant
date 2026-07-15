@@ -24,6 +24,8 @@ import {
   storedButtonStyle,
   storeLangSetting,
   storedLangSetting,
+  storeSquashLinks,
+  storedSquashLinks,
   type ButtonStyle,
 } from "./settings";
 import { ThemeToggle } from "./ThemeToggle";
@@ -178,8 +180,16 @@ export function App() {
     setLangSetting(setting);
     storeLangSetting(setting);
   };
+  const [squashLinks, setSquashLinks] = useState<boolean>(storedSquashLinks);
+  const changeSquashLinks = (on: boolean) => {
+    setSquashLinks(on);
+    storeSquashLinks(on);
+  };
   const lang = resolveLang(langSetting, navigator.language);
-  const settings = useMemo(() => ({ buttonStyle, lang }), [buttonStyle, lang]);
+  const settings = useMemo(
+    () => ({ buttonStyle, lang, squashLinks }),
+    [buttonStyle, lang, squashLinks],
+  );
   const t = (key: keyof typeof MESSAGES.en, params?: Record<string, string | number>) =>
     format(MESSAGES[lang][key], params);
 
@@ -360,6 +370,18 @@ export function App() {
                     {label}
                   </label>
                 ))}
+              </fieldset>
+              <fieldset className="settings-group">
+                <legend>{t("settingsGraph")}</legend>
+                <label className="settings-option">
+                  <input
+                    type="checkbox"
+                    data-testid="squash-links-toggle"
+                    checked={squashLinks}
+                    onChange={(e) => changeSquashLinks(e.target.checked)}
+                  />
+                  {t("squashLinksSetting")}
+                </label>
               </fieldset>
               <fieldset className="settings-group">
                 <legend>{t("settingsLanguage")}</legend>

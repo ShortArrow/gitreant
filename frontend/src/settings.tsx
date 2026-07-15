@@ -51,13 +51,39 @@ export function storeLangSetting(setting: LangSetting) {
   }
 }
 
+export const SQUASH_LINKS_KEY = "gitreant-squash-links";
+
+/** Whether the dashed squash-merge links are drawn (default on). */
+export function storedSquashLinks(): boolean {
+  try {
+    return localStorage.getItem(SQUASH_LINKS_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function storeSquashLinks(on: boolean) {
+  try {
+    localStorage.setItem(SQUASH_LINKS_KEY, on ? "on" : "off");
+  } catch {
+    // localStorage may be unavailable; the state change alone is enough.
+  }
+}
+
 export const SettingsContext = createContext<{
   buttonStyle: ButtonStyle;
   lang: Lang;
+  squashLinks: boolean;
 }>({
   buttonStyle: "icon-label",
   lang: "en",
+  squashLinks: true,
 });
+
+/** Whether squash-merge links should be drawn. */
+export function useSquashLinks(): boolean {
+  return useContext(SettingsContext).squashLinks;
+}
 
 export function useButtonStyle(): ButtonStyle {
   return useContext(SettingsContext).buttonStyle;

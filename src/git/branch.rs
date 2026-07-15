@@ -25,11 +25,11 @@ fn merge_args(reference: &str) -> Vec<&str> {
     vec!["merge", "--no-edit", reference]
 }
 
-fn command_line(path: &Path, args: &[&str]) -> String {
+pub(super) fn command_line(path: &Path, args: &[&str]) -> String {
     format!("git -C {} {}", path.display(), args.join(" "))
 }
 
-fn run(path: &Path, args: &[&str]) -> Result<(), String> {
+pub(super) fn run(path: &Path, args: &[&str]) -> Result<(), String> {
     let mut command = Command::new("git");
     command.arg("-C").arg(path).args(args);
     hide_console(&mut command);

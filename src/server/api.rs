@@ -172,6 +172,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/fetch", post(fetch_remotes))
         .route("/api/checkout", post(checkout))
         .route("/api/merge", post(merge))
+        .route("/api/tag", post(create_tag).delete(delete_tag))
         .route("/api/prs", post(list_prs))
         .route("/api/log", get(command_log))
         .route("/api/events", get(events))
@@ -413,6 +414,80 @@ async fn merge(
     Json(req): Json<BranchOpRequest>,
 ) -> Result<Json<BranchOpResponse>, (StatusCode, String)> {
     branch_op(state, req, crate::git::merge_command, crate::git::merge).await
+}
+
+#[derive(Deserialize)]
+struct CreateTagRequest {
+    /// The repository id (its canonical path, as returned in `RepoView::id`).
+    repo: String,
+    name: String,
+    /// The full commit id the tag points at.
+    commit: String,
+}
+
+/// Create a lightweight tag via the git CLI, log it, and notify listeners.
+async fn create_tag(
+    State(state): State<AppState>,
+    Json(req): Json<CreateTagRequest>,
+) -> Result<Json<BranchOpResponse>, (StatusCode, String)> {
+    let Some(path) = state.repo_path(&req.repo) else {
+        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+    };
+    let logger = state.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        let result = crate::git::create_tag(&path, &req.name, &req.commit);
+        logger.push_log(CommandLogEntry {
+            time: epoch_now(),
+            repo: req.repo,
+            command: crate::git::create_tag_command(&path, &req.name, &req.commit),
+            ok: result.is_ok(),
+            message: result.as_ref().err().cloned().unwrap_or_default(),
+        });
+        result
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let _ = state.updates.send(());
+    Ok(Json(BranchOpResponse {
+        ok: result.is_ok(),
+        message: result.err().unwrap_or_default(),
+    }))
+}
+
+#[derive(Deserialize)]
+struct DeleteTagRequest {
+    /// The repository id (its canonical path, as returned in `RepoView::id`).
+    repo: String,
+    name: String,
+}
+
+/// Delete a local tag via the git CLI, log it, and notify listeners.
+async fn delete_tag(
+    State(state): State<AppState>,
+    Json(req): Json<DeleteTagRequest>,
+) -> Result<Json<BranchOpResponse>, (StatusCode, String)> {
+    let Some(path) = state.repo_path(&req.repo) else {
+        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+    };
+    let logger = state.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        let result = crate::git::delete_tag(&path, &req.name);
+        logger.push_log(CommandLogEntry {
+            time: epoch_now(),
+            repo: req.repo,
+            command: crate::git::delete_tag_command(&path, &req.name),
+            ok: result.is_ok(),
+            message: result.as_ref().err().cloned().unwrap_or_default(),
+        });
+        result
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let _ = state.updates.send(());
+    Ok(Json(BranchOpResponse {
+        ok: result.is_ok(),
+        message: result.err().unwrap_or_default(),
+    }))
 }
 
 #[derive(Deserialize)]

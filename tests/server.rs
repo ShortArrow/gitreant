@@ -44,10 +44,14 @@ fn http_get(port: u16, path: &str) -> String {
 }
 
 fn http_post_json(port: u16, path: &str, body: &str) -> String {
+    http_request_json(port, "POST", path, body)
+}
+
+fn http_request_json(port: u16, method: &str, path: &str, body: &str) -> String {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
     write!(
         stream,
-        "POST {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}",
+        "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}",
         body.len()
     )
     .unwrap();
@@ -494,6 +498,84 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
     assert!(log.contains("merge --no-edit main"), "merge not logged: {log}");
     let resp = tokio::task::spawn_blocking(move || {
         http_post_json(port, "/api/checkout", "{\"repo\":\"nope\",\"reference\":\"x\"}")
+    })
+    .await
+    .unwrap();
+    assert!(resp.contains("404"), "response: {resp}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn tag_endpoints_create_and_delete_tags() {
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(Session::new())).await.unwrap();
+    });
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    let repo_path = tmp.path().to_string_lossy().into_owned();
+    tokio::task::spawn_blocking(move || post_repo(port, &repo_path))
+        .await
+        .unwrap()
+        .expect("add repo");
+    let id = gitreant::app::canonical(tmp.path()).to_string_lossy().into_owned();
+
+    // Tag the head commit; the ref shows up with kind "tag".
+    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+        .await
+        .unwrap();
+    let head = repos
+        .split("\"head\":\"")
+        .nth(1)
+        .and_then(|rest| rest.split('"').next())
+        .expect("head id in view")
+        .to_string();
+    let body = format!("{{\"repo\":{id:?},\"name\":\"v9.9\",\"commit\":{head:?}}}");
+    let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/tag", &body))
+        .await
+        .unwrap();
+    assert!(resp.contains("200 OK"), "response: {resp}");
+    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+        .await
+        .unwrap();
+    assert!(repos.contains("\"v9.9\""), "tag missing: {repos}");
+    assert!(repos.contains("\"kind\":\"tag\""), "tag kind missing: {repos}");
+
+    // Delete it again.
+    let body = format!("{{\"repo\":{id:?},\"name\":\"v9.9\"}}");
+    let resp = tokio::task::spawn_blocking(move || {
+        http_request_json(port, "DELETE", "/api/tag", &body)
+    })
+    .await
+    .unwrap();
+    assert!(resp.contains("200 OK"), "response: {resp}");
+    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+        .await
+        .unwrap();
+    assert!(!repos.contains("\"v9.9\""), "tag not deleted: {repos}");
+
+    // Both commands are logged; unknown repos are 404.
+    let log = tokio::task::spawn_blocking(move || http_get(port, "/api/log"))
+        .await
+        .unwrap();
+    assert!(log.contains("tag v9.9"), "create not logged: {log}");
+    assert!(log.contains("tag -d v9.9"), "delete not logged: {log}");
+    let resp = tokio::task::spawn_blocking(move || {
+        http_post_json(port, "/api/tag", "{\"repo\":\"nope\",\"name\":\"x\",\"commit\":\"y\"}")
     })
     .await
     .unwrap();

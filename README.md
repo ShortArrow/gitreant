@@ -29,7 +29,9 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
 - Commit graph rendering with lanes and colors computed server-side;
   merge-commit messages are dimmed, and clicking a hash copies the full id
 - Right-click a branch badge to copy its name, check it out, or merge it
-  into the current branch (server-side `git switch` / `git merge`)
+  into the current branch (server-side `git switch` / `git merge`);
+  right-click a commit to tag it, or a tag badge to delete the tag.
+  Tags, the stash and branches render as distinct badges
 - Click a commit to see its full message, signature state (with the signing
   key id, click to copy), and changed files (flat or tree view) with line
   counts; click a file (or "Diff all") to see diffs inline or side-by-side,

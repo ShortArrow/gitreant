@@ -45,6 +45,10 @@ test.describe.serial("gitreant UI", () => {
 
     // 5 commits -> 5 nodes and at least one edge.
     await expect(page.getByTestId("commit-row")).toHaveCount(5);
+    // Each row shows its commit time at the right edge.
+    await expect(page.getByTestId("commit-time").first()).toHaveText(
+      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/,
+    );
     await expect(page.locator('[data-testid="graph"] circle')).toHaveCount(5);
     expect(
       await page.locator('[data-testid="graph"] path').count(),
@@ -708,6 +712,16 @@ test.describe.serial("gitreant UI", () => {
     await expect(squash).toHaveCount(1);
     await expect(squash).toHaveAttribute("stroke-dasharray", "4 3");
 
+    // The settings toggle hides the dashed links.
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("squash-links-toggle").uncheck();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("squash-edge")).toHaveCount(0);
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("squash-links-toggle").check();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("squash-edge")).toHaveCount(1);
+
     // A GitHub mark on the badge, lazygit-style; the number lives in the
     // tooltip.
     const link = page.getByTestId("badge-pr");
@@ -967,15 +981,45 @@ test.describe.serial("gitreant UI", () => {
     await expect(stash).toBeVisible();
     await expect(stash.locator("svg")).toHaveCount(1);
 
-    // The branch keeps its plain badge, and only branches open the
-    // checkout/merge menu.
+    // The branch keeps its plain badge; the stash has no operations.
     await expect(
       page.locator(".badge-kind-branch", { hasText: "main" }),
     ).toBeVisible();
     await stash.click({ button: "right" });
     await expect(page.getByTestId("ref-menu")).toHaveCount(0);
-    await tag.click({ button: "right" });
-    await expect(page.getByTestId("ref-menu")).toHaveCount(0);
+
+    // Restore the served set.
+    const repoL = page.locator('[data-repo-name="repoL"]');
+    await repoL.hover();
+    await repoL.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoL"]')).toHaveCount(0);
+  });
+
+  test("tags can be created on a commit and deleted from their badge", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoL);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoL"]')).toBeVisible();
+
+    // Right-clicking a commit row opens the create-tag menu. The stash's
+    // WIP messages also contain "l-1", so pick the row via its v1.0 badge.
+    await page
+      .getByTestId("commit-row")
+      .filter({ has: page.locator(".badge-kind-tag") })
+      .click({ button: "right" });
+    await page.getByTestId("tag-name-input").fill("v2.0");
+    await page.getByTestId("tag-create").click();
+    const created = page.locator(".badge-kind-tag", { hasText: "v2.0" });
+    await expect(created).toBeVisible({ timeout: 15_000 });
+
+    // The tag badge's context menu deletes it again after confirmation.
+    await created.click({ button: "right" });
+    await page.getByTestId("ref-menu-delete-tag").click();
+    await page.getByTestId("ref-menu-confirm").click();
+    await expect(
+      page.locator(".badge-kind-tag", { hasText: "v2.0" }),
+    ).toHaveCount(0, { timeout: 15_000 });
 
     // Restore the served set.
     const repoL = page.locator('[data-repo-name="repoL"]');
