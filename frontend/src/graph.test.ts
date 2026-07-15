@@ -43,17 +43,18 @@ test("edges to commits outside the graph draw nothing", () => {
   expect(edgePath(edge(0, 1), new Map([["child", 0]]))).toBe("");
 });
 
+const commit = (id: string, row: number, lane: number, color: number) => ({
+  id,
+  row,
+  lane,
+  color,
+  parents: [],
+  summary: id,
+  author: "T",
+  time: 0,
+});
+
 function repoWith(overrides: Partial<RepoView>): RepoView {
-  const commit = (id: string, row: number, lane: number, color: number) => ({
-    id,
-    row,
-    lane,
-    color,
-    parents: [],
-    summary: id,
-    author: "T",
-    time: 0,
-  });
   return {
     id: "r",
     name: "r",
@@ -71,17 +72,97 @@ function repoWith(overrides: Partial<RepoView>): RepoView {
   };
 }
 
-test("squashLinks route through their own virtual lane on the right", () => {
+test("squashLinks pick the first lane free over their row range", () => {
   const links = squashLinks(repoWith({}), [
     { number: 7, url: "u", branch: "feature", merge_commit: "squash" },
   ]);
 
-  // Upper endpoint first, colored by the branch tip; the via lane sits
-  // beyond the real lanes (lane_count 2 -> via 2) so the vertical run
-  // cannot cross nodes or real edges.
+  // Upper endpoint first, colored by the branch tip. Crossing other lines
+  // is fine; only the vertical corridor must be free — the first candidate
+  // right of both endpoints works here.
   expect(links).toEqual([
     { fromRow: 0, fromLane: 0, toRow: 1, toLane: 1, via: 2, color: 1 },
   ]);
+});
+
+test("squashLinks reuse a free real lane instead of drifting right", () => {
+  // lane_count 4, but lanes 2 and 3 hold nothing between the endpoints:
+  // the corridor takes lane 2, not a virtual lane at 4.
+  const repo = repoWith({
+    lane_count: 4,
+    refs: [{ name: "feature", target: "tip" }],
+    commits: [
+      commit("squash", 0, 0, 0),
+      commit("mid", 2, 1, 1),
+      commit("tip", 4, 1, 1),
+      commit("root", 5, 0, 0),
+    ],
+  });
+  const links = squashLinks(repo, [
+    { number: 7, url: "u", branch: "feature", merge_commit: "squash" },
+  ]);
+  expect(links[0].via).toBe(2);
+});
+
+test("squashLinks skip lanes whose corridor is blocked", () => {
+  // A node sits at (row 2, lane 2), so the corridor moves to lane 3.
+  const repo = repoWith({
+    lane_count: 3,
+    commits: [
+      commit("squash", 0, 0, 0),
+      commit("blocker", 2, 2, 2),
+      commit("tip", 4, 1, 1),
+      commit("root", 5, 0, 0),
+    ],
+  });
+  const links = squashLinks(repo, [
+    { number: 7, url: "u", branch: "feature", merge_commit: "squash" },
+  ]);
+  expect(links[0].via).toBe(3);
+});
+
+test("squashLinks share a lane when their row ranges do not overlap", () => {
+  const repo = repoWith({
+    lane_count: 2,
+    refs: [
+      { name: "feature", target: "tip" },
+      { name: "other", target: "tip2" },
+    ],
+    commits: [
+      commit("squash", 0, 0, 0),
+      commit("tip", 3, 1, 1),
+      commit("squash2", 4, 0, 0),
+      commit("tip2", 7, 1, 1),
+      commit("root", 8, 0, 0),
+    ],
+  });
+  const links = squashLinks(repo, [
+    { number: 1, url: "u", branch: "feature", merge_commit: "squash" },
+    { number: 2, url: "u", branch: "other", merge_commit: "squash2" },
+  ]);
+  expect(links.map((l) => l.via)).toEqual([2, 2]);
+});
+
+test("squashLinks stack overlapping corridors on separate lanes", () => {
+  const repo = repoWith({
+    lane_count: 2,
+    refs: [
+      { name: "feature", target: "tip" },
+      { name: "other", target: "tip2" },
+    ],
+    commits: [
+      commit("squash", 0, 0, 0),
+      commit("squash2", 1, 0, 0),
+      commit("tip", 6, 1, 1),
+      commit("tip2", 7, 1, 1),
+      commit("root", 8, 0, 0),
+    ],
+  });
+  const links = squashLinks(repo, [
+    { number: 1, url: "u", branch: "feature", merge_commit: "squash" },
+    { number: 2, url: "u", branch: "other", merge_commit: "squash2" },
+  ]);
+  expect(links[0].via).not.toBe(links[1].via);
 });
 
 test("squashLinks skips PRs whose branch or commit left the graph", () => {

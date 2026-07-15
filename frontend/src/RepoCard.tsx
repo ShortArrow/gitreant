@@ -31,6 +31,7 @@ import {
   rowIndex,
   ROW_HEIGHT,
   NODE_RADIUS,
+  laneSpan,
   linkPath,
   squashLinks,
 } from "./graph";
@@ -202,8 +203,8 @@ export function RepoCard({
   }
 
   const links = squashLinks(repo, mergedPrs);
-  // Virtual lanes for the squash links widen the drawing.
-  const width = graphWidth(repo.lane_count + links.length);
+  // Link corridors beyond the real lanes widen the drawing.
+  const width = graphWidth(laneSpan(repo.lane_count, links));
   const height = graphHeight(repo.commits.length);
   const selectedCommit = selected
     ? repo.commits.find((c) => c.id === selected)

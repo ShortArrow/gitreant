@@ -99,15 +99,40 @@ export interface SquashLink {
 /**
  * Dashed links for squash-merged PRs: a surviving local branch tip has no
  * ancestry line to the commit its PR landed as, so one is drawn from the
- * merged-PR data. Real lanes are dense with nodes and edges, so each link
- * gets a virtual lane right of the graph for its vertical run (the caller
- * widens the SVG by the number of links).
+ * merged-PR data.
+ *
+ * Routing rule: lines may cross other lines, but must not run along an
+ * occupied vertical corridor or over a node. Each link's vertical run takes
+ * the first lane right of both endpoints whose corridor rows hold no node,
+ * no real edge's vertical run, and no other link — usually a free real lane
+ * right next to the endpoints instead of a far-right virtual one.
  */
 export function squashLinks(
   repo: RepoView,
   merged: MergedPullRequestView[],
 ): SquashLink[] {
   const byId = new Map(repo.commits.map((c) => [c.id, c]));
+
+  // Blocked row spans (inclusive) per lane.
+  const blocked = new Map<number, [number, number][]>();
+  const block = (lane: number, a: number, b: number) => {
+    const spans = blocked.get(lane) ?? [];
+    spans.push([Math.min(a, b), Math.max(a, b)]);
+    blocked.set(lane, spans);
+  };
+  for (const c of repo.commits) block(c.lane, c.row, c.row);
+  const rowOf = new Map(repo.commits.map((c) => [c.id, c.row]));
+  for (const e of repo.edges) {
+    const fromRow = rowOf.get(e.from);
+    const toRow = rowOf.get(e.to);
+    if (fromRow === undefined || toRow === undefined) continue;
+    // Real edges bend within their first row, then run vertically in
+    // to_lane; blocking the whole span is slightly conservative and safe.
+    block(e.to_lane, fromRow, toRow);
+  }
+  const isFree = (lane: number, a: number, b: number) =>
+    !(blocked.get(lane) ?? []).some(([s, e]) => s <= b && a <= e);
+
   const links: SquashLink[] = [];
   for (const pr of merged) {
     const tipId = repo.refs.find(
@@ -118,16 +143,34 @@ export function squashLinks(
     const landed = byId.get(pr.merge_commit);
     if (!tip || !landed) continue;
     const [from, to] = landed.row <= tip.row ? [landed, tip] : [tip, landed];
+
+    let via = Math.max(from.lane, to.lane) + 1;
+    if (to.row - from.row > 1) {
+      const corridorTop = from.row + 1;
+      const corridorBottom = to.row - 1;
+      while (!isFree(via, corridorTop, corridorBottom)) via += 1;
+      block(via, corridorTop, corridorBottom);
+    }
     links.push({
       fromRow: from.row,
       fromLane: from.lane,
       toRow: to.row,
       toLane: to.lane,
-      via: repo.lane_count + links.length,
+      via,
       color: tip.color,
     });
   }
   return links;
+}
+
+/** Columns the drawing needs: the real lanes plus any link corridor beyond
+ * them (adjacent-row links have no corridor and cost nothing). */
+export function laneSpan(laneCount: number, links: SquashLink[]): number {
+  return links.reduce(
+    (max, link) =>
+      link.toRow - link.fromRow > 1 ? Math.max(max, link.via + 1) : max,
+    laneCount,
+  );
 }
 
 /**
