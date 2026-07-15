@@ -7,9 +7,16 @@ use std::time::Duration;
 
 use super::PING_MARKER;
 
+/// Liveness checks stay snappy; mutating calls wait for real work.
+const PING_TIMEOUT: Duration = Duration::from_secs(5);
+/// Adding a repository makes the server re-read every displayed one and
+/// verify signatures through git/gpg subprocesses; the first pass over large
+/// repositories legitimately takes more than a few seconds.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
+
 /// Is a gitreant server answering on `port`?
 pub fn ping(port: u16) -> bool {
-    match request(port, "GET", "/api/ping", None) {
+    match request(port, "GET", "/api/ping", None, PING_TIMEOUT) {
         Ok((200, body)) => body.trim().starts_with(PING_MARKER),
         _ => false,
     }
@@ -18,7 +25,7 @@ pub fn ping(port: u16) -> bool {
 /// Ask the running server to add the repository at `path`.
 pub fn post_repo(port: u16, path: &str) -> Result<(), String> {
     let body = serde_json::json!({ "path": path }).to_string();
-    match request(port, "POST", "/api/repos", Some(&body))? {
+    match request(port, "POST", "/api/repos", Some(&body), REQUEST_TIMEOUT)? {
         (200, _) => Ok(()),
         (status, body) => Err(format!("server returned {status}: {body}")),
     }
@@ -26,7 +33,7 @@ pub fn post_repo(port: u16, path: &str) -> Result<(), String> {
 
 /// Ask the running server to stop itself.
 pub fn post_shutdown(port: u16) -> Result<(), String> {
-    match request(port, "POST", "/api/shutdown", None)? {
+    match request(port, "POST", "/api/shutdown", None, REQUEST_TIMEOUT)? {
         (200, _) => Ok(()),
         (status, body) => Err(format!("server returned {status}: {body}")),
     }
@@ -37,10 +44,11 @@ fn request(
     method: &str,
     path: &str,
     body: Option<&str>,
+    read_timeout: Duration,
 ) -> Result<(u16, String), String> {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).map_err(|e| e.to_string())?;
     stream
-        .set_read_timeout(Some(Duration::from_secs(5)))
+        .set_read_timeout(Some(read_timeout))
         .map_err(|e| e.to_string())?;
 
     let body = body.unwrap_or("");

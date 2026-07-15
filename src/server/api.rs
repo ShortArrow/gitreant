@@ -185,8 +185,17 @@ async fn ping() -> &'static str {
     PING_MARKER
 }
 
+/// View reads run gix and (for signed commits) git/gpg subprocesses; keep
+/// them off the async workers so the listener stays responsive.
+async fn blocking_views(state: &AppState) -> Vec<RepoView> {
+    let state = state.clone();
+    tokio::task::spawn_blocking(move || state.views())
+        .await
+        .unwrap_or_default()
+}
+
 async fn list_repos(State(state): State<AppState>) -> Json<Vec<RepoView>> {
-    Json(state.views())
+    Json(blocking_views(&state).await)
 }
 
 #[derive(Deserialize)]
@@ -206,12 +215,16 @@ async fn add_repo(
     State(state): State<AppState>,
     Json(req): Json<AddRepoRequest>,
 ) -> Result<Json<AddRepoResponse>, (StatusCode, String)> {
-    match state.add_repo(&req.path) {
-        Ok((id, added)) => Ok(Json(AddRepoResponse {
-            id,
-            added,
-            repos: state.views(),
-        })),
+    let adder = state.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        adder
+            .add_repo(&req.path)
+            .map(|(id, added)| (id, added, adder.views()))
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    match result {
+        Ok((id, added, repos)) => Ok(Json(AddRepoResponse { id, added, repos })),
         Err(message) => Err((StatusCode::BAD_REQUEST, message)),
     }
 }
@@ -227,7 +240,7 @@ async fn remove_repo(
     Json(req): Json<RemoveRepoRequest>,
 ) -> Json<Vec<RepoView>> {
     state.remove_repo(&req.path);
-    Json(state.views())
+    Json(blocking_views(&state).await)
 }
 
 #[derive(Deserialize)]
