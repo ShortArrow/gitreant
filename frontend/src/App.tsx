@@ -13,7 +13,11 @@ import { Drawer } from "./Drawer";
 import { FetchIcon, LogIcon, ReloadIcon, SettingsIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { LogPane } from "./LogPane";
-import { type PaletteCommand } from "./palette";
+import {
+  CommandRegistryContext,
+  useCommandRegistry,
+  type PaletteCommand,
+} from "./palette";
 import { applyTheme, currentTheme, toggleTheme } from "./theme";
 import { mergeLog, type UserAction } from "./logModel";
 import { RepoCard } from "./RepoCard";
@@ -208,7 +212,15 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const paletteCommands = useMemo<PaletteCommand[]>(
+  // Every feature registers its palette commands through this registry
+  // (usually via useCommands next to the feature); the palette just reads
+  // the merged list, so nothing has to be hand-added here.
+  const registry = useCommandRegistry();
+  const registryContext = useMemo(
+    () => ({ register: registry.register }),
+    [registry.register],
+  );
+  const globalCommands = useMemo<PaletteCommand[]>(
     () => {
       const m = MESSAGES[lang];
       return [
@@ -237,6 +249,35 @@ export function App() {
           title: collapsed ? m.cmdExpandDrawer : m.cmdCollapseDrawer,
           run: () => setCollapsed((c) => !c),
         },
+        {
+          id: "squash-links",
+          title: m.cmdToggleSquashLinks,
+          run: () => changeSquashLinks(!storedSquashLinks()),
+        },
+        ...(["icon", "icon-label", "label"] as const).map((style) => ({
+          id: `buttons:${style}`,
+          title: `${m.settingsButtons}: ${
+            m[
+              style === "icon"
+                ? "buttonsIcon"
+                : style === "icon-label"
+                  ? "buttonsIconLabel"
+                  : "buttonsLabel"
+            ]
+          }`,
+          run: () => changeButtonStyle(style),
+        })),
+        ...(
+          [
+            ["auto", m.langAuto],
+            ["en", m.langEn],
+            ["ja", m.langJa],
+          ] as const
+        ).map(([value, label]) => ({
+          id: `language:${value}`,
+          title: `${m.settingsLanguage}: ${label}`,
+          run: () => changeLangSetting(value),
+        })),
         ...repos.map((repo) => ({
           id: `open:${repo.id}`,
           title: format(m.cmdOpenRepo, { name: repo.name }),
@@ -244,11 +285,17 @@ export function App() {
         })),
       ];
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setters are stable
     [repos, collapsed, lang, runFetch, reload, recordAction, openTab],
+  );
+  useEffect(
+    () => registry.register(globalCommands),
+    [registry.register, globalCommands],
   );
 
   return (
     <SettingsContext.Provider value={settings}>
+    <CommandRegistryContext.Provider value={registryContext}>
     <div className={`layout${collapsed ? " layout-collapsed" : ""}`}>
       <Drawer
         repos={repos}
@@ -410,7 +457,7 @@ export function App() {
 
         {paletteOpen && (
           <CommandPalette
-            commands={paletteCommands}
+            commands={registry.commands}
             onClose={() => setPaletteOpen(false)}
           />
         )}
@@ -432,6 +479,7 @@ export function App() {
         {logOpen && <LogPane items={logItems} />}
       </main>
     </div>
+    </CommandRegistryContext.Provider>
     </SettingsContext.Provider>
   );
 }

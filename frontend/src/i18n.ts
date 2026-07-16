@@ -59,6 +59,7 @@ const en = {
   cmdToggleTheme: "Toggle theme",
   cmdCollapseDrawer: "Collapse the repository list",
   cmdExpandDrawer: "Expand the repository list",
+  cmdToggleSquashLinks: "Toggle squash-merge links",
   cmdOpenRepo: "Open repository: {name}",
   // Drawer
   repositories: "Repositories",
@@ -152,6 +153,7 @@ const ja: Record<MsgKey, string> = {
   cmdToggleTheme: "テーマを切替",
   cmdCollapseDrawer: "リポジトリ一覧をたたむ",
   cmdExpandDrawer: "リポジトリ一覧をひらく",
+  cmdToggleSquashLinks: "squashマージの点線を切替",
   cmdOpenRepo: "リポジトリを開く: {name}",
   repositories: "リポジトリ",
   addRepoPlaceholder: "リポジトリのパスを追加…",

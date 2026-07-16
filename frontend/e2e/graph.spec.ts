@@ -854,6 +854,15 @@ test.describe.serial("gitreant UI", () => {
     await expect(palette).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(palette).toHaveCount(0);
+
+    // Settings live in the palette too (via the command registry): the
+    // squash-link toggle flips without opening the settings modal.
+    await page.keyboard.press("Control+k");
+    await page.getByTestId("palette-input").fill("squash");
+    await page.getByTestId("palette-item").first().click();
+    await page.getByTestId("settings-toggle").click();
+    await expect(page.getByTestId("squash-links-toggle")).not.toBeChecked();
+    await page.keyboard.press("Escape");
   });
 
   test("diff lines can be selected, copied and permalinked", async ({
