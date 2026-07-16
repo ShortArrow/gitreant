@@ -115,7 +115,10 @@ jobs:
       - name: Attest build provenance
         # Signed SLSA provenance for every artifact, published before the
         # release itself so a failure aborts instead of shipping unattested
-        # binaries.
+        # binaries. GitHub does not offer attestations on user-owned PRIVATE
+        # repositories, so this arms itself automatically when the repo goes
+        # public.
+        if: ${{ !github.event.repository.private }}
         uses: actions/attest-build-provenance@v3
         with:
           subject-path: artifacts/*
