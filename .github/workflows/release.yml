@@ -127,11 +127,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
+        # SemVer marks pre-releases with a hyphen (v0.1.0-pre, v1.0.0-rc.1);
+        # mirror that on the GitHub release.
         run: |
+          case "$TAG" in
+            *-*) prerelease=--prerelease ;;
+            *) prerelease= ;;
+          esac
           gh release create "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --title "$TAG" \
             --generate-notes \
+            $prerelease \
             artifacts/*
 
   publish-crates:
