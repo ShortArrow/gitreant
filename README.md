@@ -83,7 +83,8 @@ gitreant [PATH...]
 ## Contributing
 
 See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for development setup,
-architecture, and testing.
+architecture, and testing. Planned work lives in
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## License
 
