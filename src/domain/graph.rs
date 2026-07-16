@@ -38,6 +38,10 @@ pub struct GraphEdge {
     /// Color of the branch this edge belongs to: the child's branch for
     /// first-parent edges, the merged branch for further (merge) parents.
     pub color: usize,
+    /// A lane-crossing first-parent edge: it runs vertically in the child's
+    /// own lane and bends at the parent (fork point). Merge edges bend at
+    /// the merge commit instead.
+    pub fork: bool,
 }
 
 /// The laid-out graph ready for rendering.
@@ -74,6 +78,8 @@ pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
     let mut edges = Vec::new();
 
     for (row, commit) in commits.iter().enumerate() {
+        // Lanes held for fork corridors down to this commit free up now.
+        state.release_holds(&commit.id);
         let my_lane = state.lane_for(&commit.id);
         let my_color = state.colors[my_lane];
 
@@ -106,6 +112,7 @@ pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
                     } else {
                         state.colors[target_lane]
                     },
+                    fork: is_first && target_lane != my_lane,
                 });
             }
         }
@@ -180,18 +187,20 @@ impl LayoutState {
     ) -> usize {
         if let Some(existing) = self.find(parent) {
             if is_first && existing != my_lane {
-                // The child's column converges into the parent's existing column.
-                self.free(my_lane);
+                // A fork: the edge runs vertically down the child's own
+                // column, so hold it until the parent is placed.
+                self.hold(my_lane, parent);
             }
             return existing;
         }
         if parent_on_spine {
             // Column 0 belongs to the spine. Only the spine itself hands the
-            // reservation down; other children just converge into it.
+            // reservation down; other children fork into it and hold their
+            // column for the edge's vertical run.
             if is_first && my_lane == 0 {
                 self.lanes[0] = Some(parent.to_string());
             } else if is_first {
-                self.free(my_lane);
+                self.hold(my_lane, parent);
             }
             return 0;
         }
@@ -213,6 +222,22 @@ impl LayoutState {
 
     fn free(&mut self, lane: usize) {
         self.lanes[lane] = None;
+    }
+
+    /// Keep `lane` occupied for a fork edge's vertical run until `parent` is
+    /// placed. The "hold:" prefix cannot collide with (hex) commit ids.
+    fn hold(&mut self, lane: usize, parent: &str) {
+        self.lanes[lane] = Some(format!("hold:{parent}"));
+    }
+
+    /// Free every lane held for fork edges ending at `id`.
+    fn release_holds(&mut self, id: &str) {
+        let key = format!("hold:{id}");
+        for lane in self.lanes.iter_mut() {
+            if lane.as_deref() == Some(key.as_str()) {
+                *lane = None;
+            }
+        }
     }
 
     /// Reuse the lowest free column (strictly right of `after`, when given),
@@ -403,6 +428,41 @@ mod tests {
         // F's fork edge converges into the spine from the right.
         let f_edge = g.edges.iter().find(|e| e.from == "F").unwrap();
         assert_eq!((f_edge.from_lane, f_edge.to_lane), (1, 0));
+    }
+
+    #[test]
+    fn fork_edges_bend_at_the_parent_and_hold_their_lane() {
+        // A converges into Base: its edge is a fork (drawn vertically in A's
+        // own lane, bending at Base), so A's lane must stay reserved until
+        // Base is placed — the tip D two rows below must NOT reuse it.
+        //   M    [A, B]
+        //   B    [Base]
+        //   A    [Base]
+        //   D    []       (independent tip between A and Base)
+        //   Base []
+        let g = layout(
+            &[
+                ci("M", &["A", "B"]),
+                ci("B", &["Base"]),
+                ci("A", &["Base"]),
+                ci("D", &[]),
+                ci("Base", &[]),
+            ],
+            None,
+        );
+
+        let a_edge = g.edges.iter().find(|e| e.from == "A").unwrap();
+        assert!(a_edge.fork, "convergence edge must be marked as a fork");
+        let m_first = g.edges.iter().find(|e| e.from == "M" && e.to == "A").unwrap();
+        assert!(!m_first.fork, "same-lane first-parent edge is not a fork");
+        let merge_edge = g.edges.iter().find(|e| e.from == "M" && e.to == "B").unwrap();
+        assert!(!merge_edge.fork, "merge edges bend at the merge commit");
+
+        // D must not sit in A's held lane (0): the corridor stays free for
+        // A's vertical run down to Base.
+        let lane_of = |id: &str| g.nodes.iter().find(|n| n.id == id).unwrap().lane;
+        assert_eq!(lane_of("A"), 0);
+        assert_ne!(lane_of("D"), 0, "held fork lane was reused too early");
     }
 
     #[test]

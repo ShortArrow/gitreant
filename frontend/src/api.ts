@@ -22,6 +22,9 @@ export interface GraphEdge {
   from_lane: number;
   to_lane: number;
   color: number;
+  /** Lane-crossing first-parent edge: runs in the child's lane, bends at
+   *  the parent. Merge edges bend at the merge commit instead. */
+  fork: boolean;
 }
 
 export interface RefView {
@@ -185,6 +188,25 @@ export function deleteTag(
   name: string,
 ): Promise<BranchOpResult> {
   return tagOp("DELETE", { repo: repoId, name });
+}
+
+/** Create a branch at a commit without checking it out (`git branch`). */
+export async function createBranch(
+  repoId: string,
+  name: string,
+  commit: string,
+): Promise<BranchOpResult> {
+  const response = await fetch("/api/branch", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo: repoId, name, commit }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || `branch create failed: ${response.status}`,
+    );
+  }
+  return response.json();
 }
 
 export interface PullRequestView {

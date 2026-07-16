@@ -75,11 +75,20 @@ test.describe.serial("gitreant UI", () => {
     const panel = page.getByTestId("commit-detail");
     await expect(panel).toBeVisible();
     await expect(panel).toContainText("main-1");
+    // The body hides behind a GitHub-style ellipsis toggle.
+    await expect(panel).not.toContainText("Second line of the description.");
+    await panel.getByTestId("body-toggle").click();
     await expect(panel).toContainText("Second line of the description.");
-    // Fenced blocks in the body render as code, without the backticks.
+    // Bullet lines render as a list, fenced blocks as code — no raw markup.
+    await expect(
+      panel.getByTestId("detail-bullets").locator("li"),
+    ).toHaveCount(2);
     await expect(panel.getByTestId("detail-code")).toHaveText("cargo test");
     await expect(panel).not.toContainText("```");
+    await expect(panel).not.toContainText("- first item");
     await expect(panel).toContainText("Tester");
+    await panel.getByTestId("body-toggle").click();
+    await expect(panel).not.toContainText("Second line of the description.");
     // Fixture commits are unsigned; the signature state is always shown.
     await expect(panel.getByTestId("detail-signature")).toHaveText("Not signed");
 
@@ -1002,16 +1011,30 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("add-submit").click();
     await expect(page.locator('[data-tab-name="repoL"]')).toBeVisible();
 
-    // Right-clicking a commit row opens the create-tag menu. The stash's
-    // WIP messages also contain "l-1", so pick the row via its v1.0 badge.
-    await page
+    // Right-clicking a commit row opens an action list; picking "create
+    // tag" reveals the name input. The stash's WIP messages also contain
+    // "l-1", so pick the row via its v1.0 badge.
+    const l1Row = page
       .getByTestId("commit-row")
       .filter({ has: page.locator(".badge-kind-tag") })
-      .click({ button: "right" });
-    await page.getByTestId("tag-name-input").fill("v2.0");
-    await page.getByTestId("tag-create").click();
+      .first();
+    await l1Row.click({ button: "right" });
+    await page.getByTestId("commit-menu-tag").click();
+    await page.getByTestId("ref-name-input").fill("v2.0");
+    await page.getByTestId("ref-create").click();
     const created = page.locator(".badge-kind-tag", { hasText: "v2.0" });
     await expect(created).toBeVisible({ timeout: 15_000 });
+
+    // The same menu creates a branch at the commit, without a checkout.
+    await l1Row.click({ button: "right" });
+    await page.getByTestId("commit-menu-branch").click();
+    await page.getByTestId("ref-name-input").fill("topic2");
+    await page.getByTestId("ref-create").click();
+    await expect(
+      page.locator(".badge-kind-branch", { hasText: "topic2" }),
+    ).toBeVisible({ timeout: 15_000 });
+    // HEAD stays on main (no checkout happened).
+    await expect(l1Row.locator(".badge-head")).toHaveCount(1);
 
     // The tag badge's context menu deletes it again after confirmation.
     await created.click({ button: "right" });

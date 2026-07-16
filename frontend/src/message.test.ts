@@ -23,6 +23,20 @@ test("a body without fences is one text block", () => {
   ]);
 });
 
+test("consecutive bullet lines become one list block", () => {
+  expect(messageBlocks("Changes:\n- first\n- second\n* third\nDone.")).toEqual([
+    { kind: "text", text: "Changes:" },
+    { kind: "list", items: ["first", "second", "third"] },
+    { kind: "text", text: "Done." },
+  ]);
+});
+
+test("bullets inside code fences stay code", () => {
+  expect(messageBlocks("```\n- not a bullet\n```")).toEqual([
+    { kind: "code", text: "- not a bullet" },
+  ]);
+});
+
 test("inlineSpans marks backtick runs as code", () => {
   expect(inlineSpans("use `foo()` and `bar`")).toEqual([
     { code: false, text: "use " },

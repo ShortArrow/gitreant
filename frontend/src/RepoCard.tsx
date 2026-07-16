@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { CommitHash } from "./CommitHash";
+import { CommitMenu } from "./CommitMenu";
 import {
   checkoutRef,
+  createBranch,
   createTag,
   deleteTag,
   fetchCommitDetail,
@@ -36,7 +38,6 @@ import {
   laneSpan,
   linkPath,
   rowTime,
-  shortId,
   squashLinks,
 } from "./graph";
 
@@ -127,26 +128,12 @@ export function RepoCard({
   }, [repo.id, loadPrs]);
 
   const [refMenu, setRefMenu] = useState<RefMenuTarget | null>(null);
-  // Right-clicking a commit row offers to create a tag at that commit.
-  const [tagMenu, setTagMenu] = useState<{
+  // Right-clicking a commit row offers actions on that commit.
+  const [commitMenu, setCommitMenu] = useState<{
     x: number;
     y: number;
     commit: string;
   } | null>(null);
-  const [tagName, setTagName] = useState("");
-  useEffect(() => {
-    if (!tagMenu) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      setTagMenu(null);
-    };
-    window.addEventListener("mousedown", close);
-    window.addEventListener("keydown", close);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("keydown", close);
-    };
-  }, [tagMenu]);
   // Result of the last branch operation that failed; cleared on the next one.
   const [opError, setOpError] = useState<string | null>(null);
   const runBranchOp = (
@@ -262,36 +249,25 @@ export function RepoCard({
         />
       )}
 
-      {tagMenu && (
-        <form
-          className="ctx-menu tag-menu"
-          data-testid="tag-menu"
-          style={{ left: tagMenu.x, top: tagMenu.y }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onSubmit={(e) => {
-            e.preventDefault();
-            const name = tagName.trim();
-            if (!name) return;
+      {commitMenu && (
+        <CommitMenu
+          x={commitMenu.x}
+          y={commitMenu.y}
+          commit={commitMenu.commit}
+          onCreateTag={(name) =>
             runBranchOp(
-              (repoId, value) => createTag(repoId, value, tagMenu.commit),
+              (repoId, value) => createTag(repoId, value, commitMenu.commit),
               name,
-            );
-            setTagMenu(null);
-            setTagName("");
-          }}
-        >
-          <span className="ctx-menu-note">{shortId(tagMenu.commit)}</span>
-          <input
-            data-testid="tag-name-input"
-            placeholder={t("tagNamePlaceholder")}
-            value={tagName}
-            autoFocus
-            onChange={(e) => setTagName(e.target.value)}
-          />
-          <button type="submit" data-testid="tag-create">
-            {t("createTag")}
-          </button>
-        </form>
+            )
+          }
+          onCreateBranch={(name) =>
+            runBranchOp(
+              (repoId, value) => createBranch(repoId, value, commitMenu.commit),
+              name,
+            )
+          }
+          onClose={() => setCommitMenu(null)}
+        />
       )}
 
       <div className="repo-body">
@@ -380,8 +356,11 @@ export function RepoCard({
                 }}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  setTagName("");
-                  setTagMenu({ x: e.clientX, y: e.clientY, commit: commit.id });
+                  setCommitMenu({
+                    x: e.clientX,
+                    y: e.clientY,
+                    commit: commit.id,
+                  });
                 }}
               >
                 {isHead && <span className="badge badge-head">HEAD</span>}

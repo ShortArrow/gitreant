@@ -44,11 +44,12 @@ export function graphHeight(commitCount: number): number {
 }
 
 /**
- * A path from a child commit to one of its parents. Straight when both sit in
- * the same lane. When the edge changes lanes, it bends within the first row
- * and then runs straight down the parent's lane, never diagonally across
- * rows — the layout keeps that lane reserved for the pending parent, so the
- * vertical corridor is guaranteed free.
+ * A path from a child commit to one of its parents. Straight when both sit
+ * in the same lane. Lane-crossing edges run vertically in the branch's own
+ * lane and bend only at the junction: fork edges bend at the parent (the
+ * corridor down the child's lane is held by the layout), merge edges bend at
+ * the merge commit (the corridor down the parent's lane is reserved). Never
+ * diagonal across rows.
  */
 export function edgePath(
   edge: GraphEdge,
@@ -65,6 +66,14 @@ export function edgePath(
   const y2 = nodeY(parentRow);
   if (x1 === x2) {
     return `M${x1},${y1} L${x2},${y2}`;
+  }
+  if (edge.fork) {
+    const yBend = y2 - ROW_HEIGHT;
+    const ym = (yBend + y2) / 2;
+    const curve = `C${x1},${ym} ${x2},${ym} ${x2},${y2}`;
+    return yBend <= y1
+      ? `M${x1},${y1} ${curve}`
+      : `M${x1},${y1} L${x1},${yBend} ${curve}`;
   }
   const yBend = y1 + ROW_HEIGHT;
   const ym = (y1 + yBend) / 2;
@@ -135,9 +144,9 @@ export function squashLinks(
     const fromRow = rowOf.get(e.from);
     const toRow = rowOf.get(e.to);
     if (fromRow === undefined || toRow === undefined) continue;
-    // Real edges bend within their first row, then run vertically in
-    // to_lane; blocking the whole span is slightly conservative and safe.
-    block(e.to_lane, fromRow, toRow);
+    // Real edges run vertically in the child's lane (forks) or the
+    // parent's (merges); blocking the whole span is conservative and safe.
+    block(e.fork ? e.from_lane : e.to_lane, fromRow, toRow);
   }
   const isFree = (lane: number, a: number, b: number) =>
     !(blocked.get(lane) ?? []).some(([s, e]) => s <= b && a <= e);

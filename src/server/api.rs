@@ -173,6 +173,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/checkout", post(checkout))
         .route("/api/merge", post(merge))
         .route("/api/tag", post(create_tag).delete(delete_tag))
+        .route("/api/branch", post(create_branch))
         .route("/api/prs", post(list_prs))
         .route("/api/log", get(command_log))
         .route("/api/events", get(events))
@@ -440,6 +441,36 @@ async fn create_tag(
             time: epoch_now(),
             repo: req.repo,
             command: crate::git::create_tag_command(&path, &req.name, &req.commit),
+            ok: result.is_ok(),
+            message: result.as_ref().err().cloned().unwrap_or_default(),
+        });
+        result
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let _ = state.updates.send(());
+    Ok(Json(BranchOpResponse {
+        ok: result.is_ok(),
+        message: result.err().unwrap_or_default(),
+    }))
+}
+
+/// Create a branch at a commit (no checkout) via the git CLI, log it, and
+/// notify listeners. Shares the create-tag request shape.
+async fn create_branch(
+    State(state): State<AppState>,
+    Json(req): Json<CreateTagRequest>,
+) -> Result<Json<BranchOpResponse>, (StatusCode, String)> {
+    let Some(path) = state.repo_path(&req.repo) else {
+        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+    };
+    let logger = state.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        let result = crate::git::create_branch(&path, &req.name, &req.commit);
+        logger.push_log(CommandLogEntry {
+            time: epoch_now(),
+            repo: req.repo,
+            command: crate::git::create_branch_command(&path, &req.name, &req.commit),
             ok: result.is_ok(),
             message: result.as_ref().err().cloned().unwrap_or_default(),
         });

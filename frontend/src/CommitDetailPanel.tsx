@@ -106,6 +106,7 @@ export function CommitDetailPanel({
         {!error && !detail && <p className="detail-loading">{t("loading")}</p>}
         {detail && (
           <DetailBody
+            key={detail.id}
             detail={detail}
             verified={verified}
             signatureKey={signatureKey}
@@ -138,16 +139,41 @@ function DetailBody({
   onShowAllDiffs: () => void;
 }) {
   const t = useT();
+  const [bodyOpen, setBodyOpen] = useState(false);
   const { summary, body } = splitMessage(detail.message);
   return (
     <>
-      <h3 className="detail-summary">{summary}</h3>
+      <h3 className="detail-summary">
+        {summary}
+        {body && (
+          <button
+            className="body-toggle"
+            data-testid="body-toggle"
+            title={t("toggleBody")}
+            type="button"
+            onClick={() => setBodyOpen((open) => !open)}
+          >
+            …
+          </button>
+        )}
+      </h3>
       {body &&
+        bodyOpen &&
         messageBlocks(body).map((block, i) =>
           block.kind === "code" ? (
             <pre key={i} className="detail-code" data-testid="detail-code">
               {block.text}
             </pre>
+          ) : block.kind === "list" ? (
+            <ul key={i} className="detail-bullets" data-testid="detail-bullets">
+              {block.items.map((item, j) => (
+                <li key={j}>
+                  {inlineSpans(item).map((span, k) =>
+                    span.code ? <code key={k}>{span.text}</code> : span.text,
+                  )}
+                </li>
+              ))}
+            </ul>
           ) : (
             <pre key={i} className="detail-message">
               {inlineSpans(block.text).map((span, j) =>

@@ -26,7 +26,7 @@ function edge(
   toLane: number,
   color: number,
 ): GraphEdge {
-  return { from, to, from_lane: fromLane, to_lane: toLane, color };
+  return { from, to, from_lane: fromLane, to_lane: toLane, color, fork: false };
 }
 
 /** A repo with a feature branch merged back: two lanes and a merge node. */

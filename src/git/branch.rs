@@ -59,6 +59,20 @@ pub fn merge_command(path: &Path, reference: &str) -> String {
     command_line(path, &merge_args(reference))
 }
 
+fn create_branch_args<'a>(name: &'a str, commit: &'a str) -> Vec<&'a str> {
+    vec!["branch", name, commit]
+}
+
+/// The command line `create_branch` executes, for the command log.
+pub fn create_branch_command(path: &Path, name: &str, commit: &str) -> String {
+    command_line(path, &create_branch_args(name, commit))
+}
+
+/// Create branch `name` at `commit` without checking it out.
+pub fn create_branch(path: &Path, name: &str, commit: &str) -> Result<(), String> {
+    run(path, &create_branch_args(name, commit))
+}
+
 /// Merge `reference` into the currently checked-out branch of `path`.
 pub fn merge(path: &Path, reference: &str) -> Result<(), String> {
     run(path, &merge_args(reference))
@@ -88,6 +102,14 @@ mod tests {
         assert_eq!(
             merge_command(&PathBuf::from("/repos/demo"), "origin/main"),
             "git -C /repos/demo merge --no-edit origin/main"
+        );
+    }
+
+    #[test]
+    fn create_branch_names_branch_and_commit() {
+        assert_eq!(
+            create_branch_command(&PathBuf::from("/repos/demo"), "topic", "abc123"),
+            "git -C /repos/demo branch topic abc123"
         );
     }
 }

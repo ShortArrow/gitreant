@@ -505,6 +505,67 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn branch_create_endpoint_adds_a_branch_without_checkout() {
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(Session::new())).await.unwrap();
+    });
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    let repo_path = tmp.path().to_string_lossy().into_owned();
+    tokio::task::spawn_blocking(move || post_repo(port, &repo_path))
+        .await
+        .unwrap()
+        .expect("add repo");
+    let id = gitreant::app::canonical(tmp.path()).to_string_lossy().into_owned();
+
+    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+        .await
+        .unwrap();
+    let head = repos
+        .split("\"head\":\"")
+        .nth(1)
+        .and_then(|rest| rest.split('"').next())
+        .expect("head id in view")
+        .to_string();
+
+    let body = format!("{{\"repo\":{id:?},\"name\":\"topic\",\"commit\":{head:?}}}");
+    let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/branch", &body))
+        .await
+        .unwrap();
+    assert!(resp.contains("200 OK"), "response: {resp}");
+
+    // The branch exists, and HEAD did not move (no checkout).
+    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+        .await
+        .unwrap();
+    assert!(repos.contains("\"topic\""), "branch missing: {repos}");
+    assert!(
+        repos.contains("\"head_branch\":\"main\""),
+        "checkout happened: {repos}"
+    );
+    let log = tokio::task::spawn_blocking(move || http_get(port, "/api/log"))
+        .await
+        .unwrap();
+    assert!(log.contains("branch topic"), "not logged: {log}");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn tag_endpoints_create_and_delete_tags() {
     let tmp = tempfile::tempdir().unwrap();
     init_repo_with_commit(tmp.path());

@@ -9,7 +9,9 @@ mod repo;
 mod tag;
 mod verify;
 
-pub use branch::{checkout, checkout_command, merge, merge_command};
+pub use branch::{
+    checkout, checkout_command, create_branch, create_branch_command, merge, merge_command,
+};
 pub use detail::{
     read_commit, read_commit_diff, read_file_diff, CommitDetail, FileChange, FileDiff,
 };

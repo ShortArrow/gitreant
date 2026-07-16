@@ -2,33 +2,48 @@
  * fenced code blocks and inline backtick code. Nothing else — commit
  * messages are not documents. */
 
-export interface MessageBlock {
-  kind: "text" | "code";
-  text: string;
-}
+export type MessageBlock =
+  | { kind: "text" | "code"; text: string }
+  | { kind: "list"; items: string[] };
 
-/** Split a body into text and fenced-code blocks. The fence language tag is
- * dropped; an unclosed fence runs to the end. */
+const BULLET = /^\s*[-*]\s+(.*)$/;
+
+/** Split a body into text, bullet-list and fenced-code blocks. The fence
+ * language tag is dropped; an unclosed fence runs to the end. */
 export function messageBlocks(body: string): MessageBlock[] {
   const blocks: MessageBlock[] = [];
-  let current: string[] = [];
+  let text: string[] = [];
+  let items: string[] = [];
   let inCode = false;
 
-  const flush = () => {
-    const text = current.join("\n").trim();
-    if (text) blocks.push({ kind: inCode ? "code" : "text", text });
-    current = [];
+  const flushText = () => {
+    const joined = text.join("\n").trim();
+    if (joined) blocks.push({ kind: inCode ? "code" : "text", text: joined });
+    text = [];
+  };
+  const flushList = () => {
+    if (items.length) blocks.push({ kind: "list", items });
+    items = [];
   };
 
   for (const line of body.split("\n")) {
     if (line.trimEnd().startsWith("```")) {
-      flush();
+      flushText();
+      flushList();
       inCode = !inCode;
+      continue;
+    }
+    const bullet = inCode ? null : BULLET.exec(line);
+    if (bullet) {
+      flushText();
+      items.push(bullet[1]);
     } else {
-      current.push(line);
+      flushList();
+      text.push(line);
     }
   }
-  flush();
+  flushText();
+  flushList();
   return blocks;
 }
 

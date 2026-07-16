@@ -740,11 +740,11 @@ body {
 }
 
 .ref-menu,
-.tag-menu {
+.commit-menu {
   position: fixed;
 }
 
-.tag-menu input {
+.commit-menu input {
   margin: 4px 6px;
   padding: 4px 8px;
   background: var(--bg);
@@ -865,6 +865,35 @@ body {
   word-break: break-word;
 }
 
+/* GitHub-style ellipsis expander for the message body. */
+.body-toggle {
+  margin-left: 8px;
+  padding: 0 7px;
+  line-height: 1;
+  font-size: 13px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--border) 40%, transparent);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.body-toggle:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.detail-bullets {
+  margin: 8px 0 0;
+  padding: 8px 10px 8px 28px;
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.detail-bullets code,
 .detail-message code,
 .detail-code {
   font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;

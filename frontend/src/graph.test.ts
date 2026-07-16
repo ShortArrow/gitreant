@@ -15,8 +15,15 @@ test("rowTime renders a fixed-width local timestamp", () => {
   expect(rowTime(new Date(2023, 11, 1, 23, 59))).toBe("2023-12-01 23:59");
 });
 
-function edge(fromLane: number, toLane: number): GraphEdge {
-  return { from: "child", to: "parent", from_lane: fromLane, to_lane: toLane, color: 0 };
+function edge(fromLane: number, toLane: number, fork = false): GraphEdge {
+  return {
+    from: "child",
+    to: "parent",
+    from_lane: fromLane,
+    to_lane: toLane,
+    color: 0,
+    fork,
+  };
 }
 
 const rows = (childRow: number, parentRow: number) =>
@@ -47,6 +54,26 @@ test("long cross-lane edges bend within one row, then run vertically", () => {
 
 test("edges to commits outside the graph draw nothing", () => {
   expect(edgePath(edge(0, 1), new Map([["child", 0]]))).toBe("");
+});
+
+test("fork edges run down their own lane and bend at the parent", () => {
+  const path = edgePath(edge(1, 0, true), rows(0, 5));
+  const x1 = 14 + 18;
+  // Vertical in the child's lane down to one row above the parent, then a
+  // curve into the parent's circle.
+  const match = /^M(\d+),(\d+) L(\d+),(\d+) C\S+ \S+ (\d+),(\d+)$/.exec(path);
+  expect(match).not.toBeNull();
+  const [, mx, , lx, ly, cx, cy] = match!.map(Number);
+  expect(mx).toBe(x1);
+  expect(lx).toBe(x1);
+  expect(cy - ly).toBe(ROW_HEIGHT);
+  expect(cx).toBe(14);
+});
+
+test("adjacent-row fork edges are a single curve", () => {
+  const path = edgePath(edge(1, 0, true), rows(0, 1));
+  expect(path).toMatch(/^M32,16 C/);
+  expect(path).not.toContain(" L");
 });
 
 const commit = (id: string, row: number, lane: number, color: number) => ({
