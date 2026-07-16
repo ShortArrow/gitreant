@@ -107,6 +107,24 @@ The screenshots are taken from fixture repositories described declaratively in
 `frontend/screenshot/scenario.ts` — edit its branch/commit/merge steps to
 change the graph topology shown in the README, then regenerate.
 
+## Releasing
+
+Push a `vX.Y.Z` tag; `.github/workflows/release.yml` does the rest:
+
+1. `cargo test --locked` on Linux / Windows / macOS gates the release.
+2. Native binaries (Windows x64, Linux x64, macOS x64/arm64) are built
+   with the frontend embedded, attested (SLSA provenance) and attached
+   to a GitHub Release with generated notes.
+3. The crate is published to crates.io via OIDC Trusted Publishing.
+   The published package ships the prebuilt `frontend/dist` (see the
+   `include` list in Cargo.toml), so `cargo install gitreant` needs no
+   Node.js. Put `[skip publish]` in the tagged commit message to skip
+   this job.
+
+One-time setup: register this repository + `release.yml` as a Trusted
+Publisher for the `gitreant` crate on crates.io (Settings → Trusted
+Publishing). No registry token is stored anywhere.
+
 ## Architecture decisions
 
 Design decisions and their rationale are recorded as ADRs under

@@ -5,6 +5,22 @@ edition = "2021"
 description = "Serve git commit graphs of local repositories as a single-page web app"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ShortArrow/gitreant"
+readme = "README.md"
+keywords = ["git", "graph", "web", "gui"]
+categories = ["development-tools", "visualization"]
+# The published crate ships the PREBUILT frontend (dist is gitignored but
+# packaged via this include list), so `cargo install gitreant` needs no
+# Node.js — build.rs only writes its placeholder when dist is absent.
+include = [
+    "/src/**",
+    "/tests/**",
+    "/build.rs",
+    "/Cargo.toml",
+    "/README.md",
+    "/LICENSE-MIT",
+    "/LICENSE-APACHE",
+    "/frontend/dist/**",
+]
 
 [lib]
 name = "gitreant"

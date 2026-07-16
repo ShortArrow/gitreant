@@ -40,4 +40,6 @@ abstraction keyed off the remote URL's host.
 ## Miscellaneous
 
 - Conflict-resolution support in the UI (future item of ADR 0014)
-- Release binaries (GitHub Releases / installers)
+- ~~Release binaries~~ — done: tag-driven GitHub Releases + crates.io
+  publishing with the prebuilt frontend bundled (see CONTRIBUTING.md,
+  "Releasing"); v0.1.x line for now

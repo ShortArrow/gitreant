@@ -38,4 +38,6 @@
 ## その他
 
 - コンフリクト時の解決支援 UI（ADR 0014 の将来項目）
-- リリースバイナリの配布（GitHub Releases / インストーラ）
+- ~~リリースバイナリの配布~~ — 対応済み: タグ駆動の GitHub Releases ＋
+  ビルド済みフロントエンド同梱での crates.io 公開
+  （CONTRIBUTING.md の「Releasing」参照）。当面 v0.1.x 系
