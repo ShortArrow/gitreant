@@ -385,7 +385,9 @@ export function RepoCard({
                         setRefMenu({
                           x: e.clientX,
                           y: e.clientY,
-                          reference: qualified,
+                          // A tag's remote marker only says it exists on
+                          // origin; operations still address the plain name.
+                          reference: ref.kind === "tag" ? ref.name : qualified,
                           kind: ref.kind,
                         });
                       }}

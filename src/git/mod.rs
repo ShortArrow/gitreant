@@ -15,7 +15,7 @@ pub use branch::{
 pub use detail::{
     read_commit, read_commit_diff, read_file_diff, CommitDetail, FileChange, FileDiff,
 };
-pub use fetch::{fetch_command, fetch_remotes};
+pub use fetch::{fetch_command, fetch_remotes, has_origin, remote_tags, remote_tags_command};
 pub use prs::{
     gh_available, list_merged_prs, list_prs, merged_pr_command, pr_command, MergedPullRequest,
     PullRequest,

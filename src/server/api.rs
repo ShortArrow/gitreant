@@ -55,6 +55,9 @@ pub struct AppState {
     shutdown: watch::Sender<bool>,
     command_log: Arc<Mutex<VecDeque<CommandLogEntry>>>,
     pr_cache: Arc<Mutex<HashMap<String, (Instant, PrLookup)>>>,
+    /// Tag names known to exist on each repository's origin, refreshed on
+    /// fetch — lets the UI mark pushed tags apart from local-only ones.
+    remote_tags: Arc<Mutex<HashMap<String, std::collections::HashSet<String>>>>,
 }
 
 impl AppState {
@@ -67,6 +70,7 @@ impl AppState {
             shutdown,
             command_log: Arc::new(Mutex::new(VecDeque::new())),
             pr_cache: Arc::new(Mutex::new(HashMap::new())),
+            remote_tags: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -98,9 +102,9 @@ impl AppState {
     }
 
     /// Read every repository view, logging any external commands the read ran
-    /// (signature verification).
+    /// (signature verification) and marking tags known to exist on origin.
     fn views(&self) -> Vec<RepoView> {
-        let (views, executed) = self.session.lock().expect("session mutex").views();
+        let (mut views, executed) = self.session.lock().expect("session mutex").views();
         for command in executed {
             self.push_log(CommandLogEntry {
                 time: epoch_now(),
@@ -109,6 +113,17 @@ impl AppState {
                 ok: command.ok,
                 message: command.message,
             });
+        }
+        let remote_tags = self.remote_tags.lock().expect("remote tags mutex");
+        for view in &mut views {
+            let Some(on_origin) = remote_tags.get(&view.id) else {
+                continue;
+            };
+            for r in &mut view.refs {
+                if r.kind == "tag" && r.remote.is_none() && on_origin.contains(&r.name) {
+                    r.remote = Some("origin".to_string());
+                }
+            }
         }
         views
     }
@@ -344,6 +359,25 @@ async fn fetch_remotes(State(state): State<AppState>) -> Json<FetchResponse> {
                     ok: result.is_ok(),
                     message: result.as_ref().err().cloned().unwrap_or_default(),
                 });
+                // Refresh which tags exist on origin, so the views can mark
+                // pushed tags apart from local-only ones.
+                if crate::git::has_origin(&path) {
+                    let tags = crate::git::remote_tags(&path);
+                    logger.push_log(CommandLogEntry {
+                        time: epoch_now(),
+                        repo: repo.clone(),
+                        command: crate::git::remote_tags_command(&path),
+                        ok: tags.is_ok(),
+                        message: tags.as_ref().err().cloned().unwrap_or_default(),
+                    });
+                    if let Ok(tags) = tags {
+                        logger
+                            .remote_tags
+                            .lock()
+                            .expect("remote tags mutex")
+                            .insert(repo.clone(), tags.into_iter().collect());
+                    }
+                }
                 result.err().map(|message| FetchError { repo, message })
             })
             .collect()

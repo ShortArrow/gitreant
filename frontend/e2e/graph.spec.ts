@@ -379,6 +379,13 @@ test.describe.serial("gitreant UI", () => {
       page.getByTestId("commit-row").filter({ hasText: "f-2" }),
     ).toBeVisible();
 
+    // After a fetch, tags known on origin carry the remote segment while
+    // local-only ones stay plain.
+    const remoteTag = page.locator(".badge-kind-tag", { hasText: "vremote" });
+    await expect(remoteTag.getByTestId("badge-remote")).toHaveText("origin");
+    const localTag = page.locator(".badge-kind-tag", { hasText: "vlocal" });
+    await expect(localTag.getByTestId("badge-remote")).toHaveCount(0);
+
     // Restore the served set.
     const repoF = page.locator('[data-repo-name="repoF"]');
     await repoF.hover();

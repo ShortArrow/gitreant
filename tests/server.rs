@@ -296,8 +296,12 @@ async fn fetch_endpoint_updates_remote_refs() {
             .unwrap();
         assert!(status.success(), "git {args:?} failed");
     };
+    // A tag that exists on the origin, and one created only in the clone:
+    // after a fetch the views must tell them apart.
+    run(&origin, &["tag", "vremote"]);
     run(tmp.path(), &["clone", "-q", "origin", "clone"]);
     let clone = tmp.path().join("clone");
+    run(&clone, &["tag", "vlocal"]);
 
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
@@ -342,11 +346,31 @@ async fn fetch_endpoint_updates_remote_refs() {
         .unwrap();
     assert!(after.contains("after-clone"), "fetched commit missing: {after}");
 
-    // The executed git command shows up in the command log.
+    // Tags known on the origin carry the remote marker; local-only ones
+    // not. Inspect each ref object up to its closing brace.
+    let ref_entry = |name: &str| {
+        after
+            .split(&format!("\"name\":\"{name}\""))
+            .nth(1)
+            .and_then(|rest| rest.split('}').next())
+            .unwrap_or_default()
+            .to_string()
+    };
+    assert!(
+        ref_entry("vremote").contains("\"remote\":\"origin\""),
+        "vremote not marked as on origin: {after}"
+    );
+    assert!(
+        !ref_entry("vlocal").contains("\"remote\""),
+        "vlocal must stay local-only: {after}"
+    );
+
+    // The executed git commands show up in the command log.
     let log = tokio::task::spawn_blocking(move || http_get(port, "/api/log"))
         .await
         .unwrap();
     assert!(log.contains("fetch --all --prune"), "command missing: {log}");
+    assert!(log.contains("ls-remote --tags"), "ls-remote missing: {log}");
     assert!(log.contains("\"ok\":true"), "success flag missing: {log}");
 }
 

@@ -104,9 +104,13 @@ function makeRepoE(): string {
 function makeRepoF(): { origin: string; clone: string } {
   const origin = initRepo("repoF-origin");
   commit(origin, "f-1");
+  // One tag on the origin, one only in the clone: after a fetch the badges
+  // must tell them apart.
+  git(origin, ["tag", "vremote"]);
   git(tmpDir, ["clone", "-q", "repoF-origin", "repoF"]);
   const clone = path.join(tmpDir, "repoF");
   git(clone, ["config", "commit.gpgsign", "false"]);
+  git(clone, ["tag", "vlocal"]);
   return { origin, clone }; // 1 commit
 }
 
