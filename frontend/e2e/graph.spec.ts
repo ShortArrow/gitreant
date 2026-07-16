@@ -950,6 +950,10 @@ test.describe.serial("gitreant UI", () => {
     page,
     context,
   }) => {
+    // Three server-side git operations back to back (checkout, merge,
+    // palette checkout), each allowed up to 15-30s on a loaded machine —
+    // the default 30s per-test budget cannot hold them all.
+    test.setTimeout(90_000);
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.getByTestId("add-input").fill(fixtures.repoJ);
     await page.getByTestId("add-submit").click();
@@ -989,6 +993,22 @@ test.describe.serial("gitreant UI", () => {
     await expect(
       page.getByTestId("commit-row").filter({ hasText: "Merge branch 'main'" }),
     ).toBeVisible();
+
+    // The visible repo's branches are palette commands too (registered by
+    // the card through the command registry): checkout main via Ctrl+K.
+    await page.keyboard.press("Control+k");
+    await page.getByTestId("palette-input").fill("checkout");
+    await page
+      .getByTestId("palette-item")
+      .filter({ hasText: "main" })
+      .click();
+    await expect(page.getByTestId("command-palette")).toHaveCount(0);
+    await expect(
+      page
+        .getByTestId("commit-row")
+        .filter({ hasText: "j-2" })
+        .locator(".badge-head"),
+    ).toBeVisible({ timeout: 15_000 });
 
     // Restore the served set (the on-disk mutation is repoJ-local).
     const repoJ = page.locator('[data-repo-name="repoJ"]');

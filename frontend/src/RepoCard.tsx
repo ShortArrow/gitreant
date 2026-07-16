@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { CommitHash } from "./CommitHash";
 import { CommitMenu } from "./CommitMenu";
 import {
@@ -22,7 +22,9 @@ import {
 } from "./api";
 import { PrLinkIcon, StashBadgeIcon, TagBadgeIcon } from "./Icons";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
-import { useSquashLinks, useT } from "./settings";
+import { format, MESSAGES } from "./i18n";
+import { useCommands, type PaletteCommand } from "./palette";
+import { SettingsContext, useSquashLinks, useT } from "./settings";
 import { CommitDetailPanel } from "./CommitDetailPanel";
 import { FileDiffPane } from "./FileDiffPane";
 import {
@@ -136,17 +138,42 @@ export function RepoCard({
   } | null>(null);
   // Result of the last branch operation that failed; cleared on the next one.
   const [opError, setOpError] = useState<string | null>(null);
-  const runBranchOp = (
-    op: (repoId: string, reference: string) => Promise<BranchOpResult>,
-    reference: string,
-  ) => {
-    setOpError(null);
-    op(repo.id, reference)
-      .then((result) => {
-        if (!result.ok) setOpError(result.message);
-      })
-      .catch((e) => setOpError(String(e)));
-  };
+  const runBranchOp = useCallback(
+    (
+      op: (repoId: string, reference: string) => Promise<BranchOpResult>,
+      reference: string,
+    ) => {
+      setOpError(null);
+      op(repo.id, reference)
+        .then((result) => {
+          if (!result.ok) setOpError(result.message);
+        })
+        .catch((e) => setOpError(String(e)));
+    },
+    [repo.id],
+  );
+
+  // The visible repo's local branches double as palette commands; they
+  // unregister when the card unmounts, so the palette only ever offers
+  // operations on what is on screen.
+  const { lang } = useContext(SettingsContext);
+  const branchCommands = useMemo<PaletteCommand[]>(
+    () =>
+      repo.refs
+        .filter(
+          (ref) =>
+            ref.kind === "branch" &&
+            !ref.remote &&
+            ref.name !== repo.head_branch,
+        )
+        .map((ref) => ({
+          id: `checkout:${repo.id}:${ref.name}`,
+          title: format(MESSAGES[lang].cmdCheckoutBranch, { name: ref.name }),
+          run: () => runBranchOp(checkoutRef, ref.name),
+        })),
+    [repo.id, repo.refs, repo.head_branch, lang, runBranchOp],
+  );
+  useCommands(branchCommands);
 
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<CommitDetail | null>(null);

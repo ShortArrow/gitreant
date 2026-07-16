@@ -61,6 +61,7 @@ const en = {
   cmdExpandDrawer: "Expand the repository list",
   cmdToggleSquashLinks: "Toggle squash-merge links",
   cmdOpenRepo: "Open repository: {name}",
+  cmdCheckoutBranch: "Checkout branch: {name}",
   // Drawer
   repositories: "Repositories",
   addRepoPlaceholder: "Add repository path…",
@@ -155,6 +156,7 @@ const ja: Record<MsgKey, string> = {
   cmdExpandDrawer: "リポジトリ一覧をひらく",
   cmdToggleSquashLinks: "squashマージの点線を切替",
   cmdOpenRepo: "リポジトリを開く: {name}",
+  cmdCheckoutBranch: "ブランチをチェックアウト: {name}",
   repositories: "リポジトリ",
   addRepoPlaceholder: "リポジトリのパスを追加…",
   browse: "参照",
