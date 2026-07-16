@@ -411,6 +411,9 @@ export function RepoCard({
                           onClick={(e) => e.stopPropagation()}
                         >
                           <PrLinkIcon />
+                          <span className="badge-pr-number">
+                            #{pr.number}
+                          </span>
                         </a>
                       )}
                     </span>

@@ -802,6 +802,10 @@ body {
   color: var(--text);
 }
 
+.badge-pr-number {
+  margin-left: 4px;
+}
+
 .badge-head {
   color: var(--success);
   border-color: color-mix(in srgb, var(--success) 40%, transparent);

@@ -73,6 +73,9 @@ pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
         let idx = state.alloc_after(None);
         state.colors[idx] = state.take_color();
         state.lanes[idx] = Some(head_id.to_string());
+        // Nothing has drawn into this column yet, so the first child of the
+        // head may adopt it and run straight down the left edge.
+        state.adoptable = Some(idx);
     }
     let mut nodes = Vec::with_capacity(commits.len());
     let mut edges = Vec::new();
@@ -80,7 +83,7 @@ pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
     for (row, commit) in commits.iter().enumerate() {
         // Lanes held for fork corridors down to this commit free up now.
         state.release_holds(&commit.id);
-        let my_lane = state.lane_for(&commit.id);
+        let my_lane = state.lane_for(&commit.id, commit.parents.first().map(String::as_str));
         let my_color = state.colors[my_lane];
 
         nodes.push(GraphNode {
@@ -157,21 +160,37 @@ struct LayoutState {
     lanes: Vec<Option<String>>,
     colors: Vec<usize>,
     next_color: usize,
+    /// A pre-reserved column with no edge drawn into it yet; the first tip
+    /// whose first parent is its pending commit may adopt it (and then it is
+    /// no longer open).
+    adoptable: Option<usize>,
 }
 
 impl LayoutState {
-    /// The column this commit occupies. If no column was reserved for it, this is
-    /// a branch tip (or an unreferenced commit) and gets a fresh column + color.
-    fn lane_for(&mut self, id: &str) -> usize {
-        match self.find(id) {
-            Some(idx) => idx,
-            None => {
-                let idx = self.alloc_after(None);
-                self.colors[idx] = self.take_color();
-                self.lanes[idx] = Some(id.to_string());
-                idx
+    /// The column this commit occupies. An unreserved commit is a branch tip
+    /// (or unreferenced): it adopts an open pre-reserved column when its
+    /// first parent is that column's pending commit, otherwise it gets a
+    /// fresh column + color.
+    fn lane_for(&mut self, id: &str, first_parent: Option<&str>) -> usize {
+        if let Some(idx) = self.find(id) {
+            if self.adoptable == Some(idx) {
+                // The reserved commit itself arrived; the column is closed.
+                self.adoptable = None;
+            }
+            return idx;
+        }
+        if let (Some(idx), Some(parent)) = (self.adoptable, first_parent) {
+            if self.lanes[idx].as_deref() == Some(parent) {
+                // Ride the open column: the edge down to the pending parent
+                // stays dead straight along the left edge.
+                self.adoptable = None;
+                return idx;
             }
         }
+        let idx = self.alloc_after(None);
+        self.colors[idx] = self.take_color();
+        self.lanes[idx] = Some(id.to_string());
+        idx
     }
 
     /// Reserve a column for `parent` and return it. The first parent continues
@@ -428,6 +447,42 @@ mod tests {
         // F's fork edge converges into the spine from the right.
         let f_edge = g.edges.iter().find(|e| e.from == "F").unwrap();
         assert_eq!((f_edge.from_lane, f_edge.to_lane), (1, 0));
+    }
+
+    #[test]
+    fn the_first_child_above_head_adopts_the_spine_lane_and_runs_straight() {
+        // O sits above the checked-out H with H as its first parent, and
+        // nothing has drawn into H's pre-reserved column yet — so O adopts
+        // column 0 and its edge is dead straight. The later child G1 finds
+        // the column taken and bends in as usual.
+        //   O   [H]     (newest tip, first parent = HEAD)
+        //   G2  [G1]
+        //   G1  [H]     (second child: must NOT adopt)
+        //   H   [Root]  (HEAD)
+        //   Root []
+        let g = layout(
+            &[
+                ci("O", &["H"]),
+                ci("G2", &["G1"]),
+                ci("G1", &["H"]),
+                ci("H", &["Root"]),
+                ci("Root", &[]),
+            ],
+            Some("H"),
+        );
+
+        let lane_of = |id: &str| g.nodes.iter().find(|n| n.id == id).unwrap().lane;
+        assert_eq!(lane_of("O"), 0, "first child adopts the spine lane");
+        assert_eq!(lane_of("H"), 0);
+        let o_edge = g.edges.iter().find(|e| e.from == "O").unwrap();
+        assert_eq!(
+            (o_edge.from_lane, o_edge.to_lane),
+            (0, 0),
+            "the leftmost line runs straight"
+        );
+        assert_ne!(lane_of("G1"), 0, "later children fork in from the side");
+        let g1_edge = g.edges.iter().find(|e| e.from == "G1").unwrap();
+        assert!(g1_edge.fork);
     }
 
     #[test]

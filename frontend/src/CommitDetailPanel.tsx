@@ -43,6 +43,18 @@ function storedFilesView(): FilesView {
   }
 }
 
+const BODY_OPEN_KEY = "gitreant-body-open";
+
+/** The body expander only moves on explicit toggles: the choice survives
+ * switching commits, closing the panel and reloads. */
+function storedBodyOpen(): boolean {
+  try {
+    return localStorage.getItem(BODY_OPEN_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
 export function CommitDetailPanel({
   detail,
   error,
@@ -67,6 +79,17 @@ export function CommitDetailPanel({
 }) {
   const t = useT();
   const [view, setView] = useState<FilesView>(storedFilesView);
+  const [bodyOpen, setBodyOpen] = useState<boolean>(storedBodyOpen);
+  const toggleBody = () => {
+    setBodyOpen((open) => {
+      try {
+        localStorage.setItem(BODY_OPEN_KEY, open ? "off" : "on");
+      } catch {
+        // localStorage may be unavailable; the state change alone is enough.
+      }
+      return !open;
+    });
+  };
   const [width, setWidth] = useStoredWidth("gitreant-detail-width", 340, 240, 640);
   const changeView = (next: FilesView) => {
     setView(next);
@@ -111,6 +134,8 @@ export function CommitDetailPanel({
             verified={verified}
             signatureKey={signatureKey}
             view={view}
+            bodyOpen={bodyOpen}
+            onToggleBody={toggleBody}
             onChangeView={changeView}
             onSelectFile={onSelectFile}
             onShowAllDiffs={onShowAllDiffs}
@@ -126,6 +151,8 @@ function DetailBody({
   verified,
   signatureKey,
   view,
+  bodyOpen,
+  onToggleBody,
   onChangeView,
   onSelectFile,
   onShowAllDiffs,
@@ -134,12 +161,13 @@ function DetailBody({
   verified?: boolean;
   signatureKey?: string;
   view: FilesView;
+  bodyOpen: boolean;
+  onToggleBody: () => void;
   onChangeView: (view: FilesView) => void;
   onSelectFile: (path: string) => void;
   onShowAllDiffs: () => void;
 }) {
   const t = useT();
-  const [bodyOpen, setBodyOpen] = useState(false);
   const { summary, body } = splitMessage(detail.message);
   return (
     <>
@@ -151,7 +179,7 @@ function DetailBody({
             data-testid="body-toggle"
             title={t("toggleBody")}
             type="button"
-            onClick={() => setBodyOpen((open) => !open)}
+            onClick={onToggleBody}
           >
             …
           </button>

@@ -87,6 +87,12 @@ test.describe.serial("gitreant UI", () => {
     await expect(panel).not.toContainText("```");
     await expect(panel).not.toContainText("- first item");
     await expect(panel).toContainText("Tester");
+
+    // The expander only moves on explicit toggles: it survives switching
+    // to another commit and back.
+    await page.getByTestId("commit-row").filter({ hasText: "main-2" }).click();
+    await page.getByTestId("commit-row").filter({ hasText: "main-1" }).click();
+    await expect(panel).toContainText("Second line of the description.");
     await panel.getByTestId("body-toggle").click();
     await expect(panel).not.toContainText("Second line of the description.");
     // Fixture commits are unsigned; the signature state is always shown.
@@ -731,10 +737,10 @@ test.describe.serial("gitreant UI", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("squash-edge")).toHaveCount(1);
 
-    // A GitHub mark on the badge, lazygit-style; the number lives in the
-    // tooltip.
+    // A GitHub mark plus the visible PR number on the badge.
     const link = page.getByTestId("badge-pr");
     await expect(link.locator("svg")).toHaveCount(1);
+    await expect(link).toContainText("#7");
 
     // The mark sits vertically centered on the (local, single-segment)
     // badge — it used to drift toward the top there.
