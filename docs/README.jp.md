@@ -82,7 +82,7 @@ gitreant [PATH...]
 
 開発環境の構築、アーキテクチャ、テストについては
 [CONTRIBUTING.md](CONTRIBUTING.md) を参照。今後の予定は
-[ROADMAP.md](ROADMAP.md) に。
+[ROADMAP.jp.md](ROADMAP.jp.md) に。
 
 ## ライセンス
 

@@ -1,39 +1,43 @@
 # Roadmap
 
-優先度順ではなく分野別。決定済みの設計は [adr/](adr/) を参照。
+[English](ROADMAP.md) | [日本語](ROADMAP.jp.md)
 
-## フォージ対応（GitHub / GitLab / Codeberg …）
+Grouped by area, not by priority. Settled designs live in [adr/](adr/).
 
-現状 GitHub 専用になっている機能を、リモート URL のホストから
-フォージを判定する抽象に載せ替える。
+## Forge support (GitHub / GitLab / Codeberg …)
 
-- **対象機能**: パーマリンク形式（`blob/<commit>/<path>#L..`）、
-  PR/MR バッジとリンク、squash マージの破線リンク
-- **方式**: ADR 0007/0013 の CLI 委譲パターンを踏襲
-  - GitHub: `gh`（実装済み）
-  - GitLab: `glab`（MR = Merge Request）
-  - Codeberg / Forgejo / Gitea: `fj` または REST API
-- **縮退規則**: CLI 不在・未認証・対象外ホストでは静かに無効
-  （現行の gh と同じ）
-- リモート URL 正規化（`github_web_url`）をフォージ別のプロバイダに
-  一般化するところから始める
+Generalize the currently GitHub-only features behind a forge
+abstraction keyed off the remote URL's host.
 
-## グラフ / UI
+- **Affected features**: permalinks (`blob/<commit>/<path>#L..`),
+  PR/MR badges and links, dashed squash-merge links
+- **Approach**: the CLI-delegation pattern of ADR 0007/0013
+  - GitHub: `gh` (implemented)
+  - GitLab: `glab` (MR = merge request)
+  - Codeberg / Forgejo / Gitea: `fj` or the REST API
+- **Degradation rule**: silently disabled without the CLI, without
+  auth, or on unknown hosts (same as gh today)
+- Start by generalizing the remote-URL normalization
+  (`github_web_url`) into per-forge providers
 
-- **Blame** — diff 行選択メニューに項目追加（土台は実装済み）。
-  バックエンドは gix blame か git CLI 委譲
-- **stash の表示切替** — stash バッジと WIP コミットの表示 ON/OFF
-  （コミット収集がサーバ側のためクエリパラメータ設計が必要。要否確認中）
-- **コマンドパレット拡張** — ブランチ checkout などリポジトリ文脈の
-  コマンドを追加
+## Graph / UI
 
-## タグ / ブランチ操作（ADR 0021 の残課題）
+- **Blame** — add it to the diff line-selection menu (the UI
+  foundation exists); backend via gix blame or git CLI delegation
+- **Stash visibility toggle** — show/hide the stash badge and its WIP
+  commits (commit collection is server-side, so this needs a query
+  parameter design; awaiting confirmation that it is wanted)
+- **Command palette extensions** — repository-scoped commands such as
+  branch checkout
 
-- annotated tag（メッセージ入力・注釈の表示）
-- タグ / ブランチのリモート push・削除（送信系操作の方針決定が先）
-- ブランチ削除・rename をバッジメニューへ
+## Tag / branch operations (follow-ups to ADR 0021)
 
-## その他
+- Annotated tags (message input, showing the annotation)
+- Pushing/deleting tags and branches on the remote (needs a decision
+  on outbound operations first)
+- Branch delete/rename in the badge menu
 
-- コンフリクト時の解決支援 UI（ADR 0014 の将来項目）
-- リリースバイナリの配布（GitHub Releases / インストーラ）
+## Miscellaneous
+
+- Conflict-resolution support in the UI (future item of ADR 0014)
+- Release binaries (GitHub Releases / installers)
