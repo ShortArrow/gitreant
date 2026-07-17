@@ -1,6 +1,6 @@
 /** Minimal markdown-ish rendering model for commit message bodies:
- * fenced code blocks and inline backtick code. Nothing else — commit
- * messages are not documents. */
+ * paragraphs, bullet lists, code blocks (fenced or indented) and inline
+ * backtick code. Nothing else — commit messages are not documents. */
 
 export type MessageBlock =
   | { kind: "text" | "code"; text: string }
@@ -8,48 +8,80 @@ export type MessageBlock =
 
 const BULLET = /^\s*[-*]\s+(.*)$/;
 const CONTINUATION = /^\s+(\S.*)$/;
+const INDENTED = /^(?: {4}|\t)(.*\S.*)$/;
 
-/** Split a body into text, bullet-list and fenced-code blocks. The fence
- * language tag is dropped; an unclosed fence runs to the end. Git bodies
- * hard-wrap at ~72 columns, so an indented line right after a bullet is
- * that item's continuation, not a new paragraph. */
+/** Split a body into paragraph, bullet-list and code blocks. Git bodies
+ * hard-wrap at ~72 columns, so wrapped lines rejoin: an indented line
+ * right after a bullet is that item's continuation, and consecutive
+ * prose lines are one paragraph. Code is a ``` fence (language tag
+ * dropped; unclosed runs to the end) or, per the older git convention,
+ * a 4-space/tab-indented run. */
 export function messageBlocks(body: string): MessageBlock[] {
   const blocks: MessageBlock[] = [];
   let text: string[] = [];
   let items: string[] = [];
-  let inCode = false;
+  let code: string[] = [];
+  let inFence = false;
 
   const flushText = () => {
-    const joined = text.join("\n").trim();
-    if (joined) blocks.push({ kind: inCode ? "code" : "text", text: joined });
+    for (const paragraph of text.join("\n").split(/\n\s*\n/)) {
+      const joined = paragraph
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .join(" ");
+      if (joined) blocks.push({ kind: "text", text: joined });
+    }
     text = [];
   };
   const flushList = () => {
     if (items.length) blocks.push({ kind: "list", items });
     items = [];
   };
+  const flushCode = () => {
+    const joined = code.join("\n").trim();
+    if (joined) blocks.push({ kind: "code", text: joined });
+    code = [];
+  };
 
   for (const line of body.split("\n")) {
     if (line.trimEnd().startsWith("```")) {
       flushText();
       flushList();
-      inCode = !inCode;
+      flushCode();
+      inFence = !inFence;
       continue;
     }
-    const bullet = inCode ? null : BULLET.exec(line);
-    const continuation = items.length ? CONTINUATION.exec(line) : null;
+    if (inFence) {
+      code.push(line);
+      continue;
+    }
+    const bullet = BULLET.exec(line);
     if (bullet) {
       flushText();
+      flushCode();
       items.push(bullet[1]);
-    } else if (continuation) {
-      items[items.length - 1] += ` ${continuation[1]}`;
-    } else {
-      flushList();
-      text.push(line);
+      continue;
     }
+    const continuation = items.length ? CONTINUATION.exec(line) : null;
+    if (continuation) {
+      items[items.length - 1] += ` ${continuation[1]}`;
+      continue;
+    }
+    const indented = INDENTED.exec(line);
+    if (indented) {
+      flushText();
+      flushList();
+      code.push(indented[1]);
+      continue;
+    }
+    flushList();
+    flushCode();
+    text.push(line);
   }
   flushText();
   flushList();
+  flushCode();
   return blocks;
 }
 

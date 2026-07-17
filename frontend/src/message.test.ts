@@ -17,9 +17,41 @@ test("an unclosed fence swallows the rest as code", () => {
   ]);
 });
 
-test("a body without fences is one text block", () => {
-  expect(messageBlocks("just\ntext")).toEqual([
-    { kind: "text", text: "just\ntext" },
+test("hard-wrapped prose joins into one paragraph", () => {
+  const body =
+    "Boots Linux 5.11 (Altera socfpga) with a Buildroot rootfs (dropbear\n" +
+    "ssh) on the HPS. The kernel/DT/rootfs are transferred over the serial\n" +
+    "console with u-boot 'loady' (ymodem).";
+  expect(messageBlocks(body)).toEqual([
+    {
+      kind: "text",
+      text:
+        "Boots Linux 5.11 (Altera socfpga) with a Buildroot rootfs (dropbear " +
+        "ssh) on the HPS. The kernel/DT/rootfs are transferred over the serial " +
+        "console with u-boot 'loady' (ymodem).",
+    },
+  ]);
+});
+
+test("blank lines split prose into separate paragraphs", () => {
+  expect(messageBlocks("para one\nwraps\n\npara two")).toEqual([
+    { kind: "text", text: "para one wraps" },
+    { kind: "text", text: "para two" },
+  ]);
+});
+
+test("four-space indented lines form a code block", () => {
+  const body = "Load it:\n\n    make loady\n    reboot\n\nDone.";
+  expect(messageBlocks(body)).toEqual([
+    { kind: "text", text: "Load it:" },
+    { kind: "code", text: "make loady\nreboot" },
+    { kind: "text", text: "Done." },
+  ]);
+});
+
+test("tab-indented lines form a code block too", () => {
+  expect(messageBlocks("\techo 1 > /sys")).toEqual([
+    { kind: "code", text: "echo 1 > /sys" },
   ]);
 });
 

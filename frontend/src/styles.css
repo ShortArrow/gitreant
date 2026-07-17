@@ -922,15 +922,11 @@ body {
   overflow-x: auto;
 }
 
+/* Prose paragraphs read as plain text: only code gets a box. */
 .detail-message {
   margin: 8px 0 0;
-  padding: 8px 10px;
-  background: var(--bg);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  border-radius: 6px;
-  font-family: inherit;
   font-size: 13px;
-  white-space: pre-wrap;
+  line-height: 1.5;
   word-break: break-word;
 }
 

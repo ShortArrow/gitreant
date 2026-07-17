@@ -76,20 +76,26 @@ test.describe.serial("gitreant UI", () => {
     await expect(panel).toBeVisible();
     await expect(panel).toContainText("main-1");
     // The body hides behind a labeled expand bar under the summary.
-    await expect(panel).not.toContainText("Second line of the description.");
+    await expect(panel).not.toContainText("Second line of the description");
     const bodyToggle = panel.getByTestId("body-toggle");
     await expect(bodyToggle).toContainText("Show full message");
     await bodyToggle.click();
     await expect(bodyToggle).toContainText("Collapse the message");
-    await expect(panel).toContainText("Second line of the description.");
-    // Bullet lines render as a list, fenced blocks as code — no raw markup.
-    // A hard-wrapped bullet keeps its indented continuation line.
+    // A hard-wrapped paragraph rejoins into one flowing line of prose.
+    await expect(panel.locator(".detail-message").first()).toHaveText(
+      "Second line of the description wraps in the source.",
+    );
+    // Bullet lines render as a list, code blocks (indented or fenced) as
+    // code — no raw markup. A hard-wrapped bullet keeps its continuation.
     const bullets = panel.getByTestId("detail-bullets").locator("li");
     await expect(bullets).toHaveCount(2);
     await expect(bullets.nth(1)).toHaveText(
       "second item that wraps onto a continuation line",
     );
-    await expect(panel.getByTestId("detail-code")).toHaveText("cargo test");
+    const codeBlocks = panel.getByTestId("detail-code");
+    await expect(codeBlocks).toHaveCount(2);
+    await expect(codeBlocks.nth(0)).toHaveText("make loady");
+    await expect(codeBlocks.nth(1)).toHaveText("cargo test");
     await expect(panel).not.toContainText("```");
     await expect(panel).not.toContainText("- first item");
     await expect(panel).toContainText("Tester");
@@ -98,9 +104,9 @@ test.describe.serial("gitreant UI", () => {
     // to another commit and back.
     await page.getByTestId("commit-row").filter({ hasText: "main-2" }).click();
     await page.getByTestId("commit-row").filter({ hasText: "main-1" }).click();
-    await expect(panel).toContainText("Second line of the description.");
+    await expect(panel).toContainText("Second line of the description");
     await panel.getByTestId("body-toggle").click();
-    await expect(panel).not.toContainText("Second line of the description.");
+    await expect(panel).not.toContainText("Second line of the description");
     // Fixture commits are unsigned; the signature state is always shown.
     await expect(panel.getByTestId("detail-signature")).toHaveText("Not signed");
 

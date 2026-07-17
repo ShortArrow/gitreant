@@ -201,11 +201,11 @@ function DetailBody({
               ))}
             </ul>
           ) : (
-            <pre key={i} className="detail-message">
+            <p key={i} className="detail-message">
               {inlineSpans(block.text).map((span, j) =>
                 span.code ? <code key={j}>{span.text}</code> : span.text,
               )}
-            </pre>
+            </p>
           ),
         )}
 

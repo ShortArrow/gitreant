@@ -29,7 +29,7 @@ function makeRepoA(): string {
   git(dir, ["add", "."]);
   commit(
     dir,
-    "main-1\n\nSecond line of the description.\n- first item\n- second item that wraps\n  onto a continuation line\n```\ncargo test\n```",
+    "main-1\n\nSecond line of the description\nwraps in the source.\n- first item\n- second item that wraps\n  onto a continuation line\n\n    make loady\n```\ncargo test\n```",
     t + 10,
   );
   git(dir, ["switch", "-c", "feature", "-q"]);
