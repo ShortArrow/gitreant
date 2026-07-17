@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { CommitDetail, FileChange } from "./api";
 import { CopyText } from "./CopyText";
-import { DiffAllIcon, FlatIcon, TreeIcon } from "./Icons";
+import { BodyToggleIcon, DiffAllIcon, FlatIcon, TreeIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { inlineSpans, messageBlocks } from "./message";
 import { useT } from "./settings";
@@ -171,20 +171,18 @@ function DetailBody({
   const { summary, body } = splitMessage(detail.message);
   return (
     <>
-      <h3 className="detail-summary">
-        {summary}
-        {body && (
-          <button
-            className="body-toggle"
-            data-testid="body-toggle"
-            title={t("toggleBody")}
-            type="button"
-            onClick={onToggleBody}
-          >
-            …
-          </button>
-        )}
-      </h3>
+      <h3 className="detail-summary">{summary}</h3>
+      {body && (
+        <button
+          className="body-toggle"
+          data-testid="body-toggle"
+          type="button"
+          onClick={onToggleBody}
+        >
+          <BodyToggleIcon open={bodyOpen} />
+          {bodyOpen ? t("collapseBody") : t("expandBody")}
+        </button>
+      )}
       {body &&
         bodyOpen &&
         messageBlocks(body).map((block, i) =>

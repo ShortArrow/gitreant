@@ -75,14 +75,20 @@ test.describe.serial("gitreant UI", () => {
     const panel = page.getByTestId("commit-detail");
     await expect(panel).toBeVisible();
     await expect(panel).toContainText("main-1");
-    // The body hides behind a GitHub-style ellipsis toggle.
+    // The body hides behind a labeled expand bar under the summary.
     await expect(panel).not.toContainText("Second line of the description.");
-    await panel.getByTestId("body-toggle").click();
+    const bodyToggle = panel.getByTestId("body-toggle");
+    await expect(bodyToggle).toContainText("Show full message");
+    await bodyToggle.click();
+    await expect(bodyToggle).toContainText("Collapse the message");
     await expect(panel).toContainText("Second line of the description.");
     // Bullet lines render as a list, fenced blocks as code — no raw markup.
-    await expect(
-      panel.getByTestId("detail-bullets").locator("li"),
-    ).toHaveCount(2);
+    // A hard-wrapped bullet keeps its indented continuation line.
+    const bullets = panel.getByTestId("detail-bullets").locator("li");
+    await expect(bullets).toHaveCount(2);
+    await expect(bullets.nth(1)).toHaveText(
+      "second item that wraps onto a continuation line",
+    );
     await expect(panel.getByTestId("detail-code")).toHaveText("cargo test");
     await expect(panel).not.toContainText("```");
     await expect(panel).not.toContainText("- first item");

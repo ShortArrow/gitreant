@@ -7,9 +7,12 @@ export type MessageBlock =
   | { kind: "list"; items: string[] };
 
 const BULLET = /^\s*[-*]\s+(.*)$/;
+const CONTINUATION = /^\s+(\S.*)$/;
 
 /** Split a body into text, bullet-list and fenced-code blocks. The fence
- * language tag is dropped; an unclosed fence runs to the end. */
+ * language tag is dropped; an unclosed fence runs to the end. Git bodies
+ * hard-wrap at ~72 columns, so an indented line right after a bullet is
+ * that item's continuation, not a new paragraph. */
 export function messageBlocks(body: string): MessageBlock[] {
   const blocks: MessageBlock[] = [];
   let text: string[] = [];
@@ -34,9 +37,12 @@ export function messageBlocks(body: string): MessageBlock[] {
       continue;
     }
     const bullet = inCode ? null : BULLET.exec(line);
+    const continuation = items.length ? CONTINUATION.exec(line) : null;
     if (bullet) {
       flushText();
       items.push(bullet[1]);
+    } else if (continuation) {
+      items[items.length - 1] += ` ${continuation[1]}`;
     } else {
       flushList();
       text.push(line);

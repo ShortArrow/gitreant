@@ -31,6 +31,37 @@ test("consecutive bullet lines become one list block", () => {
   ]);
 });
 
+test("indented continuation lines belong to their bullet item", () => {
+  const body =
+    "- lists actions first (create tag,\n" +
+    "  create branch) and shows the input\n" +
+    "- second item\n" +
+    "  also wraps";
+  expect(messageBlocks(body)).toEqual([
+    {
+      kind: "list",
+      items: [
+        "lists actions first (create tag, create branch) and shows the input",
+        "second item also wraps",
+      ],
+    },
+  ]);
+});
+
+test("an unindented line after a list starts a new paragraph", () => {
+  expect(messageBlocks("- item\nplain text")).toEqual([
+    { kind: "list", items: ["item"] },
+    { kind: "text", text: "plain text" },
+  ]);
+});
+
+test("a blank line ends the list", () => {
+  expect(messageBlocks("- item\n\n  indented paragraph")).toEqual([
+    { kind: "list", items: ["item"] },
+    { kind: "text", text: "indented paragraph" },
+  ]);
+});
+
 test("bullets inside code fences stay code", () => {
   expect(messageBlocks("```\n- not a bullet\n```")).toEqual([
     { kind: "code", text: "- not a bullet" },

@@ -2,8 +2,10 @@
  * Naming stays domain-side so swapping the set touches only this file. */
 
 import {
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   MarkGithubIcon,
   StackIcon,
   TagIcon,
@@ -68,6 +70,15 @@ export function CollapseIcon() {
 /** Expand the drawer from its rail. */
 export function ExpandIcon() {
   return <ChevronRightIcon className="btn-icon" size={SIZE} />;
+}
+
+/** Chevron pointing down (closed) or up (open): the message-body bar. */
+export function BodyToggleIcon({ open }: { open: boolean }) {
+  return open ? (
+    <ChevronUpIcon className="btn-icon" size={SIZE} />
+  ) : (
+    <ChevronDownIcon className="btn-icon" size={SIZE} />
+  );
 }
 
 /** Fetch every repository's remotes. */

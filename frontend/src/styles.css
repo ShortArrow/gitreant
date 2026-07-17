@@ -869,18 +869,21 @@ body {
   word-break: break-word;
 }
 
-/* GitHub-style ellipsis expander for the message body. */
+/* Full-width expand bar for the message body: always right under the
+ * summary, so it cannot hide at the end of a long title. */
 .body-toggle {
-  margin-left: 8px;
-  padding: 0 7px;
-  line-height: 1;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 8px 0 0;
+  padding: 4px 8px;
+  font-size: 12px;
   color: var(--muted);
   background: color-mix(in srgb, var(--border) 40%, transparent);
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   border-radius: 6px;
   cursor: pointer;
-  vertical-align: middle;
 }
 
 .body-toggle:hover {
