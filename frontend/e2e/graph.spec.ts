@@ -500,6 +500,67 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("pane-empty")).toBeVisible();
   });
 
+  test("closing tabs moves focus to the last remaining tab", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page.locator('[data-repo-name="repoB"]').click();
+    await expect(page.locator('[data-tab-name="repoB"]')).toHaveClass(
+      /active/,
+    );
+
+    // Closing the active tab activates the rightmost remaining one.
+    await page
+      .locator('[data-tab-name="repoB"]')
+      .getByTestId("tab-close")
+      .click();
+    await expect(page.locator('[data-tab-name="repoA"]')).toHaveClass(
+      /active/,
+    );
+    await expect(page.locator(".repo-header h2")).toHaveText("repoA");
+
+    // Closing an inactive tab leaves the shown pane alone.
+    await page.locator('[data-repo-name="repoB"]').click();
+    await page
+      .locator('[data-tab-name="repoA"]')
+      .getByTestId("tab-close")
+      .click();
+    await expect(page.locator('[data-tab-name="repoB"]')).toHaveClass(
+      /active/,
+    );
+    await expect(page.locator(".repo-header h2")).toHaveText("repoB");
+  });
+
+  test("reopening an open repository focuses its tab without duplicating", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page.locator('[data-repo-name="repoB"]').click();
+    await expect(page.getByTestId("tab")).toHaveCount(2);
+
+    await page.locator('[data-repo-name="repoA"]').click();
+    await expect(page.getByTestId("tab")).toHaveCount(2);
+    await expect(page.locator('[data-tab-name="repoA"]')).toHaveClass(
+      /active/,
+    );
+    await expect(page.locator(".repo-header h2")).toHaveText("repoA");
+  });
+
+  test("switching tabs resets the commit selection", async ({ page }) => {
+    // The card remounts per tab, so the detail panel does not survive a
+    // switch. A pane-split layout may revisit this; today it is the rule.
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page
+      .getByTestId("commit-row")
+      .filter({ hasText: "main-1" })
+      .click();
+    await expect(page.getByTestId("commit-detail")).toBeVisible();
+
+    await page.locator('[data-repo-name="repoB"]').click();
+    await page.locator('[data-tab-name="repoA"]').click();
+    await expect(page.getByTestId("commit-detail")).toHaveCount(0);
+  });
+
   test("theme toggle flips the document theme", async ({ page }) => {
     const html = page.locator("html");
     const before = await html.getAttribute("data-theme");
