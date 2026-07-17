@@ -5,6 +5,7 @@ import {
   fetchRemotes,
   fetchRepos,
   removeRepo,
+  type AnalyzeInfo,
   type CommandLogEntry,
   type RepoView,
 } from "./api";
@@ -78,22 +79,32 @@ export function App() {
     }
   }, []);
 
-  // The repository id a slow server-side read is currently working on.
-  const [analyzing, setAnalyzing] = useState<string | null>(null);
+  // Progress of the slow server-side read currently running, if any.
+  const [analyzing, setAnalyzing] = useState<AnalyzeInfo | null>(null);
 
   useEffect(() => {
     reload();
     const events = new EventSource("/api/events");
     events.addEventListener("update", () => reload());
     // Routine reads finish in milliseconds; only a read still running
-    // after 300ms surfaces, so the indicator never flickers.
+    // after 300ms surfaces, so the indicator never flickers. The reveal
+    // is re-armed per repository — the stream of counter updates for one
+    // repository refreshes the numbers but must not push the reveal out.
     let timer: number | undefined;
+    let latest: AnalyzeInfo | null = null;
+    let pendingId: string | null = null;
     events.addEventListener("analyzing", (e) => {
-      window.clearTimeout(timer);
-      const id = (e as MessageEvent<string>).data;
-      timer = window.setTimeout(() => setAnalyzing(id), 300);
+      const info = JSON.parse((e as MessageEvent<string>).data) as AnalyzeInfo;
+      latest = info;
+      setAnalyzing((prev) => (prev && prev.id === info.id ? info : prev));
+      if (pendingId !== info.id) {
+        pendingId = info.id;
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => setAnalyzing(latest), 300);
+      }
     });
     events.addEventListener("analyzed", () => {
+      pendingId = null;
       window.clearTimeout(timer);
       setAnalyzing(null);
     });
@@ -160,12 +171,18 @@ export function App() {
       try {
         const { id, repos: next } = await addRepo(path);
         applyRepos(next);
-        openTab(id);
+        // Never yank a pane someone is reading: the new repository only
+        // auto-opens when the focused pane sits empty.
+        setLayout((prev) =>
+          prev.panes[prev.focused].activeId
+            ? prev
+            : paneModel.openTab(prev, id),
+        );
       } finally {
         setPendingAdd(null);
       }
     },
-    [applyRepos, openTab, recordAction],
+    [applyRepos, recordAction],
   );
 
   const [logOpen, setLogOpen] = useState(false);

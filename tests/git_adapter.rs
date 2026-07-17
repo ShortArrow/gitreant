@@ -6,7 +6,9 @@ use std::path::Path;
 use std::process::Command;
 
 use gitreant::domain::layout;
-use gitreant::git::{read_commit, read_commit_diff, read_file_diff, read_repo};
+use gitreant::git::{
+    read_commit, read_commit_diff, read_file_diff, read_repo, read_repo_with_progress,
+};
 
 fn git(dir: &Path, args: &[&str]) {
     let status = Command::new("git")
@@ -36,6 +38,22 @@ fn commit(dir: &Path, message: &str, epoch: i64) {
         .status()
         .expect("run git commit");
     assert!(status.success(), "git commit failed");
+}
+
+#[test]
+fn reading_reports_a_running_commit_count() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    for i in 0..3 {
+        commit(dir, &format!("c{i}"), 1000 + i);
+    }
+
+    let mut counts = Vec::new();
+    let repo = read_repo_with_progress(dir, |n| counts.push(n)).expect("read repo");
+    assert_eq!(counts, vec![1, 2, 3]);
+    assert_eq!(repo.commits.len(), 3);
 }
 
 #[test]

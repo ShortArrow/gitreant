@@ -27,6 +27,21 @@ export interface GraphEdge {
   fork: boolean;
 }
 
+/** The `analyzing` SSE event payload: how far the server's current
+ * multi-repository read has come. */
+export interface AnalyzeInfo {
+  /** The repository id (canonical path) being read. */
+  id: string;
+  /** 1-based position of this repository in the read. */
+  index: number;
+  /** How many repositories the read covers. */
+  total: number;
+  /** Commits read so far in this repository. */
+  commits: number;
+  /** Commit count of the previous successful read, when known. */
+  expected?: number | null;
+}
+
 export interface RefView {
   /** Short name; remote-tracking refs carry the remote separately. */
   name: string;

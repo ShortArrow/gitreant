@@ -1,5 +1,7 @@
 import { expect, test } from "vitest";
 import { signatureLabel, splitMessage } from "./CommitDetailPanel";
+import { analyzeNote } from "./Drawer";
+import { format, MESSAGES, type MsgKey } from "./i18n";
 import { signatureBadge } from "./RepoCard";
 import { clampWidth } from "./Resizer";
 import { parseButtonStyle } from "./settings";
@@ -52,6 +54,27 @@ test("clampWidth stays within the allowed range", () => {
   expect(clampWidth(100, 180, 480)).toBe(180);
   expect(clampWidth(1000, 180, 480)).toBe(480);
   expect(clampWidth(300.6, 180, 480)).toBe(301);
+});
+
+test("analyzeNote composes position and progress", () => {
+  const t = (key: MsgKey, params?: Record<string, string | number>) =>
+    format(MESSAGES.en[key], params);
+  const info = { id: "x", index: 1, total: 1, commits: 0, expected: null };
+
+  expect(analyzeNote(info, t)).toBe("Analyzing…");
+  expect(analyzeNote({ ...info, index: 2, total: 5 }, t)).toBe(
+    "Analyzing… (2/5)",
+  );
+  expect(analyzeNote({ ...info, commits: 1200 }, t)).toBe(
+    "Analyzing… (1200 commits)",
+  );
+  expect(
+    analyzeNote({ ...info, index: 1, total: 2, commits: 1500, expected: 3000 }, t),
+  ).toBe("Analyzing… (1/2 · 50%)");
+  // A repository that grew past its previous count never claims completion.
+  expect(analyzeNote({ ...info, commits: 4000, expected: 3000 }, t)).toBe(
+    "Analyzing… (99%)",
+  );
 });
 
 test("resolveTheme prefers the stored value over the OS preference", () => {

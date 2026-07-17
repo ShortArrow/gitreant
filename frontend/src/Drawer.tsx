@@ -1,10 +1,29 @@
 import { useState } from "react";
-import { pickFolder, type RepoView } from "./api";
+import { pickFolder, type AnalyzeInfo, type RepoView } from "./api";
 import { ContextMenu } from "./ContextMenu";
 import { AddIcon, BrowseIcon, CollapseIcon, ExpandIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { ResizeHandle, useStoredWidth } from "./Resizer";
 import { useT } from "./settings";
+import type { MsgKey } from "./i18n";
+
+/** The analyzing note next to a repository name: position in the read,
+ * plus an estimated percentage (previous commit count known) or the raw
+ * commit counter. Never claims 100% — completion removes the note. */
+export function analyzeNote(
+  info: AnalyzeInfo,
+  t: (key: MsgKey, params?: Record<string, string | number>) => string,
+): string {
+  const parts: string[] = [];
+  if (info.total > 1) parts.push(`${info.index}/${info.total}`);
+  if (info.expected) {
+    parts.push(`${Math.min(99, Math.round((info.commits / info.expected) * 100))}%`);
+  } else if (info.commits > 0) {
+    parts.push(t("commitsCount", { n: info.commits }));
+  }
+  const label = t("analyzing");
+  return parts.length ? `${label} (${parts.join(" · ")})` : label;
+}
 
 interface DrawerProps {
   repos: RepoView[];
@@ -12,8 +31,8 @@ interface DrawerProps {
   collapsed: boolean;
   /** A path whose analysis is still running server-side, if any. */
   pending?: string | null;
-  /** The repository id a slow server-side read is working on, if any. */
-  analyzing?: string | null;
+  /** Progress of a slow server-side read, if one is running. */
+  analyzing?: AnalyzeInfo | null;
   /** False until the first repository list arrived. */
   loaded?: boolean;
   onToggle: () => void;
@@ -133,7 +152,7 @@ export function Drawer({
           <li
             key={repo.id}
             className={`repo-item${repo.id === activeId ? " active" : ""}${
-              repo.id === analyzing ? " repo-pending" : ""
+              repo.id === analyzing?.id ? " repo-pending" : ""
             }`}
             data-testid="repo-item"
             data-repo-name={repo.name}
@@ -145,13 +164,13 @@ export function Drawer({
           >
             <span className="repo-item-name">
               {repo.name}
-              {repo.id === analyzing && (
+              {analyzing && repo.id === analyzing.id && (
                 <span
                   className="repo-item-analyzing"
                   data-testid="repo-analyzing"
                 >
                   {" "}
-                  {t("analyzing")}
+                  {analyzeNote(analyzing, t)}
                 </span>
               )}
             </span>
@@ -185,7 +204,7 @@ export function Drawer({
             {loaded
               ? t("noRepositories")
               : analyzing
-                ? t("analyzingRepo", { path: analyzing })
+                ? t("analyzingRepo", { path: analyzing.id })
                 : t("loadingRepos")}
           </li>
         )}

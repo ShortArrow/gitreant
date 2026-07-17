@@ -47,16 +47,36 @@ struct PrLookup {
     merged: Vec<crate::git::MergedPullRequest>,
 }
 
+/// How far the current multi-repository read has come, streamed to SSE
+/// listeners as the `analyzing` event payload.
+#[derive(Clone, Debug, Serialize)]
+struct AnalyzeProgress {
+    /// The repository id (canonical path) being read.
+    id: String,
+    /// 1-based position of this repository in the read.
+    index: usize,
+    /// How many repositories the read covers.
+    total: usize,
+    /// Commits read so far in this repository.
+    commits: usize,
+    /// The commit count of the previous successful read, when known — the
+    /// denominator for an estimated percentage.
+    expected: Option<usize>,
+}
+
 /// What the server broadcasts to SSE listeners.
 #[derive(Clone, Debug)]
 enum ServerEvent {
     /// The repository set or contents changed; clients should reload.
     Update,
-    /// A (potentially slow) read of this repository id just started.
-    Analyzing(String),
+    /// A (potentially slow) read of a repository is in progress.
+    Analyzing(AnalyzeProgress),
     /// The current view read finished; any analyzing indicator can clear.
     Analyzed,
 }
+
+/// How often per-repository read progress is streamed at most.
+const ANALYZE_THROTTLE: Duration = Duration::from_millis(200);
 
 /// Shared, cloneable server state.
 #[derive(Clone)]
@@ -69,6 +89,9 @@ pub struct AppState {
     /// Tag names known to exist on each repository's origin, refreshed on
     /// fetch — lets the UI mark pushed tags apart from local-only ones.
     remote_tags: Arc<Mutex<HashMap<String, std::collections::HashSet<String>>>>,
+    /// Commit count of each repository's last successful read, the basis
+    /// for the estimated analysis percentage.
+    commit_counts: Arc<Mutex<HashMap<String, usize>>>,
 }
 
 impl AppState {
@@ -82,6 +105,7 @@ impl AppState {
             command_log: Arc::new(Mutex::new(VecDeque::new())),
             pr_cache: Arc::new(Mutex::new(HashMap::new())),
             remote_tags: Arc::new(Mutex::new(HashMap::new())),
+            commit_counts: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -117,16 +141,38 @@ impl AppState {
     /// Streams per-repository progress to SSE listeners so the UI can show
     /// what is being analyzed while a slow repository loads.
     fn views(&self) -> Vec<RepoView> {
-        let (mut views, executed) = self
-            .session
-            .lock()
-            .expect("session mutex")
-            .views_with_progress(|path| {
-                let _ = self
-                    .updates
-                    .send(ServerEvent::Analyzing(path.to_string_lossy().into_owned()));
-            });
+        // Throttled so a huge commit walk does not flood the SSE channel;
+        // the start of each repository (commits == 0) always goes out.
+        let mut last_sent: Option<Instant> = None;
+        let (mut views, executed) = crate::app::read_views(&self.session, |p| {
+            if p.commits > 0 && last_sent.is_some_and(|at| at.elapsed() < ANALYZE_THROTTLE) {
+                return;
+            }
+            last_sent = Some(Instant::now());
+            let id = p.path.to_string_lossy().into_owned();
+            let expected = self
+                .commit_counts
+                .lock()
+                .expect("commit counts mutex")
+                .get(&id)
+                .copied();
+            let _ = self.updates.send(ServerEvent::Analyzing(AnalyzeProgress {
+                id,
+                index: p.index + 1,
+                total: p.total,
+                commits: p.commits,
+                expected,
+            }));
+        });
         let _ = self.updates.send(ServerEvent::Analyzed);
+        {
+            let mut counts = self.commit_counts.lock().expect("commit counts mutex");
+            for view in &views {
+                if view.error.is_none() {
+                    counts.insert(view.id.clone(), view.commits.len());
+                }
+            }
+        }
         for command in executed {
             self.push_log(CommandLogEntry {
                 time: epoch_now(),
@@ -728,7 +774,9 @@ async fn events(
             Ok(ServerEvent::Update) | Err(_) => {
                 Event::default().event("update").data("changed")
             }
-            Ok(ServerEvent::Analyzing(id)) => Event::default().event("analyzing").data(id),
+            Ok(ServerEvent::Analyzing(progress)) => Event::default()
+                .event("analyzing")
+                .data(serde_json::to_string(&progress).unwrap_or_default()),
             Ok(ServerEvent::Analyzed) => Event::default().event("analyzed").data("done"),
         })
     });

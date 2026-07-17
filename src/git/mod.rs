@@ -20,7 +20,10 @@ pub use prs::{
     gh_available, list_merged_prs, list_prs, merged_pr_command, pr_command, MergedPullRequest,
     PullRequest,
 };
-pub use repo::{discover_repo, github_web_url, read_repo, CommitMeta, RefInfo, RepoData};
+pub use repo::{
+    discover_repo, github_web_url, read_repo, read_repo_with_progress, CommitMeta, RefInfo,
+    RepoData,
+};
 pub use tag::{create_tag, create_tag_command, delete_tag, delete_tag_command};
 pub use verify::{
     gpg_available, verification_state, verify_command, verify_signatures, SignatureCheck,

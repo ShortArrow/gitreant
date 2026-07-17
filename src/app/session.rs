@@ -3,10 +3,11 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use crate::git::{
-    discover_repo, gpg_available, read_repo, verification_state, verify_command, verify_signatures,
-    RepoData, SignatureCheck,
+    discover_repo, gpg_available, read_repo_with_progress, verification_state, verify_command,
+    verify_signatures, RepoData, SignatureCheck,
 };
 
 use super::view::{build_view, RepoView};
@@ -73,90 +74,124 @@ impl Session {
         self.paths.is_empty()
     }
 
-    /// Read every repository and build its view, in insertion order. Also
-    /// returns the external commands run along the way (signature
-    /// verification), for the server's command log.
-    pub fn views(&mut self) -> (Vec<RepoView>, Vec<ExecutedCommand>) {
-        self.views_with_progress(|_| {})
-    }
+}
 
-    /// Like [`views`](Self::views), reporting each repository just before
-    /// its (potentially slow) read starts, so the server can tell clients
-    /// what it is analyzing.
-    pub fn views_with_progress(
-        &mut self,
-        mut progress: impl FnMut(&Path),
-    ) -> (Vec<RepoView>, Vec<ExecutedCommand>) {
-        let mut executed = Vec::new();
-        let views = self
-            .paths
-            .clone()
-            .iter()
-            .map(|path| {
-                progress(path);
-                match read_repo(path) {
-                    Ok(mut data) => {
-                        if let Some(command) = self.annotate_verification(path, &mut data) {
-                            executed.push(command);
-                        }
-                        build_view(path, &data)
+/// How far a multi-repository view read has come, reported just before and
+/// during each repository's (potentially slow) read.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadProgress {
+    /// 0-based position of the repository in the read.
+    pub index: usize,
+    /// How many repositories this read covers.
+    pub total: usize,
+    /// The repository being read (its id is this canonical path).
+    pub path: PathBuf,
+    /// Commits read so far in this repository.
+    pub commits: usize,
+}
+
+/// Read every registered repository and build its view, in insertion order.
+/// Also returns the external commands run along the way (signature
+/// verification), for the server's command log.
+///
+/// The session is locked only around its shared caches — never across a
+/// repository read or a verification subprocess — so commit-detail and diff
+/// requests stay responsive while a large repository is analyzed.
+pub fn read_views(
+    session: &Mutex<Session>,
+    mut progress: impl FnMut(ReadProgress),
+) -> (Vec<RepoView>, Vec<ExecutedCommand>) {
+    let paths = session.lock().expect("session mutex").paths().to_vec();
+    let total = paths.len();
+    let mut executed = Vec::new();
+    let views = paths
+        .iter()
+        .enumerate()
+        .map(|(index, path)| {
+            progress(ReadProgress {
+                index,
+                total,
+                path: path.clone(),
+                commits: 0,
+            });
+            // Forward the walk's running count sparsely: the server throttles
+            // by time on top, this only bounds the callback overhead.
+            let walked = read_repo_with_progress(path, |commits| {
+                if commits % 512 == 0 {
+                    progress(ReadProgress {
+                        index,
+                        total,
+                        path: path.clone(),
+                        commits,
+                    });
+                }
+            });
+            match walked {
+                Ok(mut data) => {
+                    if let Some(command) = annotate_verification(session, path, &mut data) {
+                        executed.push(command);
                     }
-                    Err(message) => RepoView::error(path, message),
+                    build_view(path, &data)
                 }
-            })
-            .collect();
-        (views, executed)
-    }
-
-    /// Verify the signatures of any signed commits not seen before, via the
-    /// git/gpg CLI, and stamp every signed commit with its cached verdict.
-    /// Returns the executed command when one actually ran.
-    fn annotate_verification(
-        &mut self,
-        path: &Path,
-        data: &mut RepoData,
-    ) -> Option<ExecutedCommand> {
-        let pending: Vec<String> = data
-            .commits
-            .iter()
-            .filter(|c| c.signature.is_some() && !self.verify_cache.contains_key(&c.id))
-            .map(|c| c.id.clone())
-            .collect();
-
-        let command = if !pending.is_empty() && gpg_available() {
-            let result = verify_signatures(path, &pending);
-            let (ok, message) = match &result {
-                Ok(statuses) => {
-                    self.verify_cache.extend(statuses.clone());
-                    (true, String::new())
-                }
-                Err(message) => (false, message.clone()),
-            };
-            // Cache failures as "unknown" so a broken gpg setup does not
-            // re-run (and re-log) the check on every view read.
-            for id in &pending {
-                self.verify_cache.entry(id.clone()).or_insert(('?', None));
+                Err(message) => RepoView::error(path, message),
             }
-            Some(ExecutedCommand {
-                repo: path.to_string_lossy().into_owned(),
-                command: verify_command(path, &pending),
-                ok,
-                message,
-            })
-        } else {
-            None
-        };
+        })
+        .collect();
+    (views, executed)
+}
 
-        for commit in &mut data.commits {
-            if commit.signature.is_some() {
-                if let Some((status, key)) = self.verify_cache.get(&commit.id) {
-                    commit.verified = verification_state(*status);
-                    commit.signature_key = key.clone();
-                }
+/// Verify the signatures of any signed commits not seen before, via the
+/// git/gpg CLI, and stamp every signed commit with its cached verdict.
+/// Returns the executed command when one actually ran.
+fn annotate_verification(
+    session: &Mutex<Session>,
+    path: &Path,
+    data: &mut RepoData,
+) -> Option<ExecutedCommand> {
+    let pending: Vec<String> = {
+        let session = session.lock().expect("session mutex");
+        data.commits
+            .iter()
+            .filter(|c| c.signature.is_some() && !session.verify_cache.contains_key(&c.id))
+            .map(|c| c.id.clone())
+            .collect()
+    };
+
+    let command = if !pending.is_empty() && gpg_available() {
+        let result = verify_signatures(path, &pending);
+        let mut session = session.lock().expect("session mutex");
+        let (ok, message) = match &result {
+            Ok(statuses) => {
+                session.verify_cache.extend(statuses.clone());
+                (true, String::new())
+            }
+            Err(message) => (false, message.clone()),
+        };
+        // Cache failures as "unknown" so a broken gpg setup does not
+        // re-run (and re-log) the check on every view read.
+        for id in &pending {
+            session.verify_cache.entry(id.clone()).or_insert(('?', None));
+        }
+        Some(ExecutedCommand {
+            repo: path.to_string_lossy().into_owned(),
+            command: verify_command(path, &pending),
+            ok,
+            message,
+        })
+    } else {
+        None
+    };
+
+    let session = session.lock().expect("session mutex");
+    for commit in &mut data.commits {
+        if commit.signature.is_some() {
+            if let Some((status, key)) = session.verify_cache.get(&commit.id) {
+                commit.verified = verification_state(*status);
+                commit.signature_key = key.clone();
             }
         }
-        command
     }
+    command
 }
 
 /// Best-effort canonical form for de-duplication and display; falls back to
@@ -257,10 +292,27 @@ mod tests {
         let mut session = Session::new();
         session.add(a.path()).unwrap();
         session.add(b.path()).unwrap();
+        let paths = session.paths().to_vec();
 
         let mut reported = Vec::new();
-        session.views_with_progress(|path| reported.push(path.to_path_buf()));
-        assert_eq!(reported, session.paths().to_vec());
+        read_views(&Mutex::new(session), |p| reported.push(p));
+        assert_eq!(
+            reported,
+            vec![
+                ReadProgress {
+                    index: 0,
+                    total: 2,
+                    path: paths[0].clone(),
+                    commits: 0,
+                },
+                ReadProgress {
+                    index: 1,
+                    total: 2,
+                    path: paths[1].clone(),
+                    commits: 0,
+                },
+            ],
+        );
     }
 
     #[test]
@@ -346,8 +398,9 @@ mod tests {
 
         let mut session = Session::new();
         session.add(&repo).unwrap();
+        let session = Mutex::new(session);
 
-        let (views, executed) = session.views();
+        let (views, executed) = read_views(&session, |_| {});
         assert_eq!(views[0].commits[0].signature.as_deref(), Some("openpgp"));
         assert_eq!(views[0].commits[0].verified, Some(true));
         let key = views[0].commits[0].signature_key.as_deref().unwrap_or("");
@@ -360,7 +413,7 @@ mod tests {
         assert!(executed[0].ok);
 
         // The verdict is cached: a second read runs nothing new.
-        let (views, executed) = session.views();
+        let (views, executed) = read_views(&session, |_| {});
         assert_eq!(views[0].commits[0].verified, Some(true));
         assert!(executed.is_empty());
     }

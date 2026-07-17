@@ -55,7 +55,13 @@ export const AnalyzingRepo: Story = {
   args: {
     repos,
     activeId: repos[0].id,
-    analyzing: repos[0].id,
+    analyzing: {
+      id: repos[0].id,
+      index: 1,
+      total: 2,
+      commits: 4200,
+      expected: 9000,
+    },
     collapsed: false,
     onToggle: () => {},
     onSelect: () => {},

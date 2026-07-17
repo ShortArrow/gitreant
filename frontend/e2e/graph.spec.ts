@@ -734,11 +734,18 @@ test.describe.serial("gitreant UI", () => {
     const repos = (await (await page.request.get("/api/repos")).json()) as {
       id: string;
     }[];
+    const progress = {
+      id: repos[0].id,
+      index: 1,
+      total: 2,
+      commits: 1500,
+      expected: 3000,
+    };
     await page.route("**/api/events", (route) =>
       route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
-        body: `event: analyzing\ndata: ${repos[0].id}\n\n`,
+        body: `event: analyzing\ndata: ${JSON.stringify(progress)}\n\n`,
       }),
     );
     await page.reload();
@@ -746,13 +753,35 @@ test.describe.serial("gitreant UI", () => {
     const item = page.locator('[data-repo-name="repoA"]');
     await expect(item.getByTestId("repo-analyzing")).toBeVisible();
     await expect(item).toHaveClass(/repo-pending/);
+    // Position in the read plus the estimated percentage.
     await expect(item.getByTestId("repo-analyzing")).toContainText(
-      "Analyzing",
+      "Analyzing… (1/2 · 50%)",
     );
     // The other repository stays untouched.
     await expect(
       page.locator('[data-repo-name="repoB"]').getByTestId("repo-analyzing"),
     ).toHaveCount(0);
+  });
+
+  test("adding while reading keeps the pane and lands in the drawer", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await expect(page.locator(".repo-header h2")).toHaveText("repoA");
+
+    await page.getByTestId("add-input").fill(fixtures.repoC);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-repo-name="repoC"]')).toBeVisible();
+
+    // The pane being read stays put; no tab was forced open.
+    await expect(page.locator(".repo-header h2")).toHaveText("repoA");
+    await expect(page.locator('[data-tab-name="repoC"]')).toHaveCount(0);
+
+    // Remove it again, restoring the served set.
+    const repoC = page.locator('[data-repo-name="repoC"]');
+    await repoC.hover();
+    await repoC.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoC"]')).toHaveCount(0);
   });
 
   test("the page updates live when another client changes the repo set", async ({

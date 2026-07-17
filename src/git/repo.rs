@@ -80,6 +80,15 @@ pub fn discover_repo(start: &Path) -> Result<PathBuf, String> {
 
 /// Read the repository rooted at `path`.
 pub fn read_repo(path: &Path) -> Result<RepoData, String> {
+    read_repo_with_progress(path, |_| {})
+}
+
+/// Like [`read_repo`], reporting the running commit count after every
+/// commit read, so a slow walk can surface progress.
+pub fn read_repo_with_progress(
+    path: &Path,
+    on_commits: impl FnMut(usize),
+) -> Result<RepoData, String> {
     let repo = gix::discover(path).map_err(|e| format!("open {path:?}: {e}"))?;
 
     let refs = collect_refs(&repo);
@@ -99,7 +108,7 @@ pub fn read_repo(path: &Path) -> Result<RepoData, String> {
         .filter_map(|r| gix::ObjectId::from_hex(r.target.as_bytes()).ok())
         .collect();
 
-    let raw = collect_commits(&repo, &tips);
+    let raw = collect_commits(&repo, &tips, on_commits);
     let commits = topological_order(raw);
 
     let name = repo
@@ -202,7 +211,11 @@ struct RawCommit {
 }
 
 /// Walk parents from every tip, reading each commit once.
-fn collect_commits(repo: &gix::Repository, tips: &[gix::ObjectId]) -> Vec<RawCommit> {
+fn collect_commits(
+    repo: &gix::Repository,
+    tips: &[gix::ObjectId],
+    mut on_commits: impl FnMut(usize),
+) -> Vec<RawCommit> {
     let mut seen: HashSet<gix::ObjectId> = HashSet::new();
     let mut stack: Vec<gix::ObjectId> = tips.to_vec();
     let mut out = Vec::new();
@@ -231,6 +244,7 @@ fn collect_commits(repo: &gix::Repository, tips: &[gix::ObjectId]) -> Vec<RawCom
             time: commit_time(&commit),
             signature: signature_kind(&commit),
         });
+        on_commits(out.len());
     }
     out
 }
