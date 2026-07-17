@@ -26,3 +26,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0019](0019-i18n.md) | i18nは型付き自前辞書で行い言語は設定から切替 | Accepted |
 | [0020](0020-lane-principles.md) | レーン割当はHEAD左端直線・分岐は右へ・マージは右から | Accepted |
 | [0021](0021-tag-operations.md) | タグ操作もgit CLI委譲でコミット行とバッジのメニューに載せる | Accepted |
+| [0022](0022-pane-split.md) | ペイン分割はリポジトリ比較用途に絞り2ペイン横並びから始める | Accepted |
