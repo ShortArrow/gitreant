@@ -78,6 +78,11 @@ gitreant [PATH...]
       --no-open       do not open the browser automatically
       --foreground    run the server in the current terminal instead of detaching
       --shutdown      stop the running gitreant server and exit
+
+gitreant doctor       check the environment: git (required), gh and gpg
+                      (optional feature enablers), and whether a server is
+                      already running on the port; exits non-zero when a
+                      required tool is missing
 ```
 
 ## Contributing

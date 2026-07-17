@@ -9,19 +9,27 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
 use gitreant::app::{canonical, Session};
+use gitreant::doctor;
 use gitreant::server::{bind, ping, post_repo, post_shutdown, serve, AppState};
 
 #[derive(Parser)]
-#[command(name = "gitreant", version, about = "Serve git commit graphs as a web app")]
+#[command(
+    name = "gitreant",
+    version,
+    about = "Serve git commit graphs as a web app"
+)]
 struct Cli {
+    #[command(subcommand)]
+    command: Option<Command>,
+
     /// Repository paths to display (defaults to the current directory).
     paths: Vec<PathBuf>,
 
     /// Port to serve on / connect to.
-    #[arg(short, long, default_value_t = 4000)]
+    #[arg(short, long, default_value_t = 4000, global = true)]
     port: u16,
 
     /// Do not open a browser window.
@@ -37,8 +45,17 @@ struct Cli {
     shutdown: bool,
 }
 
+#[derive(Subcommand)]
+enum Command {
+    /// Check the external tools gitreant relies on (git, gh, gpg).
+    Doctor,
+}
+
 fn main() -> ExitCode {
     let cli = Cli::parse();
+    if let Some(Command::Doctor) = cli.command {
+        return run_doctor(&cli);
+    }
     if cli.shutdown {
         return shutdown_running(&cli);
     }
@@ -54,6 +71,18 @@ fn main() -> ExitCode {
         run_server(&cli, &paths)
     } else {
         start_background(&cli, &paths)
+    }
+}
+
+/// Report whether git, gh and gpg answer on this machine; fail when a
+/// required tool is missing so scripts can gate on the exit code.
+fn run_doctor(cli: &Cli) -> ExitCode {
+    let reports = doctor::run_checks();
+    println!("{}", doctor::render(&reports, ping(cli.port), cli.port));
+    if doctor::all_required_present(&reports) {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
     }
 }
 
@@ -112,7 +141,9 @@ fn start_background(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
             return ExitCode::SUCCESS;
         }
         if let Ok(Some(status)) = child.try_wait() {
-            eprintln!("server exited during startup ({status}); run with --foreground to see its output");
+            eprintln!(
+                "server exited during startup ({status}); run with --foreground to see its output"
+            );
             return ExitCode::FAILURE;
         }
         std::thread::sleep(std::time::Duration::from_millis(150));
