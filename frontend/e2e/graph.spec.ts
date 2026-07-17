@@ -682,6 +682,39 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-repo-name="repoC"]')).toHaveCount(0);
   });
 
+  test("adding a repository shows an analyzing placeholder", async ({
+    page,
+  }) => {
+    // Slow the add down so the analyzing state is deterministically
+    // observable even though the fixture repo reads instantly.
+    await page.route("**/api/repos", async (route) => {
+      if (route.request().method() === "POST") {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }
+      await route.continue();
+    });
+
+    await page.getByTestId("add-input").fill(fixtures.repoC);
+    await page.getByTestId("add-submit").click();
+
+    // While the server analyzes, the drawer shows a pending entry and the
+    // empty pane says what is being worked on.
+    const pending = page.getByTestId("repo-pending");
+    await expect(pending).toBeVisible();
+    await expect(pending).toContainText("Analyzing");
+    await expect(page.getByTestId("pane-empty")).toContainText("Analyzing");
+
+    // The placeholder resolves into the real repository.
+    await expect(page.locator('[data-tab-name="repoC"]')).toBeVisible();
+    await expect(page.getByTestId("repo-pending")).toHaveCount(0);
+
+    // Remove it again, restoring the served set.
+    const repoC = page.locator('[data-repo-name="repoC"]');
+    await repoC.hover();
+    await repoC.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoC"]')).toHaveCount(0);
+  });
+
   test("the page updates live when another client changes the repo set", async ({
     page,
   }) => {

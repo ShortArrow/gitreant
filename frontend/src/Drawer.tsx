@@ -10,6 +10,10 @@ interface DrawerProps {
   repos: RepoView[];
   activeId: string | null;
   collapsed: boolean;
+  /** A path whose analysis is still running server-side, if any. */
+  pending?: string | null;
+  /** False until the first repository list arrived. */
+  loaded?: boolean;
   onToggle: () => void;
   onSelect: (id: string) => void;
   /** Open the repository in the right pane (ADR 0022). */
@@ -22,6 +26,8 @@ export function Drawer({
   repos,
   activeId,
   collapsed,
+  pending = null,
+  loaded = true,
   onToggle,
   onSelect,
   onOpenRight,
@@ -150,8 +156,18 @@ export function Drawer({
             </button>
           </li>
         ))}
-        {repos.length === 0 && (
-          <li className="repo-empty">{t("noRepositories")}</li>
+        {pending && (
+          <li className="repo-item repo-pending" data-testid="repo-pending">
+            <span className="repo-item-name">{t("analyzing")}</span>
+            <span className="repo-item-path" title={pending}>
+              {pending}
+            </span>
+          </li>
+        )}
+        {repos.length === 0 && !pending && (
+          <li className="repo-empty">
+            {loaded ? t("noRepositories") : t("loadingRepos")}
+          </li>
         )}
       </ul>
 

@@ -60,6 +60,9 @@ export function App() {
     setLoadError(null);
   }, []);
 
+  // Until the first repo list arrives, "no repositories" would be a lie.
+  const [loaded, setLoaded] = useState(false);
+
   const reload = useCallback(async () => {
     const seq = ++fetchSeq.current;
     try {
@@ -70,6 +73,8 @@ export function App() {
       }
     } catch (e) {
       if (seq === fetchSeq.current) setLoadError(String(e));
+    } finally {
+      setLoaded(true);
     }
   }, []);
 
@@ -127,12 +132,20 @@ export function App() {
     [applyRepos, recordAction],
   );
 
+  // The path whose analysis the server is still working on; shown as a
+  // pending drawer entry and in the empty pane until the add resolves.
+  const [pendingAdd, setPendingAdd] = useState<string | null>(null);
   const handleAdd = useCallback(
     async (path: string) => {
       recordAction(`Add repository ${path}`);
-      const { id, repos: next } = await addRepo(path);
-      applyRepos(next);
-      openTab(id);
+      setPendingAdd(path);
+      try {
+        const { id, repos: next } = await addRepo(path);
+        applyRepos(next);
+        openTab(id);
+      } finally {
+        setPendingAdd(null);
+      }
     },
     [applyRepos, openTab, recordAction],
   );
@@ -314,6 +327,8 @@ export function App() {
         repos={repos}
         activeId={focusedActiveId}
         collapsed={collapsed}
+        pending={pendingAdd}
+        loaded={loaded}
         onToggle={() => setCollapsed((c) => !c)}
         onSelect={openTab}
         onOpenRight={openRight}
@@ -547,7 +562,9 @@ export function App() {
                     />
                   ) : (
                     <div className="pane-empty" data-testid="pane-empty">
-                      {t("emptyPane")}
+                      {pendingAdd
+                        ? t("analyzingRepo", { path: pendingAdd })
+                        : t("emptyPane")}
                     </div>
                   )}
                 </div>

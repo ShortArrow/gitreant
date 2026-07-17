@@ -555,6 +555,22 @@ body {
   text-align: center;
 }
 
+/* A repository whose analysis is still running: pulses until resolved. */
+.repo-pending {
+  cursor: default;
+  animation: repo-pending-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes repo-pending-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .app-error {
   color: var(--danger);
   padding: 8px 16px;
