@@ -891,13 +891,20 @@ body {
   background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
+/* Bullet lists read as plain prose (GitHub-style); only code gets a box. */
 .detail-bullets {
   margin: 8px 0 0;
-  padding: 8px 10px 8px 28px;
-  background: var(--bg);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  border-radius: 6px;
+  padding: 0 0 0 20px;
   font-size: 13px;
+  line-height: 1.5;
+}
+
+.detail-bullets li {
+  margin: 4px 0;
+}
+
+.detail-bullets li::marker {
+  color: var(--muted);
 }
 
 .detail-bullets code,

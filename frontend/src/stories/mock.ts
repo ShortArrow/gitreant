@@ -124,6 +124,40 @@ export const commitDetail: CommitDetail = {
   ],
 };
 
+/** A production-style body exercising every message shape the renderer
+ * supports: hard-wrapped prose, wrapped bullets, an indented code block,
+ * a fenced block and inline code. */
+export const richMessageDetail: CommitDetail = {
+  ...commitDetail,
+  id: "4043bc624ad30d6cd059d892a8ceb3b7cc9da79a",
+  message:
+    "feat: HPS Linux bring-up (kernel + rootfs + ssh over serial loady)\n\n" +
+    "Boots Linux 5.11 (Altera socfpga) with a Buildroot rootfs (dropbear\n" +
+    "ssh) on the HPS. The kernel/DT/rootfs are transferred over the serial\n" +
+    "console with u-boot `loady` (ymodem), avoiding the ~2h JTAG load and\n" +
+    "the 2013 u-boot's broken ethernet path.\n\n" +
+    "- blink/ymodem_send.py: YMODEM-1K sender driving u-boot 'loady' over\n" +
+    "  COM12 (python + pyserial), with progress percentage.\n" +
+    "- blink/linux/socfpga_cyclone5_sypcie.dts: board device tree. Uses\n" +
+    "  gmac0 (EMAC0) with the KSZ9021 PHY - this board wires the PHY to\n" +
+    "  EMAC0, not gmac1 as the dev kits do - and 512 MiB memory.\n" +
+    "- docs/HPS_LINUX.md: full bring-up procedure, including the r0-r3=0\n" +
+    "  SPL entry and the clean-power-off recovery.\n\n" +
+    "Load it on the board:\n\n" +
+    "    loady 0x2000000\n" +
+    "    bootm 0x2000000 - 0x2100000\n\n" +
+    "Verified: host PC can `ssh sypcie-board` (ProxyJump via the PCIe\n" +
+    "host) into root@buildroot on the board. Current image is RAM-only\n" +
+    "(volatile); QSPI persistence is the next step.\n\n" +
+    "```\nmake ARCH=arm socfpga_defconfig zImage\n```",
+};
+
+/** A single-line message: no body, so no expand bar. */
+export const summaryOnlyDetail: CommitDetail = {
+  ...commitDetail,
+  message: "chore: bump dependencies",
+};
+
 /** One file's unified diff, as returned by POST /api/diff. */
 export const fileDiff: FileDiff = {
   path: "src/domain/graph.rs",
