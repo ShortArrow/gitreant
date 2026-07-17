@@ -567,7 +567,18 @@ test.describe.serial("gitreant UI", () => {
     await page.locator('[data-repo-name="repoA"]').click();
     await page.locator('[data-repo-name="repoB"]').click();
 
-    await page.locator('[data-tab-name="repoB"]').click({ button: "right" });
+    const tabB = page.locator('[data-tab-name="repoB"]');
+    await tabB.click({ button: "right" });
+    // The menu opens right at the cursor (the tab center), like every
+    // other context menu — not somewhere down in document flow.
+    const tabBox = (await tabB.boundingBox())!;
+    const menuBox = (await page.getByTestId("context-menu").boundingBox())!;
+    expect(Math.abs(menuBox.x - (tabBox.x + tabBox.width / 2))).toBeLessThan(
+      12,
+    );
+    expect(Math.abs(menuBox.y - (tabBox.y + tabBox.height / 2))).toBeLessThan(
+      12,
+    );
     await page.getByTestId("tab-open-right").click();
     const slots = page.getByTestId("pane-slot");
     await expect(slots).toHaveCount(2);
