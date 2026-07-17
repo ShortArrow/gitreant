@@ -255,8 +255,12 @@ body {
   font-size: 12px;
 }
 
-/* ---- Top bar (tabs + theme toggle) ---- */
+/* ---- Top bar (action buttons) ---- */
 .topbar {
+  /* The tab strip that used to prop this bar open lives in the panes
+   * now (ADR 0022); it must keep its height and never be squeezed. */
+  flex: none;
+  min-height: 38px;
   display: flex;
   align-items: stretch;
   border-bottom: 1px solid var(--border);
