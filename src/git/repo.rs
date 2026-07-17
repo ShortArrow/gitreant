@@ -83,10 +83,7 @@ pub fn read_repo(path: &Path) -> Result<RepoData, String> {
     let repo = gix::discover(path).map_err(|e| format!("open {path:?}: {e}"))?;
 
     let refs = collect_refs(&repo);
-    let head = repo
-        .head_id()
-        .ok()
-        .map(|id| id.detach().to_string());
+    let head = repo.head_id().ok().map(|id| id.detach().to_string());
     let head_branch = repo
         .head_name()
         .ok()
@@ -184,7 +181,10 @@ pub fn github_web_url(clone_url: &str) -> Option<String> {
         .strip_prefix("https://github.com/")
         .or_else(|| clone_url.strip_prefix("git@github.com:"))
         .or_else(|| clone_url.strip_prefix("ssh://git@github.com/"))?;
-    let path = rest.strip_suffix(".git").unwrap_or(rest).trim_end_matches('/');
+    let path = rest
+        .strip_suffix(".git")
+        .unwrap_or(rest)
+        .trim_end_matches('/');
     let mut parts = path.splitn(2, '/');
     let owner = parts.next().filter(|s| !s.is_empty())?;
     let repo = parts.next().filter(|s| !s.is_empty() && !s.contains('/'))?;

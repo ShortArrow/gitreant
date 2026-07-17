@@ -230,7 +230,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn merges_layout_with_metadata_in_order() {
         let data = RepoData {

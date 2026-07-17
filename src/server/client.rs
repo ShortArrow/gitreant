@@ -66,9 +66,7 @@ fn request(
         .map_err(|e| e.to_string())?;
 
     let mut raw = String::new();
-    stream
-        .read_to_string(&mut raw)
-        .map_err(|e| e.to_string())?;
+    stream.read_to_string(&mut raw).map_err(|e| e.to_string())?;
 
     parse_response(&raw)
 }

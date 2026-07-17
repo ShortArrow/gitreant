@@ -388,7 +388,11 @@ mod tests {
         assert_eq!(a_edge.color, 0);
 
         // Merge edges still carry the merged branch's color.
-        let merge_edge = g.edges.iter().find(|e| e.from == "M" && e.to == "B").unwrap();
+        let merge_edge = g
+            .edges
+            .iter()
+            .find(|e| e.from == "M" && e.to == "B")
+            .unwrap();
         assert_eq!(merge_edge.color, 1);
     }
 
@@ -422,7 +426,11 @@ mod tests {
             lane_of("C"),
             lane_of("A")
         );
-        let merge_edge = g.edges.iter().find(|e| e.from == "A" && e.to == "C").unwrap();
+        let merge_edge = g
+            .edges
+            .iter()
+            .find(|e| e.from == "A" && e.to == "C")
+            .unwrap();
         assert!(merge_edge.to_lane > merge_edge.from_lane);
     }
 
@@ -508,9 +516,17 @@ mod tests {
 
         let a_edge = g.edges.iter().find(|e| e.from == "A").unwrap();
         assert!(a_edge.fork, "convergence edge must be marked as a fork");
-        let m_first = g.edges.iter().find(|e| e.from == "M" && e.to == "A").unwrap();
+        let m_first = g
+            .edges
+            .iter()
+            .find(|e| e.from == "M" && e.to == "A")
+            .unwrap();
         assert!(!m_first.fork, "same-lane first-parent edge is not a fork");
-        let merge_edge = g.edges.iter().find(|e| e.from == "M" && e.to == "B").unwrap();
+        let merge_edge = g
+            .edges
+            .iter()
+            .find(|e| e.from == "M" && e.to == "B")
+            .unwrap();
         assert!(!merge_edge.fork, "merge edges bend at the merge commit");
 
         // D must not sit in A's held lane (0): the corridor stays free for
@@ -533,6 +549,10 @@ mod tests {
             None,
         );
         // At most two lanes are ever simultaneously active.
-        assert!(g.lane_count <= 2, "expected compact layout, got {}", g.lane_count);
+        assert!(
+            g.lane_count <= 2,
+            "expected compact layout, got {}",
+            g.lane_count
+        );
     }
 }

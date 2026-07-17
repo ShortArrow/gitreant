@@ -31,8 +31,8 @@ pub async fn bind(port: u16) -> Result<(TcpListener, SocketAddr), String> {
 pub async fn serve(listener: TcpListener, state: AppState) -> Result<(), String> {
     let graceful = state.shutdown_requested();
     let deadline = state.shutdown_requested();
-    let server = axum::serve(listener, router(state))
-        .with_graceful_shutdown(wait_shutdown(graceful));
+    let server =
+        axum::serve(listener, router(state)).with_graceful_shutdown(wait_shutdown(graceful));
     tokio::select! {
         result = server => result.map_err(|e| e.to_string()),
         _ = async move {

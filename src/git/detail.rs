@@ -45,7 +45,10 @@ pub fn read_commit(path: &Path, id: &str) -> Result<CommitDetail, String> {
         .map(|a| (a.name.to_string(), a.email.to_string()))
         .unwrap_or_default();
     let time = commit.time().map(|t| t.seconds).unwrap_or(0);
-    let parents: Vec<String> = commit.parent_ids().map(|p| p.detach().to_string()).collect();
+    let parents: Vec<String> = commit
+        .parent_ids()
+        .map(|p| p.detach().to_string())
+        .collect();
 
     Ok(CommitDetail {
         id: commit.id().detach().to_string(),
@@ -146,7 +149,11 @@ fn diff_blobs(
         path: file.to_string(),
         status: status.to_string(),
         binary,
-        text: if binary { String::new() } else { unified(&old, &new) },
+        text: if binary {
+            String::new()
+        } else {
+            unified(&old, &new)
+        },
     }))
 }
 
@@ -238,9 +245,14 @@ fn unified(old: &[u8], new: &[u8]) -> String {
     let new = String::from_utf8_lossy(new);
     let input = InternedInput::new(old.as_ref(), new.as_ref());
     let diff = Diff::compute(Algorithm::Histogram, &input);
-    UnifiedDiff::new(&diff, &input, Collect(String::new()), ContextSize::default())
-        .consume()
-        .unwrap_or_default()
+    UnifiedDiff::new(
+        &diff,
+        &input,
+        Collect(String::new()),
+        ContextSize::default(),
+    )
+    .consume()
+    .unwrap_or_default()
 }
 
 /// Diff the commit's tree against its first parent (or the empty tree).

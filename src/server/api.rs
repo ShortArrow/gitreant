@@ -275,7 +275,10 @@ async fn commit_detail(
     Json(req): Json<CommitDetailRequest>,
 ) -> Result<Json<CommitDetailView>, (StatusCode, String)> {
     let Some(path) = state.repo_path(&req.repo) else {
-        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ));
     };
     let detail = tokio::task::spawn_blocking(move || crate::git::read_commit(&path, &req.id))
         .await
@@ -301,7 +304,10 @@ async fn file_diff(
     Json(req): Json<FileDiffRequest>,
 ) -> Result<Json<FileDiffView>, (StatusCode, String)> {
     let Some(repo) = state.repo_path(&req.repo) else {
-        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ));
     };
     let diff =
         tokio::task::spawn_blocking(move || crate::git::read_file_diff(&repo, &req.id, &req.path))
@@ -318,13 +324,15 @@ async fn commit_diff(
     Json(req): Json<CommitDetailRequest>,
 ) -> Result<Json<Vec<FileDiffView>>, (StatusCode, String)> {
     let Some(repo) = state.repo_path(&req.repo) else {
-        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ));
     };
-    let diffs =
-        tokio::task::spawn_blocking(move || crate::git::read_commit_diff(&repo, &req.id))
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-            .map_err(|message| (StatusCode::NOT_FOUND, message))?;
+    let diffs = tokio::task::spawn_blocking(move || crate::git::read_commit_diff(&repo, &req.id))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(|message| (StatusCode::NOT_FOUND, message))?;
     Ok(Json(diffs.into_iter().map(Into::into).collect()))
 }
 
@@ -412,7 +420,10 @@ async fn branch_op(
     run: fn(&std::path::Path, &str) -> Result<(), String>,
 ) -> Result<Json<BranchOpResponse>, (StatusCode, String)> {
     let Some(path) = state.repo_path(&req.repo) else {
-        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ));
     };
     let logger = state.clone();
     let result = tokio::task::spawn_blocking(move || {
@@ -440,7 +451,13 @@ async fn checkout(
     State(state): State<AppState>,
     Json(req): Json<BranchOpRequest>,
 ) -> Result<Json<BranchOpResponse>, (StatusCode, String)> {
-    branch_op(state, req, crate::git::checkout_command, crate::git::checkout).await
+    branch_op(
+        state,
+        req,
+        crate::git::checkout_command,
+        crate::git::checkout,
+    )
+    .await
 }
 
 /// Merge a reference into the checked-out branch of one repository.
@@ -466,7 +483,10 @@ async fn create_tag(
     Json(req): Json<CreateTagRequest>,
 ) -> Result<Json<BranchOpResponse>, (StatusCode, String)> {
     let Some(path) = state.repo_path(&req.repo) else {
-        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ));
     };
     let logger = state.clone();
     let result = tokio::task::spawn_blocking(move || {
@@ -496,7 +516,10 @@ async fn create_branch(
     Json(req): Json<CreateTagRequest>,
 ) -> Result<Json<BranchOpResponse>, (StatusCode, String)> {
     let Some(path) = state.repo_path(&req.repo) else {
-        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ));
     };
     let logger = state.clone();
     let result = tokio::task::spawn_blocking(move || {
@@ -532,7 +555,10 @@ async fn delete_tag(
     Json(req): Json<DeleteTagRequest>,
 ) -> Result<Json<BranchOpResponse>, (StatusCode, String)> {
     let Some(path) = state.repo_path(&req.repo) else {
-        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ));
     };
     let logger = state.clone();
     let result = tokio::task::spawn_blocking(move || {
@@ -578,13 +604,22 @@ async fn list_prs(
     Json(req): Json<PrsRequest>,
 ) -> Result<Json<PrsResponse>, (StatusCode, String)> {
     let Some(path) = state.repo_path(&req.repo) else {
-        return Err((StatusCode::NOT_FOUND, format!("unknown repository: {}", req.repo)));
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ));
     };
     if let Some(lookup) = state.cached_prs(&req.repo) {
-        return Ok(Json(PrsResponse { prs: lookup.open, merged: lookup.merged }));
+        return Ok(Json(PrsResponse {
+            prs: lookup.open,
+            merged: lookup.merged,
+        }));
     }
     if !crate::git::gh_available() {
-        return Ok(Json(PrsResponse { prs: Vec::new(), merged: Vec::new() }));
+        return Ok(Json(PrsResponse {
+            prs: Vec::new(),
+            merged: Vec::new(),
+        }));
     }
     let logger = state.clone();
     let repo = req.repo.clone();
@@ -617,7 +652,10 @@ async fn list_prs(
     .await
     .unwrap_or_default();
     state.store_prs(&req.repo, lookup.clone());
-    Ok(Json(PrsResponse { prs: lookup.open, merged: lookup.merged }))
+    Ok(Json(PrsResponse {
+        prs: lookup.open,
+        merged: lookup.merged,
+    }))
 }
 
 fn epoch_now() -> i64 {

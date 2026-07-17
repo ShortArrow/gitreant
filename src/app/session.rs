@@ -5,8 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::git::{
-    discover_repo, gpg_available, read_repo, verification_state, verify_command,
-    verify_signatures, RepoData, SignatureCheck,
+    discover_repo, gpg_available, read_repo, verification_state, verify_command, verify_signatures,
+    RepoData, SignatureCheck,
 };
 
 use super::view::{build_view, RepoView};
@@ -250,7 +250,11 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         // Forward slashes: an MSYS gpg (Git for Windows) treats a backslashed
         // GNUPGHOME as relative; both gpg flavors accept the C:/-style form.
-        let home = tmp.path().join("gnupg").to_string_lossy().replace('\\', "/");
+        let home = tmp
+            .path()
+            .join("gnupg")
+            .to_string_lossy()
+            .replace('\\', "/");
         std::fs::create_dir(&home).unwrap();
         // The verification child processes inherit this process environment.
         std::env::set_var("GNUPGHOME", &home);

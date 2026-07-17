@@ -41,7 +41,11 @@ const LS_REMOTE_TAGS_ARGS: [&str; 4] = ["ls-remote", "--tags", "--refs", "origin
 
 /// The command line `remote_tags` executes, for the command log.
 pub fn remote_tags_command(path: &Path) -> String {
-    format!("git -C {} {}", path.display(), LS_REMOTE_TAGS_ARGS.join(" "))
+    format!(
+        "git -C {} {}",
+        path.display(),
+        LS_REMOTE_TAGS_ARGS.join(" ")
+    )
 }
 
 /// The tag names existing on `origin`, so the UI can tell pushed tags from

@@ -45,11 +45,7 @@ fn verify_args(ids: &[String]) -> Vec<String> {
 
 /// The command line `verify_signatures` executes, for the command log.
 pub fn verify_command(path: &Path, ids: &[String]) -> String {
-    format!(
-        "git -C {} {}",
-        path.display(),
-        verify_args(ids).join(" ")
-    )
+    format!("git -C {} {}", path.display(), verify_args(ids).join(" "))
 }
 
 /// Ask git for the signature status (`%G?`) and key id (`%GK`) of each
@@ -93,8 +89,7 @@ fn parse_statuses(stdout: &str) -> HashMap<String, SignatureCheck> {
                 Some((status, key)) => (status, key.trim()),
                 None => (rest.trim(), ""),
             };
-            let looks_like_id =
-                id.len() >= 7 && id.chars().all(|c| c.is_ascii_hexdigit());
+            let looks_like_id = id.len() >= 7 && id.chars().all(|c| c.is_ascii_hexdigit());
             if !looks_like_id || status.chars().count() != 1 {
                 return None;
             }
@@ -111,9 +106,8 @@ mod tests {
 
     #[test]
     fn parses_hash_status_and_key_id() {
-        let map = parse_statuses(
-            "1111aaaa G 89AB89AB89AB89AB\n2222bbbb E \n3333cccc N\n\nnot a line\n",
-        );
+        let map =
+            parse_statuses("1111aaaa G 89AB89AB89AB89AB\n2222bbbb E \n3333cccc N\n\nnot a line\n");
         assert_eq!(
             map.get("1111aaaa"),
             Some(&('G', Some("89AB89AB89AB89AB".to_string())))

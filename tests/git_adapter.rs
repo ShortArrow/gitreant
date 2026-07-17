@@ -79,7 +79,11 @@ fn reads_commit_detail_with_message_body_and_file_changes() {
     std::fs::write(dir.join("README.md"), "one\nTWO\nthree\n").unwrap();
     std::fs::write(dir.join("notes.txt"), "hello\n").unwrap();
     git(dir, &["add", "README.md", "notes.txt"]);
-    commit(dir, "update README and add notes\n\nExplains why the notes exist.", 1001);
+    commit(
+        dir,
+        "update README and add notes\n\nExplains why the notes exist.",
+        1001,
+    );
 
     let repo = read_repo(dir).expect("read repo");
     let head = &repo.commits[0];
@@ -140,15 +144,27 @@ fn reads_file_diff_hunks() {
     let diff = read_file_diff(dir, head, "README.md").expect("head diff");
     assert_eq!(diff.status, "M");
     assert!(!diff.binary);
-    assert!(diff.text.contains("@@"), "hunk header missing: {}", diff.text);
+    assert!(
+        diff.text.contains("@@"),
+        "hunk header missing: {}",
+        diff.text
+    );
     assert!(diff.text.contains("-two"), "removal missing: {}", diff.text);
-    assert!(diff.text.contains("+TWO"), "addition missing: {}", diff.text);
+    assert!(
+        diff.text.contains("+TWO"),
+        "addition missing: {}",
+        diff.text
+    );
     assert!(diff.text.contains(" one"), "context missing: {}", diff.text);
 
     // Addition in a root commit: everything is new.
     let diff = read_file_diff(dir, root, "README.md").expect("root diff");
     assert_eq!(diff.status, "A");
-    assert!(diff.text.contains("+one"), "added line missing: {}", diff.text);
+    assert!(
+        diff.text.contains("+one"),
+        "added line missing: {}",
+        diff.text
+    );
 
     // A path the commit does not touch is an error, not a panic.
     assert!(read_file_diff(dir, head, "missing.txt").is_err());
@@ -176,7 +192,11 @@ fn file_diff_covers_deletions_and_binary_files() {
     let deleted = read_file_diff(dir, head, "gone.txt").expect("deletion diff");
     assert_eq!(deleted.status, "D");
     assert!(!deleted.binary);
-    assert!(deleted.text.contains("-gone"), "removal missing: {}", deleted.text);
+    assert!(
+        deleted.text.contains("-gone"),
+        "removal missing: {}",
+        deleted.text
+    );
 
     let binary = read_file_diff(dir, head, "data.bin").expect("binary diff");
     assert_eq!(binary.status, "M");
@@ -200,16 +220,33 @@ fn reads_the_whole_commit_diff_at_once() {
     commit(dir, "change a, add b", 1001);
 
     let repo = read_repo(dir).expect("read repo");
-    let mut diffs =
-        read_commit_diff(dir, &repo.commits[0].id).expect("whole-commit diff");
+    let mut diffs = read_commit_diff(dir, &repo.commits[0].id).expect("whole-commit diff");
     diffs.sort_by(|x, y| x.path.cmp(&y.path));
 
     assert_eq!(diffs.len(), 2, "diffs: {diffs:?}");
-    assert_eq!((diffs[0].path.as_str(), diffs[0].status.as_str()), ("a.txt", "M"));
-    assert!(diffs[0].text.contains("-a"), "removal missing: {}", diffs[0].text);
-    assert!(diffs[0].text.contains("+A"), "addition missing: {}", diffs[0].text);
-    assert_eq!((diffs[1].path.as_str(), diffs[1].status.as_str()), ("b.txt", "A"));
-    assert!(diffs[1].text.contains("+b"), "added line missing: {}", diffs[1].text);
+    assert_eq!(
+        (diffs[0].path.as_str(), diffs[0].status.as_str()),
+        ("a.txt", "M")
+    );
+    assert!(
+        diffs[0].text.contains("-a"),
+        "removal missing: {}",
+        diffs[0].text
+    );
+    assert!(
+        diffs[0].text.contains("+A"),
+        "addition missing: {}",
+        diffs[0].text
+    );
+    assert_eq!(
+        (diffs[1].path.as_str(), diffs[1].status.as_str()),
+        ("b.txt", "A")
+    );
+    assert!(
+        diffs[1].text.contains("+b"),
+        "added line missing: {}",
+        diffs[1].text
+    );
 }
 
 #[test]
@@ -309,7 +346,14 @@ fn git_hash_commit(dir: &Path, raw: &str) -> String {
     use std::process::Stdio;
     let mut child = Command::new("git")
         .current_dir(dir)
-        .args(["hash-object", "-w", "-t", "commit", "--literally", "--stdin"])
+        .args([
+            "hash-object",
+            "-w",
+            "-t",
+            "commit",
+            "--literally",
+            "--stdin",
+        ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -338,7 +382,10 @@ fn reads_branch_and_merge_repo() {
     commit(dir, "feature-1", 1002);
     git(dir, &["switch", "main", "-q"]);
     commit(dir, "main-2", 1003);
-    git(dir, &["merge", "--no-ff", "feature", "-q", "-m", "merge feature"]);
+    git(
+        dir,
+        &["merge", "--no-ff", "feature", "-q", "-m", "merge feature"],
+    );
 
     let repo = read_repo(dir).expect("read repo");
 
@@ -373,5 +420,9 @@ fn reads_branch_and_merge_repo() {
     // The layout spans two lanes (main + feature) and places every commit.
     let graph = layout(&repo.commit_inputs(), repo.head.as_deref());
     assert_eq!(graph.nodes.len(), 5);
-    assert!(graph.lane_count >= 2, "expected >=2 lanes, got {}", graph.lane_count);
+    assert!(
+        graph.lane_count >= 2,
+        "expected >=2 lanes, got {}",
+        graph.lane_count
+    );
 }

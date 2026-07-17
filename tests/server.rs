@@ -69,7 +69,9 @@ async fn ping_add_dedupe_and_serve_spa() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new())).await.unwrap();
+        serve(listener, AppState::new(Session::new()))
+            .await
+            .unwrap();
     });
 
     // Wait until the server answers.
@@ -102,7 +104,10 @@ async fn ping_add_dedupe_and_serve_spa() {
     let repos_body = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
         .await
         .unwrap();
-    assert!(repos_body.contains("\"root\""), "commit summary missing: {repos_body}");
+    assert!(
+        repos_body.contains("\"root\""),
+        "commit summary missing: {repos_body}"
+    );
     assert_eq!(
         repos_body.matches("\"lane_count\"").count(),
         1,
@@ -121,7 +126,10 @@ async fn ping_add_dedupe_and_serve_spa() {
     let spa = tokio::task::spawn_blocking(move || http_get(port, "/some/client/route"))
         .await
         .unwrap();
-    assert!(spa.contains("<!doctype html"), "SPA fallback missing: {spa}");
+    assert!(
+        spa.contains("<!doctype html"),
+        "SPA fallback missing: {spa}"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -148,7 +156,9 @@ async fn commit_endpoint_returns_detail() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new())).await.unwrap();
+        serve(listener, AppState::new(Session::new()))
+            .await
+            .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -180,25 +190,36 @@ async fn commit_endpoint_returns_detail() {
         .await
         .unwrap();
     assert!(resp.contains("200 OK"), "response: {resp}");
-    assert!(resp.contains("Why the notes exist."), "body missing: {resp}");
+    assert!(
+        resp.contains("Why the notes exist."),
+        "body missing: {resp}"
+    );
     assert!(resp.contains("notes.txt"), "files missing: {resp}");
-    assert!(resp.contains("\"additions\":1"), "line counts missing: {resp}");
+    assert!(
+        resp.contains("\"additions\":1"),
+        "line counts missing: {resp}"
+    );
 
     // Unknown repository or commit -> 404.
     let bad_repo = format!("{{\"repo\": \"/nowhere\", \"id\": {head:?}}}");
     let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/commit", &bad_repo))
         .await
         .unwrap();
-    assert!(resp.contains("404"), "expected 404 for unknown repo: {resp}");
-
-    let bad_commit = format!(
-        "{{\"repo\": {repo_id:?}, \"id\": \"0000000000000000000000000000000000000000\"}}"
+    assert!(
+        resp.contains("404"),
+        "expected 404 for unknown repo: {resp}"
     );
+
+    let bad_commit =
+        format!("{{\"repo\": {repo_id:?}, \"id\": \"0000000000000000000000000000000000000000\"}}");
     let resp =
         tokio::task::spawn_blocking(move || http_post_json(port, "/api/commit", &bad_commit))
             .await
             .unwrap();
-    assert!(resp.contains("404"), "expected 404 for unknown commit: {resp}");
+    assert!(
+        resp.contains("404"),
+        "expected 404 for unknown commit: {resp}"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -225,7 +246,9 @@ async fn diff_endpoint_returns_unified_hunks() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new())).await.unwrap();
+        serve(listener, AppState::new(Session::new()))
+            .await
+            .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -249,8 +272,7 @@ async fn diff_endpoint_returns_unified_hunks() {
     let repo_id = Session::new().add(dir).unwrap().0;
     let head = gitreant::git::read_repo(dir).unwrap().commits[0].id.clone();
 
-    let request =
-        format!("{{\"repo\": {repo_id:?}, \"id\": {head:?}, \"path\": \"notes.txt\"}}");
+    let request = format!("{{\"repo\": {repo_id:?}, \"id\": {head:?}, \"path\": \"notes.txt\"}}");
     let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/diff", &request))
         .await
         .unwrap();
@@ -263,7 +285,10 @@ async fn diff_endpoint_returns_unified_hunks() {
     let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/diff", &bad))
         .await
         .unwrap();
-    assert!(resp.contains("404"), "expected 404 for unknown path: {resp}");
+    assert!(
+        resp.contains("404"),
+        "expected 404 for unknown path: {resp}"
+    );
 
     // The whole-commit diff returns every changed file with its hunks.
     let request = format!("{{\"repo\": {repo_id:?}, \"id\": {head:?}}}");
@@ -306,7 +331,9 @@ async fn fetch_endpoint_updates_remote_refs() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new())).await.unwrap();
+        serve(listener, AppState::new(Session::new()))
+            .await
+            .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -328,11 +355,17 @@ async fn fetch_endpoint_updates_remote_refs() {
         .expect("add clone");
 
     // A commit lands on the origin after the clone.
-    run(&origin, &["commit", "--allow-empty", "-q", "-m", "after-clone"]);
+    run(
+        &origin,
+        &["commit", "--allow-empty", "-q", "-m", "after-clone"],
+    );
     let before = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
         .await
         .unwrap();
-    assert!(!before.contains("after-clone"), "must not appear before fetch");
+    assert!(
+        !before.contains("after-clone"),
+        "must not appear before fetch"
+    );
 
     let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/fetch", "{}"))
         .await
@@ -344,7 +377,10 @@ async fn fetch_endpoint_updates_remote_refs() {
     let after = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
         .await
         .unwrap();
-    assert!(after.contains("after-clone"), "fetched commit missing: {after}");
+    assert!(
+        after.contains("after-clone"),
+        "fetched commit missing: {after}"
+    );
 
     // Tags known on the origin carry the remote marker; local-only ones
     // not. Inspect each ref object up to its closing brace.
@@ -369,7 +405,10 @@ async fn fetch_endpoint_updates_remote_refs() {
     let log = tokio::task::spawn_blocking(move || http_get(port, "/api/log"))
         .await
         .unwrap();
-    assert!(log.contains("fetch --all --prune"), "command missing: {log}");
+    assert!(
+        log.contains("fetch --all --prune"),
+        "command missing: {log}"
+    );
     assert!(log.contains("ls-remote --tags"), "ls-remote missing: {log}");
     assert!(log.contains("\"ok\":true"), "success flag missing: {log}");
 }
@@ -381,15 +420,26 @@ async fn fetch_endpoint_reports_per_repo_errors() {
     init_repo_with_commit(dir);
     // A remote that cannot be reached makes this repository's fetch fail.
     let run = |args: &[&str]| {
-        let status = Command::new("git").current_dir(dir).args(args).status().unwrap();
+        let status = Command::new("git")
+            .current_dir(dir)
+            .args(args)
+            .status()
+            .unwrap();
         assert!(status.success(), "git {args:?} failed");
     };
-    run(&["remote", "add", "origin", "definitely/missing/gitreant-remote"]);
+    run(&[
+        "remote",
+        "add",
+        "origin",
+        "definitely/missing/gitreant-remote",
+    ]);
 
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new())).await.unwrap();
+        serve(listener, AppState::new(Session::new()))
+            .await
+            .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -453,7 +503,9 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new())).await.unwrap();
+        serve(listener, AppState::new(Session::new()))
+            .await
+            .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -499,7 +551,11 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
     );
 
     // Merging main into topic adds a merge commit (3 commits -> 4).
-    assert_eq!(repos.matches("\"summary\"").count(), 3, "precondition: {repos}");
+    assert_eq!(
+        repos.matches("\"summary\"").count(),
+        3,
+        "precondition: {repos}"
+    );
     let body = format!("{{\"repo\":{id:?},\"reference\":\"main\"}}");
     let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/merge", &body))
         .await
@@ -519,9 +575,16 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
         .await
         .unwrap();
     assert!(log.contains("switch topic"), "checkout not logged: {log}");
-    assert!(log.contains("merge --no-edit main"), "merge not logged: {log}");
+    assert!(
+        log.contains("merge --no-edit main"),
+        "merge not logged: {log}"
+    );
     let resp = tokio::task::spawn_blocking(move || {
-        http_post_json(port, "/api/checkout", "{\"repo\":\"nope\",\"reference\":\"x\"}")
+        http_post_json(
+            port,
+            "/api/checkout",
+            "{\"repo\":\"nope\",\"reference\":\"x\"}",
+        )
     })
     .await
     .unwrap();
@@ -536,7 +599,9 @@ async fn branch_create_endpoint_adds_a_branch_without_checkout() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new())).await.unwrap();
+        serve(listener, AppState::new(Session::new()))
+            .await
+            .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -556,7 +621,9 @@ async fn branch_create_endpoint_adds_a_branch_without_checkout() {
         .await
         .unwrap()
         .expect("add repo");
-    let id = gitreant::app::canonical(tmp.path()).to_string_lossy().into_owned();
+    let id = gitreant::app::canonical(tmp.path())
+        .to_string_lossy()
+        .into_owned();
 
     let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
         .await
@@ -597,7 +664,9 @@ async fn tag_endpoints_create_and_delete_tags() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new())).await.unwrap();
+        serve(listener, AppState::new(Session::new()))
+            .await
+            .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -617,7 +686,9 @@ async fn tag_endpoints_create_and_delete_tags() {
         .await
         .unwrap()
         .expect("add repo");
-    let id = gitreant::app::canonical(tmp.path()).to_string_lossy().into_owned();
+    let id = gitreant::app::canonical(tmp.path())
+        .to_string_lossy()
+        .into_owned();
 
     // Tag the head commit; the ref shows up with kind "tag".
     let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
@@ -638,15 +709,17 @@ async fn tag_endpoints_create_and_delete_tags() {
         .await
         .unwrap();
     assert!(repos.contains("\"v9.9\""), "tag missing: {repos}");
-    assert!(repos.contains("\"kind\":\"tag\""), "tag kind missing: {repos}");
+    assert!(
+        repos.contains("\"kind\":\"tag\""),
+        "tag kind missing: {repos}"
+    );
 
     // Delete it again.
     let body = format!("{{\"repo\":{id:?},\"name\":\"v9.9\"}}");
-    let resp = tokio::task::spawn_blocking(move || {
-        http_request_json(port, "DELETE", "/api/tag", &body)
-    })
-    .await
-    .unwrap();
+    let resp =
+        tokio::task::spawn_blocking(move || http_request_json(port, "DELETE", "/api/tag", &body))
+            .await
+            .unwrap();
     assert!(resp.contains("200 OK"), "response: {resp}");
     let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
         .await
@@ -660,7 +733,11 @@ async fn tag_endpoints_create_and_delete_tags() {
     assert!(log.contains("tag v9.9"), "create not logged: {log}");
     assert!(log.contains("tag -d v9.9"), "delete not logged: {log}");
     let resp = tokio::task::spawn_blocking(move || {
-        http_post_json(port, "/api/tag", "{\"repo\":\"nope\",\"name\":\"x\",\"commit\":\"y\"}")
+        http_post_json(
+            port,
+            "/api/tag",
+            "{\"repo\":\"nope\",\"name\":\"x\",\"commit\":\"y\"}",
+        )
     })
     .await
     .unwrap();
@@ -675,7 +752,9 @@ async fn prs_endpoint_answers_empty_without_github_and_404_for_unknown_repos() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new())).await.unwrap();
+        serve(listener, AppState::new(Session::new()))
+            .await
+            .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -698,7 +777,9 @@ async fn prs_endpoint_answers_empty_without_github_and_404_for_unknown_repos() {
 
     // No GitHub remote (and possibly no gh at all): the lookup degrades to an
     // empty PR list either way.
-    let id = gitreant::app::canonical(tmp.path()).to_string_lossy().into_owned();
+    let id = gitreant::app::canonical(tmp.path())
+        .to_string_lossy()
+        .into_owned();
     let body = format!("{{\"repo\":{id:?}}}");
     let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/prs", &body))
         .await
