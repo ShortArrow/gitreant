@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { pickFolder, type RepoView } from "./api";
+import { ContextMenu } from "./ContextMenu";
 import { AddIcon, BrowseIcon, CollapseIcon, ExpandIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { ResizeHandle, useStoredWidth } from "./Resizer";
@@ -11,6 +12,8 @@ interface DrawerProps {
   collapsed: boolean;
   onToggle: () => void;
   onSelect: (id: string) => void;
+  /** Open the repository in the right pane (ADR 0022). */
+  onOpenRight: (id: string) => void;
   onRemove: (id: string) => void;
   onAdd: (path: string) => Promise<void>;
 }
@@ -21,6 +24,7 @@ export function Drawer({
   collapsed,
   onToggle,
   onSelect,
+  onOpenRight,
   onRemove,
   onAdd,
 }: DrawerProps) {
@@ -28,6 +32,9 @@ export function Drawer({
   const [path, setPath] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(
+    null,
+  );
   const [width, setWidth] = useStoredWidth("gitreant-drawer-width", 260, 180, 480);
 
   const runAdd = async (value: string) => {
@@ -120,6 +127,10 @@ export function Drawer({
             data-testid="repo-item"
             data-repo-name={repo.name}
             onClick={() => onSelect(repo.id)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setMenu({ x: e.clientX, y: e.clientY, id: repo.id });
+            }}
           >
             <span className="repo-item-name">{repo.name}</span>
             <span className="repo-item-path" title={repo.path}>
@@ -143,6 +154,21 @@ export function Drawer({
           <li className="repo-empty">{t("noRepositories")}</li>
         )}
       </ul>
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={[
+            {
+              id: "drawer-open-right",
+              label: t("openRightPane"),
+              run: () => onOpenRight(menu.id),
+            },
+          ]}
+          onClose={() => setMenu(null)}
+        />
+      )}
 
       <ResizeHandle
         width={width}

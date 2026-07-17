@@ -9,10 +9,12 @@ import {
   type RepoView,
 } from "./api";
 import { CommandPalette } from "./CommandPalette";
+import { ContextMenu } from "./ContextMenu";
 import { Drawer } from "./Drawer";
 import { FetchIcon, LogIcon, ReloadIcon, SettingsIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { LogPane } from "./LogPane";
+import * as paneModel from "./paneModel";
 import {
   CommandRegistryContext,
   useCommandRegistry,
@@ -41,8 +43,9 @@ export function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
-  const [openTabs, setOpenTabs] = useState<string[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  // Which repository is open in which pane (ADR 0022). All transitions
+  // live in paneModel; this component just dispatches them.
+  const [layout, setLayout] = useState(paneModel.emptyLayout);
 
   // Concurrent updates (initial load, SSE refreshes, add/remove) can resolve out
   // of order. A monotonic sequence marks the newest state; older results that
@@ -80,14 +83,8 @@ export function App() {
   // Keep tabs/selection consistent when the repo set changes.
   useEffect(() => {
     const ids = new Set(repos.map((r) => r.id));
-    setOpenTabs((prev) => prev.filter((id) => ids.has(id)));
+    setLayout((prev) => paneModel.retainRepos(prev, ids));
   }, [repos]);
-
-  useEffect(() => {
-    if (activeId && !openTabs.includes(activeId)) {
-      setActiveId(openTabs[openTabs.length - 1] ?? null);
-    }
-  }, [openTabs, activeId]);
 
   const repoById = useMemo(
     () => new Map(repos.map((r) => [r.id, r])),
@@ -95,13 +92,24 @@ export function App() {
   );
 
   const openTab = useCallback((id: string) => {
-    setOpenTabs((prev) => (prev.includes(id) ? prev : [...prev, id]));
-    setActiveId(id);
+    setLayout((prev) => paneModel.openTab(prev, id));
+  }, []);
+
+  const openRight = useCallback((id: string) => {
+    setLayout((prev) => paneModel.moveTab(prev, id, 1));
   }, []);
 
   const closeTab = useCallback((id: string) => {
-    setOpenTabs((prev) => prev.filter((t) => t !== id));
+    setLayout((prev) => paneModel.closeTab(prev, id));
   }, []);
+
+  // Which tab's context menu is open, and in which pane it lives.
+  const [tabMenu, setTabMenu] = useState<{
+    x: number;
+    y: number;
+    id: string;
+    pane: number;
+  } | null>(null);
 
   // UI interactions shown back to the user in the log pane. Client-side only:
   // the server's command log stays a record of executed external commands.
@@ -171,7 +179,7 @@ export function App() {
     [logEntries, actions],
   );
 
-  const activeRepo = activeId ? repoById.get(activeId) : undefined;
+  const focusedActiveId = layout.panes[layout.focused]?.activeId ?? null;
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [buttonStyle, setButtonStyle] = useState<ButtonStyle>(storedButtonStyle);
@@ -283,10 +291,15 @@ export function App() {
           title: format(m.cmdOpenRepo, { name: repo.name }),
           run: () => openTab(repo.id),
         })),
+        ...repos.map((repo) => ({
+          id: `open-right:${repo.id}`,
+          title: format(m.cmdOpenRepoRight, { name: repo.name }),
+          run: () => openRight(repo.id),
+        })),
       ];
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setters are stable
-    [repos, collapsed, lang, runFetch, reload, recordAction, openTab],
+    [repos, collapsed, lang, runFetch, reload, recordAction, openTab, openRight],
   );
   useEffect(
     () => registry.register(globalCommands),
@@ -299,45 +312,18 @@ export function App() {
     <div className={`layout${collapsed ? " layout-collapsed" : ""}`}>
       <Drawer
         repos={repos}
-        activeId={activeId}
+        activeId={focusedActiveId}
         collapsed={collapsed}
         onToggle={() => setCollapsed((c) => !c)}
         onSelect={openTab}
+        onOpenRight={openRight}
         onRemove={handleRemove}
         onAdd={handleAdd}
       />
 
       <main className="main">
         <div className="topbar">
-          <div className="tabbar">
-          {openTabs.map((id) => {
-            const repo = repoById.get(id);
-            if (!repo) return null;
-            return (
-              <div
-                key={id}
-                className={`tab${id === activeId ? " active" : ""}`}
-                data-testid="tab"
-                data-tab-name={repo.name}
-                onClick={() => setActiveId(id)}
-              >
-                <span className="tab-name">{repo.name}</span>
-                <button
-                  className="tab-close"
-                  title={t("closeTab")}
-                  data-testid="tab-close"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    closeTab(id);
-                  }}
-                  type="button"
-                >
-                  ×
-                </button>
-              </div>
-            );
-          })}
-          </div>
+          <div className="topbar-spacer" />
           <LabeledButton
             icon={<FetchIcon />}
             label={t("fetch")}
@@ -466,14 +452,108 @@ export function App() {
           <p className="app-error">{loadError ?? fetchError}</p>
         )}
 
-        <div className="pane">
-          {activeRepo ? (
-            <RepoCard key={activeRepo.id} repo={activeRepo} />
-          ) : (
-            <div className="pane-empty" data-testid="pane-empty">
-              {t("emptyPane")}
-            </div>
-          )}
+        {tabMenu && (
+          <ContextMenu
+            x={tabMenu.x}
+            y={tabMenu.y}
+            items={
+              tabMenu.pane === 0
+                ? [
+                    {
+                      id: "tab-open-right",
+                      label: t("openRightPane"),
+                      run: () => openRight(tabMenu.id),
+                    },
+                  ]
+                : [
+                    {
+                      id: "tab-move-left",
+                      label: t("moveLeftPane"),
+                      run: () =>
+                        setLayout((prev) =>
+                          paneModel.moveTab(prev, tabMenu.id, 0),
+                        ),
+                    },
+                  ]
+            }
+            onClose={() => setTabMenu(null)}
+          />
+        )}
+
+        <div className="panes">
+          {layout.panes.map((pane, index) => {
+            const repo = pane.activeId
+              ? repoById.get(pane.activeId)
+              : undefined;
+            return (
+              <section
+                key={index}
+                className={`pane-slot${
+                  index === layout.focused ? " pane-focused" : ""
+                }`}
+                data-testid="pane-slot"
+                onMouseDownCapture={() =>
+                  setLayout((prev) => paneModel.focusPane(prev, index))
+                }
+              >
+                {pane.tabs.length > 0 && (
+                  <div className="tabbar">
+                    {pane.tabs.map((id) => {
+                      const tabRepo = repoById.get(id);
+                      if (!tabRepo) return null;
+                      return (
+                        <div
+                          key={id}
+                          className={`tab${
+                            id === pane.activeId ? " active" : ""
+                          }`}
+                          data-testid="tab"
+                          data-tab-name={tabRepo.name}
+                          onClick={() => openTab(id)}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setTabMenu({
+                              x: e.clientX,
+                              y: e.clientY,
+                              id,
+                              pane: index,
+                            });
+                          }}
+                        >
+                          <span className="tab-name">{tabRepo.name}</span>
+                          <button
+                            className="tab-close"
+                            title={t("closeTab")}
+                            data-testid="tab-close"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              closeTab(id);
+                            }}
+                            type="button"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="pane">
+                  {repo ? (
+                    <RepoCard
+                      key={repo.id}
+                      repo={repo}
+                      focused={index === layout.focused}
+                    />
+                  ) : (
+                    <div className="pane-empty" data-testid="pane-empty">
+                      {t("emptyPane")}
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          })}
         </div>
 
         {logOpen && <LogPane items={logItems} />}

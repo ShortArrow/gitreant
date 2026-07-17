@@ -464,8 +464,35 @@ body {
 }
 
 /* ---- Tabs ---- */
-.tabbar {
+.topbar-spacer {
   flex: 1 1 auto;
+}
+
+/* ---- Panes (ADR 0022): side-by-side slots, each with its own tabs ---- */
+.panes {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.pane-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pane-slot + .pane-slot {
+  border-left: 1px solid var(--border);
+}
+
+/* The focused pane is where drawer clicks and repo commands land. */
+.pane-focused .tab.active {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.tabbar {
+  flex: none;
   min-width: 0;
   display: flex;
   align-items: stretch;
@@ -473,6 +500,7 @@ body {
   padding: 6px 8px 0;
   overflow-x: auto;
   min-height: 38px;
+  border-bottom: 1px solid var(--border);
 }
 
 .tab {

@@ -27,6 +27,7 @@ export const Default: Story = {
           collapsed={collapsed}
           onToggle={() => setCollapsed((c) => !c)}
           onSelect={setActiveId}
+          onOpenRight={(id) => console.log("open right", id)}
           onRemove={(id) => console.log("remove", id)}
           onAdd={async (path) => console.log("add", path)}
         />
@@ -42,6 +43,7 @@ export const Collapsed: Story = {
     collapsed: true,
     onToggle: () => {},
     onSelect: () => {},
+    onOpenRight: () => {},
     onRemove: () => {},
     onAdd: async () => {},
   },
@@ -54,6 +56,7 @@ export const Empty: Story = {
     collapsed: false,
     onToggle: () => {},
     onSelect: () => {},
+    onOpenRight: () => {},
     onRemove: () => {},
     onAdd: async () => {},
   },

@@ -561,6 +561,78 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("commit-detail")).toHaveCount(0);
   });
 
+  test("a tab moves to the right pane and back via its context menu", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page.locator('[data-repo-name="repoB"]').click();
+
+    await page.locator('[data-tab-name="repoB"]').click({ button: "right" });
+    await page.getByTestId("tab-open-right").click();
+    const slots = page.getByTestId("pane-slot");
+    await expect(slots).toHaveCount(2);
+    await expect(slots.nth(0).locator(".repo-header h2")).toHaveText("repoA");
+    await expect(slots.nth(1).locator(".repo-header h2")).toHaveText("repoB");
+
+    // Moving it back to the left collapses the split.
+    await page.locator('[data-tab-name="repoB"]').click({ button: "right" });
+    await page.getByTestId("tab-move-left").click();
+    await expect(slots).toHaveCount(1);
+    await expect(page.locator(".repo-header h2")).toHaveText("repoB");
+  });
+
+  test("the drawer and the palette open a repository in the right pane", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+
+    await page.locator('[data-repo-name="repoB"]').click({ button: "right" });
+    await page.getByTestId("drawer-open-right").click();
+    const slots = page.getByTestId("pane-slot");
+    await expect(slots).toHaveCount(2);
+    await expect(slots.nth(1).locator(".repo-header h2")).toHaveText("repoB");
+
+    // Closing the right pane's last tab collapses the split.
+    await slots.nth(1).getByTestId("tab-close").click();
+    await expect(slots).toHaveCount(1);
+
+    // The palette route does the same.
+    await page.keyboard.press("Control+k");
+    await page.getByTestId("palette-input").fill("right pane");
+    await page
+      .getByTestId("palette-item")
+      .filter({ hasText: "repoB" })
+      .click();
+    await expect(slots).toHaveCount(2);
+    await expect(slots.nth(1).locator(".repo-header h2")).toHaveText("repoB");
+  });
+
+  test("repository commands come from the focused pane", async ({ page }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page.locator('[data-repo-name="repoB"]').click({ button: "right" });
+    await page.getByTestId("drawer-open-right").click();
+    const slots = page.getByTestId("pane-slot");
+    await expect(slots).toHaveCount(2);
+
+    // The freshly split right pane (repoB) holds the focus: the palette
+    // offers its branch, not repoA's.
+    await page.keyboard.press("Control+k");
+    await page.getByTestId("palette-input").fill("checkout");
+    await expect(page.getByTestId("palette-item")).toHaveText([
+      "Checkout branch: topic",
+    ]);
+    await page.keyboard.press("Escape");
+
+    // Clicking into the left pane moves the focus and swaps the commands.
+    await slots.nth(0).getByTestId("tab").click();
+    await page.keyboard.press("Control+k");
+    await page.getByTestId("palette-input").fill("checkout");
+    await expect(page.getByTestId("palette-item")).toHaveText([
+      "Checkout branch: feature",
+    ]);
+    await page.keyboard.press("Escape");
+  });
+
   test("theme toggle flips the document theme", async ({ page }) => {
     const html = page.locator("html");
     const before = await html.getAttribute("data-theme");
@@ -906,9 +978,10 @@ test.describe.serial("gitreant UI", () => {
     const palette = page.getByTestId("command-palette");
     await expect(palette).toBeVisible();
 
-    // Typing filters; Enter runs the first match.
+    // Typing filters; Enter runs the first match ("Open repository",
+    // ahead of "Open in right pane").
     await page.getByTestId("palette-input").fill("repoB");
-    await expect(page.getByTestId("palette-item")).toHaveCount(1);
+    await expect(page.getByTestId("palette-item")).toHaveCount(2);
     await page.keyboard.press("Enter");
     await expect(palette).toHaveCount(0);
     await expect(page.locator('[data-tab-name="repoB"]')).toBeVisible();

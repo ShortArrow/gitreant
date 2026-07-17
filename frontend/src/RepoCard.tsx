@@ -86,14 +86,19 @@ export function signatureBadge(verified?: boolean): {
   };
 }
 
+const NO_COMMANDS: PaletteCommand[] = [];
+
 export function RepoCard({
   repo,
+  focused = true,
   loadDetail = fetchCommitDetail,
   loadDiff = fetchFileDiff,
   loadCommitDiff = fetchCommitDiff,
   loadPrs = fetchPrs,
 }: {
   repo: RepoView;
+  /** Only the focused pane's card feeds the command palette (ADR 0022). */
+  focused?: boolean;
   /** Injectable for Storybook; defaults to the real API. */
   loadDetail?: (repoId: string, commitId: string) => Promise<CommitDetail>;
   loadDiff?: (
@@ -173,7 +178,7 @@ export function RepoCard({
         })),
     [repo.id, repo.refs, repo.head_branch, lang, runBranchOp],
   );
-  useCommands(branchCommands);
+  useCommands(focused ? branchCommands : NO_COMMANDS);
 
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<CommitDetail | null>(null);
