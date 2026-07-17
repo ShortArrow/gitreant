@@ -561,6 +561,11 @@ body {
   animation: repo-pending-pulse 1.2s ease-in-out infinite;
 }
 
+.repo-item-analyzing {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 @keyframes repo-pending-pulse {
   0%,
   100% {

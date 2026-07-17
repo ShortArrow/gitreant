@@ -49,6 +49,22 @@ export const Collapsed: Story = {
   },
 };
 
+/** The server is mid-read on the first repository: it pulses with an
+ * "Analyzing…" note until the read finishes. */
+export const AnalyzingRepo: Story = {
+  args: {
+    repos,
+    activeId: repos[0].id,
+    analyzing: repos[0].id,
+    collapsed: false,
+    onToggle: () => {},
+    onSelect: () => {},
+    onOpenRight: () => {},
+    onRemove: () => {},
+    onAdd: async () => {},
+  },
+};
+
 export const Empty: Story = {
   args: {
     repos: [],

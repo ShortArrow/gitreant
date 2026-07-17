@@ -726,6 +726,35 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-repo-name="repoC"]')).toHaveCount(0);
   });
 
+  test("the drawer marks the repository the server is analyzing", async ({
+    page,
+  }) => {
+    // Fixture repos read instantly, so the real SSE stream never keeps an
+    // analyzing phase open long enough to observe; serve a synthetic one.
+    const repos = (await (await page.request.get("/api/repos")).json()) as {
+      id: string;
+    }[];
+    await page.route("**/api/events", (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+        body: `event: analyzing\ndata: ${repos[0].id}\n\n`,
+      }),
+    );
+    await page.reload();
+
+    const item = page.locator('[data-repo-name="repoA"]');
+    await expect(item.getByTestId("repo-analyzing")).toBeVisible();
+    await expect(item).toHaveClass(/repo-pending/);
+    await expect(item.getByTestId("repo-analyzing")).toContainText(
+      "Analyzing",
+    );
+    // The other repository stays untouched.
+    await expect(
+      page.locator('[data-repo-name="repoB"]').getByTestId("repo-analyzing"),
+    ).toHaveCount(0);
+  });
+
   test("the page updates live when another client changes the repo set", async ({
     page,
   }) => {

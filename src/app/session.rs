@@ -77,19 +77,32 @@ impl Session {
     /// returns the external commands run along the way (signature
     /// verification), for the server's command log.
     pub fn views(&mut self) -> (Vec<RepoView>, Vec<ExecutedCommand>) {
+        self.views_with_progress(|_| {})
+    }
+
+    /// Like [`views`](Self::views), reporting each repository just before
+    /// its (potentially slow) read starts, so the server can tell clients
+    /// what it is analyzing.
+    pub fn views_with_progress(
+        &mut self,
+        mut progress: impl FnMut(&Path),
+    ) -> (Vec<RepoView>, Vec<ExecutedCommand>) {
         let mut executed = Vec::new();
         let views = self
             .paths
             .clone()
             .iter()
-            .map(|path| match read_repo(path) {
-                Ok(mut data) => {
-                    if let Some(command) = self.annotate_verification(path, &mut data) {
-                        executed.push(command);
+            .map(|path| {
+                progress(path);
+                match read_repo(path) {
+                    Ok(mut data) => {
+                        if let Some(command) = self.annotate_verification(path, &mut data) {
+                            executed.push(command);
+                        }
+                        build_view(path, &data)
                     }
-                    build_view(path, &data)
+                    Err(message) => RepoView::error(path, message),
                 }
-                Err(message) => RepoView::error(path, message),
             })
             .collect();
         (views, executed)
@@ -232,6 +245,22 @@ mod tests {
             strip_verbatim(PathBuf::from("/plain/path")),
             PathBuf::from("/plain/path")
         );
+    }
+
+    #[test]
+    fn views_report_each_repository_before_reading_it() {
+        let a = tempfile::tempdir().unwrap();
+        let b = tempfile::tempdir().unwrap();
+        init_repo(a.path());
+        init_repo(b.path());
+
+        let mut session = Session::new();
+        session.add(a.path()).unwrap();
+        session.add(b.path()).unwrap();
+
+        let mut reported = Vec::new();
+        session.views_with_progress(|path| reported.push(path.to_path_buf()));
+        assert_eq!(reported, session.paths().to_vec());
     }
 
     #[test]

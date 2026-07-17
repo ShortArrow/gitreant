@@ -12,6 +12,8 @@ interface DrawerProps {
   collapsed: boolean;
   /** A path whose analysis is still running server-side, if any. */
   pending?: string | null;
+  /** The repository id a slow server-side read is working on, if any. */
+  analyzing?: string | null;
   /** False until the first repository list arrived. */
   loaded?: boolean;
   onToggle: () => void;
@@ -27,6 +29,7 @@ export function Drawer({
   activeId,
   collapsed,
   pending = null,
+  analyzing = null,
   loaded = true,
   onToggle,
   onSelect,
@@ -129,7 +132,9 @@ export function Drawer({
         {repos.map((repo) => (
           <li
             key={repo.id}
-            className={`repo-item${repo.id === activeId ? " active" : ""}`}
+            className={`repo-item${repo.id === activeId ? " active" : ""}${
+              repo.id === analyzing ? " repo-pending" : ""
+            }`}
             data-testid="repo-item"
             data-repo-name={repo.name}
             onClick={() => onSelect(repo.id)}
@@ -138,7 +143,18 @@ export function Drawer({
               setMenu({ x: e.clientX, y: e.clientY, id: repo.id });
             }}
           >
-            <span className="repo-item-name">{repo.name}</span>
+            <span className="repo-item-name">
+              {repo.name}
+              {repo.id === analyzing && (
+                <span
+                  className="repo-item-analyzing"
+                  data-testid="repo-analyzing"
+                >
+                  {" "}
+                  {t("analyzing")}
+                </span>
+              )}
+            </span>
             <span className="repo-item-path" title={repo.path}>
               {repo.path}
             </span>
@@ -166,7 +182,11 @@ export function Drawer({
         )}
         {repos.length === 0 && !pending && (
           <li className="repo-empty">
-            {loaded ? t("noRepositories") : t("loadingRepos")}
+            {loaded
+              ? t("noRepositories")
+              : analyzing
+                ? t("analyzingRepo", { path: analyzing })
+                : t("loadingRepos")}
           </li>
         )}
       </ul>

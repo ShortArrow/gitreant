@@ -47,11 +47,22 @@ struct PrLookup {
     merged: Vec<crate::git::MergedPullRequest>,
 }
 
+/// What the server broadcasts to SSE listeners.
+#[derive(Clone, Debug)]
+enum ServerEvent {
+    /// The repository set or contents changed; clients should reload.
+    Update,
+    /// A (potentially slow) read of this repository id just started.
+    Analyzing(String),
+    /// The current view read finished; any analyzing indicator can clear.
+    Analyzed,
+}
+
 /// Shared, cloneable server state.
 #[derive(Clone)]
 pub struct AppState {
     session: Arc<Mutex<Session>>,
-    updates: broadcast::Sender<()>,
+    updates: broadcast::Sender<ServerEvent>,
     shutdown: watch::Sender<bool>,
     command_log: Arc<Mutex<VecDeque<CommandLogEntry>>>,
     pr_cache: Arc<Mutex<HashMap<String, (Instant, PrLookup)>>>,
@@ -103,8 +114,19 @@ impl AppState {
 
     /// Read every repository view, logging any external commands the read ran
     /// (signature verification) and marking tags known to exist on origin.
+    /// Streams per-repository progress to SSE listeners so the UI can show
+    /// what is being analyzed while a slow repository loads.
     fn views(&self) -> Vec<RepoView> {
-        let (mut views, executed) = self.session.lock().expect("session mutex").views();
+        let (mut views, executed) = self
+            .session
+            .lock()
+            .expect("session mutex")
+            .views_with_progress(|path| {
+                let _ = self
+                    .updates
+                    .send(ServerEvent::Analyzing(path.to_string_lossy().into_owned()));
+            });
+        let _ = self.updates.send(ServerEvent::Analyzed);
         for command in executed {
             self.push_log(CommandLogEntry {
                 time: epoch_now(),
@@ -138,7 +160,7 @@ impl AppState {
             .expect("session mutex")
             .add(&PathBuf::from(path))?;
         if added {
-            let _ = self.updates.send(());
+            let _ = self.updates.send(ServerEvent::Update);
         }
         Ok((id, added))
     }
@@ -147,7 +169,7 @@ impl AppState {
     fn remove_repo(&self, id: &str) -> bool {
         let removed = self.session.lock().expect("session mutex").remove(id);
         if removed {
-            let _ = self.updates.send(());
+            let _ = self.updates.send(ServerEvent::Update);
         }
         removed
     }
@@ -392,7 +414,7 @@ async fn fetch_remotes(State(state): State<AppState>) -> Json<FetchResponse> {
     })
     .await
     .unwrap_or_default();
-    let _ = state.updates.send(());
+    let _ = state.updates.send(ServerEvent::Update);
     Json(FetchResponse { errors })
 }
 
@@ -439,7 +461,7 @@ async fn branch_op(
     })
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let _ = state.updates.send(());
+    let _ = state.updates.send(ServerEvent::Update);
     Ok(Json(BranchOpResponse {
         ok: result.is_ok(),
         message: result.err().unwrap_or_default(),
@@ -502,7 +524,7 @@ async fn create_tag(
     })
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let _ = state.updates.send(());
+    let _ = state.updates.send(ServerEvent::Update);
     Ok(Json(BranchOpResponse {
         ok: result.is_ok(),
         message: result.err().unwrap_or_default(),
@@ -535,7 +557,7 @@ async fn create_branch(
     })
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let _ = state.updates.send(());
+    let _ = state.updates.send(ServerEvent::Update);
     Ok(Json(BranchOpResponse {
         ok: result.is_ok(),
         message: result.err().unwrap_or_default(),
@@ -574,7 +596,7 @@ async fn delete_tag(
     })
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let _ = state.updates.send(());
+    let _ = state.updates.send(ServerEvent::Update);
     Ok(Json(BranchOpResponse {
         ok: result.is_ok(),
         message: result.err().unwrap_or_default(),
@@ -700,7 +722,15 @@ async fn shutdown(State(state): State<AppState>) -> &'static str {
 async fn events(
     State(state): State<AppState>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let stream = BroadcastStream::new(state.updates.subscribe())
-        .map(|_| Ok(Event::default().event("update").data("changed")));
+    let stream = BroadcastStream::new(state.updates.subscribe()).map(|event| {
+        Ok(match event {
+            // A lagged receiver missed events; a reload resyncs it.
+            Ok(ServerEvent::Update) | Err(_) => {
+                Event::default().event("update").data("changed")
+            }
+            Ok(ServerEvent::Analyzing(id)) => Event::default().event("analyzing").data(id),
+            Ok(ServerEvent::Analyzed) => Event::default().event("analyzed").data("done"),
+        })
+    });
     Sse::new(stream).keep_alive(KeepAlive::default())
 }

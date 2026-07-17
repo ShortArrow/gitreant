@@ -78,11 +78,29 @@ export function App() {
     }
   }, []);
 
+  // The repository id a slow server-side read is currently working on.
+  const [analyzing, setAnalyzing] = useState<string | null>(null);
+
   useEffect(() => {
     reload();
     const events = new EventSource("/api/events");
     events.addEventListener("update", () => reload());
-    return () => events.close();
+    // Routine reads finish in milliseconds; only a read still running
+    // after 300ms surfaces, so the indicator never flickers.
+    let timer: number | undefined;
+    events.addEventListener("analyzing", (e) => {
+      window.clearTimeout(timer);
+      const id = (e as MessageEvent<string>).data;
+      timer = window.setTimeout(() => setAnalyzing(id), 300);
+    });
+    events.addEventListener("analyzed", () => {
+      window.clearTimeout(timer);
+      setAnalyzing(null);
+    });
+    return () => {
+      window.clearTimeout(timer);
+      events.close();
+    };
   }, [reload]);
 
   // Keep tabs/selection consistent when the repo set changes.
@@ -328,6 +346,7 @@ export function App() {
         activeId={focusedActiveId}
         collapsed={collapsed}
         pending={pendingAdd}
+        analyzing={analyzing}
         loaded={loaded}
         onToggle={() => setCollapsed((c) => !c)}
         onSelect={openTab}
