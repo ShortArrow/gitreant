@@ -132,6 +132,99 @@ async fn ping_add_dedupe_and_serve_spa() {
     );
 }
 
+/// The SSE contract the SPA's analyzing indicator relies on: each view
+/// read streams `analyzing` events whose JSON payload names the repo and
+/// its position, then an `analyzed` terminator; a re-read carries the
+/// previous commit count as `expected` (the percentage denominator).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn analyzing_progress_streams_over_sse() {
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    let mut session = Session::new();
+    session.add(tmp.path()).unwrap();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(session)).await.unwrap();
+    });
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    let stream_text = tokio::task::spawn_blocking(move || {
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_millis(200)))
+            .unwrap();
+        write!(
+            stream,
+            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/event-stream\r\n\r\n"
+        )
+        .unwrap();
+        // Give the subscription a moment to register before triggering
+        // the reads whose progress it must observe.
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        http_get(port, "/api/repos");
+        http_get(port, "/api/repos");
+
+        let mut buf = Vec::new();
+        let mut chunk = [0u8; 4096];
+        let start = std::time::Instant::now();
+        while start.elapsed() < std::time::Duration::from_secs(10) {
+            match stream.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                Err(_) => {}
+            }
+            if String::from_utf8_lossy(&buf)
+                .matches("event: analyzed")
+                .count()
+                >= 2
+            {
+                break;
+            }
+        }
+        String::from_utf8_lossy(&buf).into_owned()
+    })
+    .await
+    .unwrap();
+
+    let payload = |segment: &str| -> serde_json::Value {
+        let start = segment
+            .find("event: analyzing")
+            .unwrap_or_else(|| panic!("no analyzing event in {segment:?}"));
+        let data = segment[start..]
+            .lines()
+            .find_map(|line| line.strip_prefix("data: "))
+            .expect("analyzing data line");
+        serde_json::from_str(data).expect("analyzing payload is JSON")
+    };
+
+    // First read: position 1/1, counter at the start, no baseline yet.
+    let reads: Vec<&str> = stream_text.split("event: analyzed").collect();
+    assert!(reads.len() >= 3, "expected two reads in {stream_text:?}");
+    let first = payload(reads[0]);
+    assert!(!first["id"].as_str().unwrap_or_default().is_empty());
+    assert_eq!(first["index"], 1);
+    assert_eq!(first["total"], 1);
+    assert_eq!(first["commits"], 0);
+    assert!(first["expected"].is_null(), "no baseline on the first read");
+
+    // Second read: the first read's commit count became the baseline.
+    let second = payload(reads[1]);
+    assert_eq!(second["expected"], 1);
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn commit_endpoint_returns_detail() {
     let tmp = tempfile::tempdir().unwrap();

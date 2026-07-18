@@ -763,6 +763,74 @@ test.describe.serial("gitreant UI", () => {
     ).toHaveCount(0);
   });
 
+  test("the analyzing note clears when the read finishes", async ({
+    page,
+  }) => {
+    const repos = (await (await page.request.get("/api/repos")).json()) as {
+      id: string;
+    }[];
+    const progress = JSON.stringify({
+      id: repos[0].id,
+      index: 1,
+      total: 1,
+      commits: 900,
+      expected: null,
+    });
+    // retry: 100 keeps the EventSource reconnecting quickly after each
+    // fulfilled (and therefore closed) synthetic stream.
+    await page.route("**/api/events", (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+        body: `retry: 100\n\nevent: analyzing\ndata: ${progress}\n\n`,
+      }),
+    );
+    await page.reload();
+    const note = page
+      .locator('[data-repo-name="repoA"]')
+      .getByTestId("repo-analyzing");
+    await expect(note).toBeVisible();
+
+    // The next (reconnected) stream reports completion: the note goes.
+    await page.unroute("**/api/events");
+    await page.route("**/api/events", (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+        body: "retry: 100\n\nevent: analyzed\ndata: done\n\n",
+      }),
+    );
+    await expect(note).toHaveCount(0);
+  });
+
+  test("a read finishing within the debounce never shows the note", async ({
+    page,
+  }) => {
+    const repos = (await (await page.request.get("/api/repos")).json()) as {
+      id: string;
+    }[];
+    const progress = JSON.stringify({
+      id: repos[0].id,
+      index: 1,
+      total: 1,
+      commits: 0,
+      expected: null,
+    });
+    // Analyzing and analyzed arrive back to back, like any routine
+    // millisecond read: the 300ms debounce must swallow the pair.
+    await page.route("**/api/events", (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+        body: `retry: 5000\n\nevent: analyzing\ndata: ${progress}\n\nevent: analyzed\ndata: done\n\n`,
+      }),
+    );
+    await page.reload();
+    await expect(page.getByTestId("repo-item")).toHaveCount(2);
+    await page.waitForTimeout(600);
+    await expect(page.getByTestId("repo-analyzing")).toHaveCount(0);
+  });
+
   test("initial load shows analysis progress before the list arrives", async ({
     page,
   }) => {
