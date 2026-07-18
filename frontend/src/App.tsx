@@ -83,8 +83,11 @@ export function App() {
   const [analyzing, setAnalyzing] = useState<AnalyzeInfo | null>(null);
 
   useEffect(() => {
-    reload();
+    // Subscribe before the first list request: a server still reading its
+    // startup repositories answers that request late, and the progress
+    // events streamed meanwhile must not be missed.
     const events = new EventSource("/api/events");
+    reload();
     events.addEventListener("update", () => reload());
     // Routine reads finish in milliseconds; only a read still running
     // after 300ms surfaces, so the indicator never flickers. The reveal

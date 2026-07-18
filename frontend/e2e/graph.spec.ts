@@ -763,6 +763,43 @@ test.describe.serial("gitreant UI", () => {
     ).toHaveCount(0);
   });
 
+  test("initial load shows analysis progress before the list arrives", async ({
+    page,
+  }) => {
+    // A server started with several big repositories answers the first
+    // repo list only after reading them all; the SSE progress must carry
+    // the numbers to the placeholder meanwhile. Simulate with a delayed
+    // list and a synthetic progress stream.
+    const progress = {
+      id: "/big/repo",
+      index: 2,
+      total: 3,
+      commits: 4000,
+      expected: 8000,
+    };
+    await page.route("**/api/events", (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+        body: `event: analyzing\ndata: ${JSON.stringify(progress)}\n\n`,
+      }),
+    );
+    await page.route("**/api/repos", async (route) => {
+      if (route.request().method() === "GET") {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+      await route.continue();
+    });
+    await page.reload();
+
+    const empty = page.locator(".repo-empty");
+    await expect(empty).toContainText("Analyzing /big/repo");
+    await expect(empty).toContainText("(2/3 · 50%)");
+
+    // Once the list lands, the placeholder resolves into real items.
+    await expect(page.getByTestId("repo-item")).toHaveCount(2);
+  });
+
   test("adding while reading keeps the pane and lands in the drawer", async ({
     page,
   }) => {

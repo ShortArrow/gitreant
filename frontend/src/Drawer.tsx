@@ -7,10 +7,11 @@ import { ResizeHandle, useStoredWidth } from "./Resizer";
 import { useT } from "./settings";
 import type { MsgKey } from "./i18n";
 
-/** The analyzing note next to a repository name: position in the read,
- * plus an estimated percentage (previous commit count known) or the raw
- * commit counter. Never claims 100% — completion removes the note. */
-export function analyzeNote(
+/** The numeric part of the analyzing note: position in the read, plus an
+ * estimated percentage (previous commit count known) or the raw commit
+ * counter. Never claims 100% — completion removes the note. Empty when
+ * there is nothing to say yet. */
+export function analyzeSuffix(
   info: AnalyzeInfo,
   t: (key: MsgKey, params?: Record<string, string | number>) => string,
 ): string {
@@ -21,8 +22,15 @@ export function analyzeNote(
   } else if (info.commits > 0) {
     parts.push(t("commitsCount", { n: info.commits }));
   }
-  const label = t("analyzing");
-  return parts.length ? `${label} (${parts.join(" · ")})` : label;
+  return parts.length ? ` (${parts.join(" · ")})` : "";
+}
+
+/** The analyzing note next to a repository name. */
+export function analyzeNote(
+  info: AnalyzeInfo,
+  t: (key: MsgKey, params?: Record<string, string | number>) => string,
+): string {
+  return `${t("analyzing")}${analyzeSuffix(info, t)}`;
 }
 
 interface DrawerProps {
@@ -204,7 +212,8 @@ export function Drawer({
             {loaded
               ? t("noRepositories")
               : analyzing
-                ? t("analyzingRepo", { path: analyzing.id })
+                ? t("analyzingRepo", { path: analyzing.id }) +
+                  analyzeSuffix(analyzing, t)
                 : t("loadingRepos")}
           </li>
         )}
