@@ -167,14 +167,6 @@ impl AppState {
         view
     }
 
-    /// Read every repository view, in insertion order.
-    fn views(&self) -> Vec<RepoView> {
-        self.repo_paths()
-            .into_iter()
-            .map(|(_, path)| self.read_one(&path))
-            .collect()
-    }
-
     /// Read the view of the repository identified by `id`, if displayed.
     fn view_of(&self, id: &str) -> Option<RepoView> {
         let path = self.repo_path(id)?;
@@ -230,10 +222,7 @@ impl AppState {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/ping", get(ping))
-        .route(
-            "/api/repos",
-            get(list_repos).post(add_repo).delete(remove_repo),
-        )
+        .route("/api/repos", post(add_repo).delete(remove_repo))
         .route("/api/list", get(list_light))
         .route("/api/view", post(repo_view))
         .route("/api/commit", post(commit_detail))
@@ -259,17 +248,6 @@ async fn ping() -> &'static str {
 
 /// View reads run gix and (for signed commits) git/gpg subprocesses; keep
 /// them off the async workers so the listener stays responsive.
-async fn blocking_views(state: &AppState) -> Vec<RepoView> {
-    let state = state.clone();
-    tokio::task::spawn_blocking(move || state.views())
-        .await
-        .unwrap_or_default()
-}
-
-async fn list_repos(State(state): State<AppState>) -> Json<Vec<RepoView>> {
-    Json(blocking_views(&state).await)
-}
-
 /// One entry of the instant repository list (ADR 0023): everything the
 /// drawer needs before any graph has been read.
 #[derive(Serialize)]
@@ -279,21 +257,23 @@ struct RepoListEntry {
     path: String,
 }
 
+fn light_list(state: &AppState) -> Vec<RepoListEntry> {
+    state
+        .repo_paths()
+        .into_iter()
+        .map(|(id, path)| RepoListEntry {
+            name: path
+                .file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "repo".to_string()),
+            path: path.to_string_lossy().into_owned(),
+            id,
+        })
+        .collect()
+}
+
 async fn list_light(State(state): State<AppState>) -> Json<Vec<RepoListEntry>> {
-    Json(
-        state
-            .repo_paths()
-            .into_iter()
-            .map(|(id, path)| RepoListEntry {
-                name: path
-                    .file_name()
-                    .map(|s| s.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| "repo".to_string()),
-                path: path.to_string_lossy().into_owned(),
-                id,
-            })
-            .collect(),
-    )
+    Json(light_list(&state))
 }
 
 #[derive(Deserialize)]
@@ -327,7 +307,7 @@ struct AddRepoResponse {
     /// The id of the repository the path resolved to (whether or not it was new).
     id: String,
     added: bool,
-    repos: Vec<RepoView>,
+    repos: Vec<RepoListEntry>,
 }
 
 async fn add_repo(
@@ -335,15 +315,17 @@ async fn add_repo(
     Json(req): Json<AddRepoRequest>,
 ) -> Result<Json<AddRepoResponse>, (StatusCode, String)> {
     let adder = state.clone();
-    let result = tokio::task::spawn_blocking(move || {
-        adder
-            .add_repo(&req.path)
-            .map(|(id, added)| (id, added, adder.views()))
-    })
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    // Registering is quick (repository discovery only); the graph loads
+    // through POST /api/view like everywhere else.
+    let result = tokio::task::spawn_blocking(move || adder.add_repo(&req.path))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     match result {
-        Ok((id, added, repos)) => Ok(Json(AddRepoResponse { id, added, repos })),
+        Ok((id, added)) => Ok(Json(AddRepoResponse {
+            id,
+            added,
+            repos: light_list(&state),
+        })),
         Err(message) => Err((StatusCode::BAD_REQUEST, message)),
     }
 }
@@ -357,9 +339,9 @@ struct RemoveRepoRequest {
 async fn remove_repo(
     State(state): State<AppState>,
     Json(req): Json<RemoveRepoRequest>,
-) -> Json<Vec<RepoView>> {
+) -> Json<Vec<RepoListEntry>> {
     state.remove_repo(&req.path);
-    Json(blocking_views(&state).await)
+    Json(light_list(&state))
 }
 
 #[derive(Deserialize)]

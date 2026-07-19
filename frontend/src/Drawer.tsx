@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { pickFolder, type AnalyzeInfo, type RepoView } from "./api";
+import { pickFolder, type RepoListEntry } from "./api";
 import { ContextMenu } from "./ContextMenu";
 import { AddIcon, BrowseIcon, CollapseIcon, ExpandIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
@@ -7,40 +7,25 @@ import { ResizeHandle, useStoredWidth } from "./Resizer";
 import { useT } from "./settings";
 import type { MsgKey } from "./i18n";
 
-/** The numeric part of the analyzing note: position in the read, plus an
- * estimated percentage (previous commit count known) or the raw commit
- * counter. Never claims 100% — completion removes the note. Empty when
- * there is nothing to say yet. */
-export function analyzeSuffix(
-  info: AnalyzeInfo,
-  t: (key: MsgKey, params?: Record<string, string | number>) => string,
-): string {
-  const parts: string[] = [];
-  if (info.total > 1) parts.push(`${info.index}/${info.total}`);
-  if (info.expected) {
-    parts.push(`${Math.min(99, Math.round((info.commits / info.expected) * 100))}%`);
-  } else if (info.commits > 0) {
-    parts.push(t("commitsCount", { n: info.commits }));
-  }
-  return parts.length ? ` (${parts.join(" · ")})` : "";
-}
-
-/** The analyzing note next to a repository name. */
+/** The analyzing note next to a repository name: the running commit
+ * counter of its in-flight read (ADR 0023 — no percentage, a stuck or
+ * unbounded walk must not fake completion). */
 export function analyzeNote(
-  info: AnalyzeInfo,
+  commits: number,
   t: (key: MsgKey, params?: Record<string, string | number>) => string,
 ): string {
-  return `${t("analyzing")}${analyzeSuffix(info, t)}`;
+  const label = t("analyzing");
+  return commits > 0 ? `${label} (${t("commitsCount", { n: commits })})` : label;
 }
 
 interface DrawerProps {
-  repos: RepoView[];
+  repos: RepoListEntry[];
   activeId: string | null;
   collapsed: boolean;
   /** A path whose analysis is still running server-side, if any. */
   pending?: string | null;
-  /** Progress of a slow server-side read, if one is running. */
-  analyzing?: AnalyzeInfo | null;
+  /** Running commit counters of in-flight reads, by repository id. */
+  analyzing?: Map<string, number> | null;
   /** False until the first repository list arrived. */
   loaded?: boolean;
   onToggle: () => void;
@@ -160,7 +145,7 @@ export function Drawer({
           <li
             key={repo.id}
             className={`repo-item${repo.id === activeId ? " active" : ""}${
-              repo.id === analyzing?.id ? " repo-pending" : ""
+              analyzing?.has(repo.id) ? " repo-pending" : ""
             }`}
             data-testid="repo-item"
             data-repo-name={repo.name}
@@ -172,13 +157,13 @@ export function Drawer({
           >
             <span className="repo-item-name">
               {repo.name}
-              {analyzing && repo.id === analyzing.id && (
+              {analyzing?.has(repo.id) && (
                 <span
                   className="repo-item-analyzing"
                   data-testid="repo-analyzing"
                 >
                   {" "}
-                  {analyzeNote(analyzing, t)}
+                  {analyzeNote(analyzing.get(repo.id) ?? 0, t)}
                 </span>
               )}
             </span>
@@ -209,12 +194,7 @@ export function Drawer({
         )}
         {repos.length === 0 && !pending && (
           <li className="repo-empty">
-            {loaded
-              ? t("noRepositories")
-              : analyzing
-                ? t("analyzingRepo", { path: analyzing.id }) +
-                  analyzeSuffix(analyzing, t)
-                : t("loadingRepos")}
+            {loaded ? t("noRepositories") : t("loadingRepos")}
           </li>
         )}
       </ul>

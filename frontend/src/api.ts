@@ -320,10 +320,31 @@ export async function fetchCommitDetail(
   return response.json();
 }
 
-export async function fetchRepos(): Promise<RepoView[]> {
-  const response = await fetch("/api/repos");
+/** One entry of the instant repository list (ADR 0023). */
+export interface RepoListEntry {
+  id: string;
+  name: string;
+  path: string;
+}
+
+/** The repository list, answered without reading any graph. */
+export async function fetchRepoList(): Promise<RepoListEntry[]> {
+  const response = await fetch("/api/list");
   if (!response.ok) {
     throw new Error(`failed to load repositories: ${response.status}`);
+  }
+  return response.json();
+}
+
+/** One repository's full view (graph, refs, layout) — the slow read. */
+export async function fetchRepoView(id: string): Promise<RepoView> {
+  const response = await fetch("/api/view", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo: id }),
+  });
+  if (!response.ok) {
+    throw new Error(`failed to load repository: ${response.status}`);
   }
   return response.json();
 }
@@ -332,7 +353,7 @@ export interface AddRepoResponse {
   /** Id of the repository the path resolved to (whether or not it was new). */
   id: string;
   added: boolean;
-  repos: RepoView[];
+  repos: RepoListEntry[];
 }
 
 /** Add a repository. The response carries the authoritative updated repo list. */
@@ -360,7 +381,7 @@ export async function pickFolder(): Promise<string | null> {
 }
 
 /** Remove a repository. Returns the authoritative updated repo list. */
-export async function removeRepo(id: string): Promise<RepoView[]> {
+export async function removeRepo(id: string): Promise<RepoListEntry[]> {
   const response = await fetch("/api/repos", {
     method: "DELETE",
     headers: { "content-type": "application/json" },

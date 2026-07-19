@@ -731,16 +731,10 @@ test.describe.serial("gitreant UI", () => {
   }) => {
     // Fixture repos read instantly, so the real SSE stream never keeps an
     // analyzing phase open long enough to observe; serve a synthetic one.
-    const repos = (await (await page.request.get("/api/repos")).json()) as {
+    const repos = (await (await page.request.get("/api/list")).json()) as {
       id: string;
     }[];
-    const progress = {
-      id: repos[0].id,
-      index: 1,
-      total: 2,
-      commits: 1500,
-      expected: 3000,
-    };
+    const progress = { id: repos[0].id, commits: 1500 };
     await page.route("**/api/events", (route) =>
       route.fulfill({
         status: 200,
@@ -755,7 +749,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(item).toHaveClass(/repo-pending/);
     // Position in the read plus the estimated percentage.
     await expect(item.getByTestId("repo-analyzing")).toContainText(
-      "Analyzing… (1/2 · 50%)",
+      "Analyzing… (1500 commits)",
     );
     // The other repository stays untouched.
     await expect(
@@ -766,16 +760,10 @@ test.describe.serial("gitreant UI", () => {
   test("the analyzing note clears when the read finishes", async ({
     page,
   }) => {
-    const repos = (await (await page.request.get("/api/repos")).json()) as {
+    const repos = (await (await page.request.get("/api/list")).json()) as {
       id: string;
     }[];
-    const progress = JSON.stringify({
-      id: repos[0].id,
-      index: 1,
-      total: 1,
-      commits: 900,
-      expected: null,
-    });
+    const progress = JSON.stringify({ id: repos[0].id, commits: 900 });
     // retry: 100 keeps the EventSource reconnecting quickly after each
     // fulfilled (and therefore closed) synthetic stream. One permanent
     // route switches its answer via the flag — re-routing would leave a
@@ -787,7 +775,7 @@ test.describe.serial("gitreant UI", () => {
         status: 200,
         headers: { "content-type": "text/event-stream" },
         body: finished
-          ? "retry: 100\n\nevent: analyzed\ndata: done\n\n"
+          ? `retry: 100\n\nevent: analyzed\ndata: ${repos[0].id}\n\n`
           : `retry: 100\n\nevent: analyzing\ndata: ${progress}\n\n`,
       }),
     );
@@ -805,23 +793,17 @@ test.describe.serial("gitreant UI", () => {
   test("a read finishing within the debounce never shows the note", async ({
     page,
   }) => {
-    const repos = (await (await page.request.get("/api/repos")).json()) as {
+    const repos = (await (await page.request.get("/api/list")).json()) as {
       id: string;
     }[];
-    const progress = JSON.stringify({
-      id: repos[0].id,
-      index: 1,
-      total: 1,
-      commits: 0,
-      expected: null,
-    });
+    const progress = JSON.stringify({ id: repos[0].id, commits: 0 });
     // Analyzing and analyzed arrive back to back, like any routine
     // millisecond read: the 300ms debounce must swallow the pair.
     await page.route("**/api/events", (route) =>
       route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
-        body: `retry: 5000\n\nevent: analyzing\ndata: ${progress}\n\nevent: analyzed\ndata: done\n\n`,
+        body: `retry: 5000\n\nevent: analyzing\ndata: ${progress}\n\nevent: analyzed\ndata: ${repos[0].id}\n\n`,
       }),
     );
     await page.reload();
@@ -830,41 +812,23 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("repo-analyzing")).toHaveCount(0);
   });
 
-  test("initial load shows analysis progress before the list arrives", async ({
+  test("the repository list appears before any graph loads", async ({
     page,
   }) => {
-    // A server started with several big repositories answers the first
-    // repo list only after reading them all; the SSE progress must carry
-    // the numbers to the placeholder meanwhile. Simulate with a delayed
-    // list and a synthetic progress stream.
-    const progress = {
-      id: "/big/repo",
-      index: 2,
-      total: 3,
-      commits: 4000,
-      expected: 8000,
-    };
-    await page.route("**/api/events", (route) =>
-      route.fulfill({
-        status: 200,
-        headers: { "content-type": "text/event-stream" },
-        body: `event: analyzing\ndata: ${JSON.stringify(progress)}\n\n`,
-      }),
-    );
-    await page.route("**/api/repos", async (route) => {
-      if (route.request().method() === "GET") {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-      }
+    // Graph reads are slow: the instant list must fill the drawer first,
+    // and an opened pane names what it is waiting for (ADR 0023).
+    await page.route("**/api/view", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       await route.continue();
     });
     await page.reload();
 
-    const empty = page.locator(".repo-empty");
-    await expect(empty).toContainText("Analyzing /big/repo");
-    await expect(empty).toContainText("(2/3 · 50%)");
-
-    // Once the list lands, the placeholder resolves into real items.
     await expect(page.getByTestId("repo-item")).toHaveCount(2);
+    await page.locator('[data-repo-name="repoA"]').click();
+    await expect(page.getByTestId("pane-empty")).toContainText("Analyzing");
+
+    // The delayed view lands and replaces the placeholder with the graph.
+    await expect(page.getByTestId("commit-row")).toHaveCount(5);
   });
 
   test("adding while reading keeps the pane and lands in the drawer", async ({
@@ -1049,13 +1013,18 @@ test.describe.serial("gitreant UI", () => {
   }) => {
     // PR data comes from the user's gh CLI on the server; stub the endpoint
     // and verify the badge and squash-link wiring end to end.
-    const repos = (await (await page.request.get("/api/repos")).json()) as {
+    const list = (await (await page.request.get("/api/list")).json()) as {
+      id: string;
       name: string;
-      commits: { id: string; summary: string }[];
     }[];
-    const mergeCommit = repos
-      .find((r) => r.name === "repoA")!
-      .commits.find((c) => c.summary === "merge feature")!;
+    const repoAView = (await (
+      await page.request.post("/api/view", {
+        data: { repo: list.find((r) => r.name === "repoA")!.id },
+      })
+    ).json()) as { commits: { id: string; summary: string }[] };
+    const mergeCommit = repoAView.commits.find(
+      (c) => c.summary === "merge feature",
+    )!;
     await page.route("**/api/prs", (route) =>
       route.fulfill({
         json: {

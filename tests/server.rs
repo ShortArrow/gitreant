@@ -47,6 +47,24 @@ fn http_post_json(port: u16, path: &str, body: &str) -> String {
     http_request_json(port, "POST", path, body)
 }
 
+/// The view of the first listed repository, via /api/list + /api/view —
+/// the progressive-loading replacement for the old full GET /api/repos.
+fn http_first_view(port: u16) -> String {
+    let list = http_get(port, "/api/list");
+    let entries: serde_json::Value = serde_json::from_str(
+        list.lines()
+            .find(|line| line.starts_with('['))
+            .expect("list body"),
+    )
+    .expect("list JSON");
+    let id = entries[0]["id"].as_str().expect("repo id");
+    http_post_json(
+        port,
+        "/api/view",
+        &serde_json::json!({ "repo": id }).to_string(),
+    )
+}
+
 fn http_request_json(port: u16, method: &str, path: &str, body: &str) -> String {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
     write!(
@@ -101,7 +119,7 @@ async fn ping_add_dedupe_and_serve_spa() {
         .expect("second add (dedupe)");
 
     // The repo now shows up in the API, exactly once.
-    let repos_body = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+    let repos_body = tokio::task::spawn_blocking(move || http_first_view(port))
         .await
         .unwrap();
     assert!(
@@ -174,8 +192,8 @@ async fn analyzing_progress_streams_over_sse() {
         // Give the subscription a moment to register before triggering
         // the reads whose progress it must observe.
         std::thread::sleep(std::time::Duration::from_millis(300));
-        http_get(port, "/api/repos");
-        http_get(port, "/api/repos");
+        http_first_view(port);
+        http_first_view(port);
 
         let mut buf = Vec::new();
         let mut chunk = [0u8; 4096];
@@ -514,7 +532,7 @@ async fn fetch_endpoint_updates_remote_refs() {
         &origin,
         &["commit", "--allow-empty", "-q", "-m", "after-clone"],
     );
-    let before = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+    let before = tokio::task::spawn_blocking(move || http_first_view(port))
         .await
         .unwrap();
     assert!(
@@ -529,7 +547,7 @@ async fn fetch_endpoint_updates_remote_refs() {
     assert!(resp.contains("\"errors\":[]"), "expected no errors: {resp}");
 
     // The new commit is now reachable via the updated remote-tracking ref.
-    let after = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+    let after = tokio::task::spawn_blocking(move || http_first_view(port))
         .await
         .unwrap();
     assert!(
@@ -683,7 +701,7 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
     let id = gitreant::app::canonical(dir).to_string_lossy().into_owned();
 
     // The view names the checked-out branch.
-    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+    let repos = tokio::task::spawn_blocking(move || http_first_view(port))
         .await
         .unwrap();
     assert!(
@@ -697,7 +715,7 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
         .await
         .unwrap();
     assert!(resp.contains("200 OK"), "response: {resp}");
-    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+    let repos = tokio::task::spawn_blocking(move || http_first_view(port))
         .await
         .unwrap();
     assert!(
@@ -716,7 +734,7 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
         .await
         .unwrap();
     assert!(resp.contains("200 OK"), "response: {resp}");
-    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+    let repos = tokio::task::spawn_blocking(move || http_first_view(port))
         .await
         .unwrap();
     assert_eq!(
@@ -780,7 +798,7 @@ async fn branch_create_endpoint_adds_a_branch_without_checkout() {
         .to_string_lossy()
         .into_owned();
 
-    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+    let repos = tokio::task::spawn_blocking(move || http_first_view(port))
         .await
         .unwrap();
     let head = repos
@@ -797,7 +815,7 @@ async fn branch_create_endpoint_adds_a_branch_without_checkout() {
     assert!(resp.contains("200 OK"), "response: {resp}");
 
     // The branch exists, and HEAD did not move (no checkout).
-    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+    let repos = tokio::task::spawn_blocking(move || http_first_view(port))
         .await
         .unwrap();
     assert!(repos.contains("\"topic\""), "branch missing: {repos}");
@@ -846,7 +864,7 @@ async fn tag_endpoints_create_and_delete_tags() {
         .into_owned();
 
     // Tag the head commit; the ref shows up with kind "tag".
-    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+    let repos = tokio::task::spawn_blocking(move || http_first_view(port))
         .await
         .unwrap();
     let head = repos
@@ -860,7 +878,7 @@ async fn tag_endpoints_create_and_delete_tags() {
         .await
         .unwrap();
     assert!(resp.contains("200 OK"), "response: {resp}");
-    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+    let repos = tokio::task::spawn_blocking(move || http_first_view(port))
         .await
         .unwrap();
     assert!(repos.contains("\"v9.9\""), "tag missing: {repos}");
@@ -876,7 +894,7 @@ async fn tag_endpoints_create_and_delete_tags() {
             .await
             .unwrap();
     assert!(resp.contains("200 OK"), "response: {resp}");
-    let repos = tokio::task::spawn_blocking(move || http_get(port, "/api/repos"))
+    let repos = tokio::task::spawn_blocking(move || http_first_view(port))
         .await
         .unwrap();
     assert!(!repos.contains("\"v9.9\""), "tag not deleted: {repos}");

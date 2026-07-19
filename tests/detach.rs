@@ -65,7 +65,7 @@ fn get_repos(port: u16) -> String {
     let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
     write!(
         stream,
-        "GET /api/repos HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
+        "GET /api/list HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
     )
     .unwrap();
     let mut resp = String::new();

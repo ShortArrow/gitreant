@@ -3,10 +3,11 @@ import {
   addRepo,
   fetchCommandLog,
   fetchRemotes,
-  fetchRepos,
+  fetchRepoList,
+  fetchRepoView,
   removeRepo,
-  type AnalyzeInfo,
   type CommandLogEntry,
+  type RepoListEntry,
   type RepoView,
 } from "./api";
 import { CommandPalette } from "./CommandPalette";
@@ -38,7 +39,9 @@ import {
 import { ThemeToggle } from "./ThemeToggle";
 
 export function App() {
-  const [repos, setRepos] = useState<RepoView[]>([]);
+  const [repos, setRepos] = useState<RepoListEntry[]>([]);
+  // Each repository view lands independently as its (parallel) read ends.
+  const [views, setViews] = useState<Map<string, RepoView>>(new Map());
   // Loading the repo list and running a fetch fail independently; a successful
   // reload right after a failed fetch must not wipe the fetch error.
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -55,11 +58,27 @@ export function App() {
 
   // Apply an authoritative repo list (from an add/remove response). Bumping the
   // sequence invalidates any older in-flight fetch so it cannot overwrite this.
-  const applyRepos = useCallback((data: RepoView[]) => {
-    fetchSeq.current += 1;
-    setRepos(data);
-    setLoadError(null);
+  const loadViews = useCallback((list: RepoListEntry[], seq: number) => {
+    for (const entry of list) {
+      fetchRepoView(entry.id)
+        .then((view) => {
+          if (seq === fetchSeq.current) {
+            setViews((prev) => new Map(prev).set(entry.id, view));
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
+
+  const applyRepos = useCallback(
+    (data: RepoListEntry[]) => {
+      const seq = ++fetchSeq.current;
+      setRepos(data);
+      setLoadError(null);
+      loadViews(data, seq);
+    },
+    [loadViews],
+  );
 
   // Until the first repo list arrives, "no repositories" would be a lie.
   const [loaded, setLoaded] = useState(false);
@@ -67,20 +86,21 @@ export function App() {
   const reload = useCallback(async () => {
     const seq = ++fetchSeq.current;
     try {
-      const data = await fetchRepos();
+      const list = await fetchRepoList();
       if (seq === fetchSeq.current) {
-        setRepos(data);
+        setRepos(list);
         setLoadError(null);
+        loadViews(list, seq);
       }
     } catch (e) {
       if (seq === fetchSeq.current) setLoadError(String(e));
     } finally {
       setLoaded(true);
     }
-  }, []);
+  }, [loadViews]);
 
-  // Progress of the slow server-side read currently running, if any.
-  const [analyzing, setAnalyzing] = useState<AnalyzeInfo | null>(null);
+  // Running commit counters of the server-side reads in flight, by repo id.
+  const [analyzing, setAnalyzing] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
     // Subscribe before the first list request: a server still reading its
@@ -89,30 +109,45 @@ export function App() {
     const events = new EventSource("/api/events");
     reload();
     events.addEventListener("update", () => reload());
-    // Routine reads finish in milliseconds; only a read still running
-    // after 300ms surfaces, so the indicator never flickers. The reveal
-    // is re-armed per repository — the stream of counter updates for one
-    // repository refreshes the numbers but must not push the reveal out.
-    let timer: number | undefined;
-    let latest: AnalyzeInfo | null = null;
-    let pendingId: string | null = null;
+    // Routine reads finish in milliseconds; a read only surfaces after
+    // 300ms so the indicator never flickers. Parallel reads each keep
+    // their own counter and reveal timer, keyed by repository id.
+    const timers = new Map<string, number>();
+    const latest = new Map<string, number>();
     events.addEventListener("analyzing", (e) => {
-      const info = JSON.parse((e as MessageEvent<string>).data) as AnalyzeInfo;
-      latest = info;
-      setAnalyzing((prev) => (prev && prev.id === info.id ? info : prev));
-      if (pendingId !== info.id) {
-        pendingId = info.id;
-        window.clearTimeout(timer);
-        timer = window.setTimeout(() => setAnalyzing(latest), 300);
+      const info = JSON.parse((e as MessageEvent<string>).data) as {
+        id: string;
+        commits: number;
+      };
+      latest.set(info.id, info.commits);
+      setAnalyzing((prev) =>
+        prev.has(info.id) ? new Map(prev).set(info.id, info.commits) : prev,
+      );
+      if (!timers.has(info.id)) {
+        timers.set(
+          info.id,
+          window.setTimeout(() => {
+            setAnalyzing((prev) =>
+              new Map(prev).set(info.id, latest.get(info.id) ?? 0),
+            );
+          }, 300),
+        );
       }
     });
-    events.addEventListener("analyzed", () => {
-      pendingId = null;
-      window.clearTimeout(timer);
-      setAnalyzing(null);
+    events.addEventListener("analyzed", (e) => {
+      const id = (e as MessageEvent<string>).data;
+      window.clearTimeout(timers.get(id));
+      timers.delete(id);
+      latest.delete(id);
+      setAnalyzing((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      });
     });
     return () => {
-      window.clearTimeout(timer);
+      timers.forEach((timer) => window.clearTimeout(timer));
       events.close();
     };
   }, [reload]);
@@ -121,6 +156,10 @@ export function App() {
   useEffect(() => {
     const ids = new Set(repos.map((r) => r.id));
     setLayout((prev) => paneModel.retainRepos(prev, ids));
+    setViews((prev) => {
+      if ([...prev.keys()].every((id) => ids.has(id))) return prev;
+      return new Map([...prev].filter(([id]) => ids.has(id)));
+    });
   }, [repos]);
 
   const repoById = useMemo(
@@ -536,7 +575,8 @@ export function App() {
 
         <div className="panes">
           {layout.panes.map((pane, index) => {
-            const repo = pane.activeId
+            const view = pane.activeId ? views.get(pane.activeId) : undefined;
+            const entry = pane.activeId
               ? repoById.get(pane.activeId)
               : undefined;
             return (
@@ -593,12 +633,19 @@ export function App() {
                   </div>
                 )}
                 <div className="pane">
-                  {repo ? (
+                  {view ? (
                     <RepoCard
-                      key={repo.id}
-                      repo={repo}
+                      key={view.id}
+                      repo={view}
                       focused={index === layout.focused}
                     />
+                  ) : entry ? (
+                    <div className="pane-empty" data-testid="pane-empty">
+                      {t("analyzingRepo", { path: entry.path })}
+                      {analyzing.has(entry.id)
+                        ? ` (${t("commitsCount", { n: analyzing.get(entry.id) ?? 0 })})`
+                        : ""}
+                    </div>
                   ) : (
                     <div className="pane-empty" data-testid="pane-empty">
                       {pendingAdd

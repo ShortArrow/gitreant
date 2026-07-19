@@ -55,13 +55,7 @@ export const AnalyzingRepo: Story = {
   args: {
     repos,
     activeId: repos[0].id,
-    analyzing: {
-      id: repos[0].id,
-      index: 1,
-      total: 2,
-      commits: 4200,
-      expected: 9000,
-    },
+    analyzing: new Map([[repos[0].id, 4200]]),
     collapsed: false,
     onToggle: () => {},
     onSelect: () => {},
