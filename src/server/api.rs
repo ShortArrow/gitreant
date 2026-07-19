@@ -279,6 +279,8 @@ async fn list_light(State(state): State<AppState>) -> Json<Vec<RepoListEntry>> {
 #[derive(Deserialize)]
 struct RepoViewRequest {
     repo: String,
+    /// Page cap: rows beyond this stay server-side until requested.
+    limit: Option<usize>,
 }
 
 async fn repo_view(
@@ -287,10 +289,17 @@ async fn repo_view(
 ) -> Result<Json<RepoView>, (StatusCode, String)> {
     let reader = state.clone();
     let id = req.repo.clone();
-    tokio::task::spawn_blocking(move || reader.view_of(&id))
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .map(Json)
+    let limit = req.limit;
+    tokio::task::spawn_blocking(move || {
+        let view = reader.view_of(&id)?;
+        Some(match limit {
+            Some(limit) => view.truncate(limit),
+            None => view,
+        })
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map(Json)
         .ok_or((
             StatusCode::NOT_FOUND,
             format!("unknown repository: {}", req.repo),

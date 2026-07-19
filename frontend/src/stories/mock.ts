@@ -55,6 +55,7 @@ export const mergeRepo: RepoView = {
     edge("a1", "a0", 0, 0, 0),
   ],
   lane_count: 2,
+  total: 5,
 };
 
 /** A feature merged back only after many main commits: the merge-to-parent
@@ -86,6 +87,7 @@ export const longMergeRepo: RepoView = (() => {
       edge("f1", "a0", 1, 0, 1),
     ],
     lane_count: 2,
+    total: 13,
   };
 })();
 
@@ -102,6 +104,7 @@ export const linearRepo: RepoView = {
   ],
   edges: [edge("n2", "n1", 0, 0, 0)],
   lane_count: 1,
+  total: 2,
 };
 
 /** Details of one commit, as returned by POST /api/commit. */
@@ -184,5 +187,6 @@ export const erroredRepo: RepoView = {
   commits: [],
   edges: [],
   lane_count: 0,
+  total: 0,
   error: "open /home/user/repos/broken: not a git repository",
 };

@@ -92,6 +92,7 @@ function repoWith(overrides: Partial<RepoView>): RepoView {
     id: "r",
     name: "r",
     path: "/r",
+    total: 3,
     head: null,
     refs: [{ name: "feature", target: "tip", kind: "branch" }],
     commits: [

@@ -60,6 +60,9 @@ pub struct RepoView {
     pub commits: Vec<CommitView>,
     pub edges: Vec<GraphEdge>,
     pub lane_count: usize,
+    /// How many commits the repository holds in total — `commits` may be a
+    /// paged prefix of them (ADR 0023).
+    pub total: usize,
     /// Set when the repository could not be read; `commits`/`edges` are empty.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
@@ -82,8 +85,25 @@ impl RepoView {
             commits: Vec::new(),
             edges: Vec::new(),
             lane_count: 0,
+            total: 0,
             error: Some(message),
         }
+    }
+
+    /// Keep only the first `limit` rows (and the edges fully inside them):
+    /// the paged prefix the SPA renders until the user scrolls further.
+    pub fn truncate(mut self, limit: usize) -> Self {
+        if self.commits.len() <= limit {
+            return self;
+        }
+        self.commits.retain(|c| c.row < limit);
+        let kept: std::collections::HashSet<&str> =
+            self.commits.iter().map(|c| c.id.as_str()).collect();
+        let kept: std::collections::HashSet<String> =
+            kept.into_iter().map(str::to_string).collect();
+        self.edges
+            .retain(|e| kept.contains(&e.from) && kept.contains(&e.to));
+        self
     }
 }
 
@@ -204,6 +224,7 @@ pub fn build_view(id: &Path, data: &RepoData) -> RepoView {
         head_branch: data.head_branch.clone(),
         github_url: data.github_url.clone(),
         refs,
+        total: data.commits.len(),
         commits,
         edges: graph.edges,
         lane_count: graph.lane_count,

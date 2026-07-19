@@ -1,4 +1,11 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { CommitHash } from "./CommitHash";
 import { CommitMenu } from "./CommitMenu";
 import {
@@ -91,6 +98,7 @@ const NO_COMMANDS: PaletteCommand[] = [];
 export function RepoCard({
   repo,
   focused = true,
+  onLoadMore,
   loadDetail = fetchCommitDetail,
   loadDiff = fetchFileDiff,
   loadCommitDiff = fetchCommitDiff,
@@ -99,6 +107,8 @@ export function RepoCard({
   repo: RepoView;
   /** Only the focused pane's card feeds the command palette (ADR 0022). */
   focused?: boolean;
+  /** Ask for the next page of graph rows (ADR 0023). */
+  onLoadMore?: () => void;
   /** Injectable for Storybook; defaults to the real API. */
   loadDetail?: (repoId: string, commitId: string) => Promise<CommitDetail>;
   loadDiff?: (
@@ -180,6 +190,22 @@ export function RepoCard({
   );
   useCommands(focused ? branchCommands : NO_COMMANDS);
 
+  // ADR 0023 paging: ask for the next rows when the scroll approaches the
+  // end of a prefix view — or when the prefix cannot even fill the pane.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const requestedAt = useRef(0);
+  const maybeLoadMore = () => {
+    const el = scrollRef.current;
+    if (!el || !onLoadMore) return;
+    if (repo.commits.length >= repo.total) return;
+    if (requestedAt.current === repo.commits.length) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 300) {
+      requestedAt.current = repo.commits.length;
+      onLoadMore();
+    }
+  };
+  useEffect(maybeLoadMore);
+
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<CommitDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -260,7 +286,7 @@ export function RepoCard({
         <h2>{repo.name}</h2>
         <span className="repo-path">{repo.path}</span>
         <span className="repo-count">
-          {t("commitsCount", { n: repo.commits.length })}
+          {t("commitsCount", { n: repo.total })}
         </span>
       </header>
 
@@ -313,7 +339,12 @@ export function RepoCard({
           onClose={() => setDiffTarget(null)}
         />
       ) : (
-      <div className="graph-and-list">
+      <div
+        className="graph-and-list"
+        data-testid="graph-scroll"
+        ref={scrollRef}
+        onScroll={maybeLoadMore}
+      >
         <svg
           className="graph"
           data-testid="graph"

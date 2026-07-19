@@ -64,6 +64,8 @@ export interface RepoView {
   commits: CommitView[];
   edges: GraphEdge[];
   lane_count: number;
+  /** Total commits in the repository; `commits` may be a paged prefix. */
+  total: number;
   error?: string;
 }
 
@@ -336,12 +338,16 @@ export async function fetchRepoList(): Promise<RepoListEntry[]> {
   return response.json();
 }
 
-/** One repository's full view (graph, refs, layout) — the slow read. */
-export async function fetchRepoView(id: string): Promise<RepoView> {
+/** One repository's view (graph, refs, layout) — the slow read. `limit`
+ * caps the returned rows to a paged prefix (ADR 0023). */
+export async function fetchRepoView(
+  id: string,
+  limit?: number,
+): Promise<RepoView> {
   const response = await fetch("/api/view", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ repo: id }),
+    body: JSON.stringify({ repo: id, limit }),
   });
   if (!response.ok) {
     throw new Error(`failed to load repository: ${response.status}`);

@@ -831,6 +831,23 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("commit-row")).toHaveCount(5);
   });
 
+  test("graph rows page in until the whole history is shown", async ({
+    page,
+  }) => {
+    // A tiny page size forces the paging machinery (ADR 0023): the first
+    // fetch returns a prefix and the card keeps asking for more until the
+    // pane holds every row.
+    await page.addInitScript(() =>
+      localStorage.setItem("gitreant-page-size", "2"),
+    );
+    await page.reload();
+    await page.locator('[data-repo-name="repoA"]').click();
+
+    await expect(page.getByTestId("commit-row")).toHaveCount(5);
+    // The header names the true total, not the loaded page.
+    await expect(page.locator(".repo-count")).toHaveText("5 commits");
+  });
+
   test("adding while reading keeps the pane and lands in the drawer", async ({
     page,
   }) => {

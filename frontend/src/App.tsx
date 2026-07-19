@@ -38,6 +38,18 @@ import {
 } from "./settings";
 import { ThemeToggle } from "./ThemeToggle";
 
+const PAGE_SIZE_KEY = "gitreant-page-size";
+
+/** Graph rows fetched per page; overridable for tests via localStorage. */
+function pageSize(): number {
+  try {
+    const stored = Number(localStorage.getItem(PAGE_SIZE_KEY));
+    return Number.isFinite(stored) && stored > 0 ? stored : 500;
+  } catch {
+    return 500;
+  }
+}
+
 export function App() {
   const [repos, setRepos] = useState<RepoListEntry[]>([]);
   // Each repository view lands independently as its (parallel) read ends.
@@ -58,17 +70,37 @@ export function App() {
 
   // Apply an authoritative repo list (from an add/remove response). Bumping the
   // sequence invalidates any older in-flight fetch so it cannot overwrite this.
-  const loadViews = useCallback((list: RepoListEntry[], seq: number) => {
-    for (const entry of list) {
-      fetchRepoView(entry.id)
-        .then((view) => {
-          if (seq === fetchSeq.current) {
-            setViews((prev) => new Map(prev).set(entry.id, view));
-          }
-        })
-        .catch(() => {});
-    }
+  // How many rows each repository has asked for so far (ADR 0023 paging).
+  const limitsRef = useRef(new Map<string, number>());
+  const loadView = useCallback((id: string, seq: number) => {
+    fetchRepoView(id, limitsRef.current.get(id) ?? pageSize())
+      .then((view) => {
+        if (seq === fetchSeq.current) {
+          setViews((prev) => new Map(prev).set(id, view));
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const loadViews = useCallback(
+    (list: RepoListEntry[], seq: number) => {
+      for (const entry of list) {
+        loadView(entry.id, seq);
+      }
+    },
+    [loadView],
+  );
+
+  // The pane scrolled near its end (or cannot fill yet): fetch the next
+  // page of rows for this repository.
+  const loadMore = useCallback(
+    (id: string) => {
+      const current = limitsRef.current.get(id) ?? pageSize();
+      limitsRef.current.set(id, current + pageSize());
+      loadView(id, fetchSeq.current);
+    },
+    [loadView],
+  );
 
   const applyRepos = useCallback(
     (data: RepoListEntry[]) => {
@@ -638,6 +670,7 @@ export function App() {
                       key={view.id}
                       repo={view}
                       focused={index === layout.focused}
+                      onLoadMore={() => loadMore(view.id)}
                     />
                   ) : entry ? (
                     <div className="pane-empty" data-testid="pane-empty">
