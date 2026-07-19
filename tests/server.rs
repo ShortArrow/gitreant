@@ -227,6 +227,98 @@ async fn analyzing_progress_streams_over_sse() {
     assert_eq!(second["expected"], 1);
 }
 
+/// Removing a repository from the view must not drop its percentage
+/// baseline: re-attaching it analyzes with the previous commit count as
+/// `expected` right away.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_readded_repository_keeps_its_percentage_baseline() {
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+    let repo_path = tmp.path().to_string_lossy().into_owned();
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        serve(listener, AppState::with_state_dir(Session::new(), None))
+            .await
+            .unwrap();
+    });
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    let stream_text = tokio::task::spawn_blocking(move || {
+        // Attach: the add's view read stores the commit count baseline.
+        let body = serde_json::json!({ "path": repo_path }).to_string();
+        let added = http_post_json(port, "/api/repos", &body);
+        let added: serde_json::Value = serde_json::from_str(
+            added
+                .lines()
+                .find(|line| line.starts_with('{'))
+                .expect("add response body"),
+        )
+        .expect("add response JSON");
+        let id = added["id"].as_str().expect("repo id").to_string();
+
+        // Detach.
+        let remove = serde_json::json!({ "path": id }).to_string();
+        http_request_json(port, "DELETE", "/api/repos", &remove);
+
+        // Subscribe, then re-attach: its analyzing event must already
+        // carry the baseline recorded before the removal.
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_millis(200)))
+            .unwrap();
+        write!(
+            stream,
+            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/event-stream\r\n\r\n"
+        )
+        .unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        http_post_json(port, "/api/repos", &body);
+
+        let mut buf = Vec::new();
+        let mut chunk = [0u8; 4096];
+        let start = std::time::Instant::now();
+        while start.elapsed() < std::time::Duration::from_secs(10) {
+            match stream.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                Err(_) => {}
+            }
+            if String::from_utf8_lossy(&buf).contains("event: analyzed") {
+                break;
+            }
+        }
+        String::from_utf8_lossy(&buf).into_owned()
+    })
+    .await
+    .unwrap();
+
+    let start = stream_text
+        .find("event: analyzing")
+        .unwrap_or_else(|| panic!("no analyzing event in {stream_text:?}"));
+    let data = stream_text[start..]
+        .lines()
+        .find_map(|line| line.strip_prefix("data: "))
+        .expect("analyzing data line");
+    let payload: serde_json::Value = serde_json::from_str(data).expect("payload JSON");
+    assert_eq!(
+        payload["expected"], 1,
+        "the re-attached repository lost its baseline: {payload}"
+    );
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn commit_endpoint_returns_detail() {
     let tmp = tempfile::tempdir().unwrap();
