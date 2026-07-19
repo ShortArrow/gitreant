@@ -777,12 +777,18 @@ test.describe.serial("gitreant UI", () => {
       expected: null,
     });
     // retry: 100 keeps the EventSource reconnecting quickly after each
-    // fulfilled (and therefore closed) synthetic stream.
+    // fulfilled (and therefore closed) synthetic stream. One permanent
+    // route switches its answer via the flag — re-routing would leave a
+    // gap in which the reconnect could reach the real, never-ending SSE
+    // stream and stick there.
+    let finished = false;
     await page.route("**/api/events", (route) =>
       route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
-        body: `retry: 100\n\nevent: analyzing\ndata: ${progress}\n\n`,
+        body: finished
+          ? "retry: 100\n\nevent: analyzed\ndata: done\n\n"
+          : `retry: 100\n\nevent: analyzing\ndata: ${progress}\n\n`,
       }),
     );
     await page.reload();
@@ -792,14 +798,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(note).toBeVisible();
 
     // The next (reconnected) stream reports completion: the note goes.
-    await page.unroute("**/api/events");
-    await page.route("**/api/events", (route) =>
-      route.fulfill({
-        status: 200,
-        headers: { "content-type": "text/event-stream" },
-        body: "retry: 100\n\nevent: analyzed\ndata: done\n\n",
-      }),
-    );
+    finished = true;
     await expect(note).toHaveCount(0);
   });
 

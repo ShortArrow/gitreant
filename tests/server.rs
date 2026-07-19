@@ -69,7 +69,7 @@ async fn ping_add_dedupe_and_serve_spa() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
+        serve(listener, AppState::with_state_dir(Session::new(), None))
             .await
             .unwrap();
     });
@@ -146,7 +146,9 @@ async fn analyzing_progress_streams_over_sse() {
     let mut session = Session::new();
     session.add(tmp.path()).unwrap();
     tokio::spawn(async move {
-        serve(listener, AppState::new(session)).await.unwrap();
+        serve(listener, AppState::with_state_dir(session, None))
+            .await
+            .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -249,7 +251,7 @@ async fn commit_endpoint_returns_detail() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
+        serve(listener, AppState::with_state_dir(Session::new(), None))
             .await
             .unwrap();
     });
@@ -339,7 +341,7 @@ async fn diff_endpoint_returns_unified_hunks() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
+        serve(listener, AppState::with_state_dir(Session::new(), None))
             .await
             .unwrap();
     });
@@ -424,7 +426,7 @@ async fn fetch_endpoint_updates_remote_refs() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
+        serve(listener, AppState::with_state_dir(Session::new(), None))
             .await
             .unwrap();
     });
@@ -530,7 +532,7 @@ async fn fetch_endpoint_reports_per_repo_errors() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
+        serve(listener, AppState::with_state_dir(Session::new(), None))
             .await
             .unwrap();
     });
@@ -596,7 +598,7 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
+        serve(listener, AppState::with_state_dir(Session::new(), None))
             .await
             .unwrap();
     });
@@ -692,7 +694,7 @@ async fn branch_create_endpoint_adds_a_branch_without_checkout() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
+        serve(listener, AppState::with_state_dir(Session::new(), None))
             .await
             .unwrap();
     });
@@ -757,7 +759,7 @@ async fn tag_endpoints_create_and_delete_tags() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
+        serve(listener, AppState::with_state_dir(Session::new(), None))
             .await
             .unwrap();
     });
@@ -845,7 +847,7 @@ async fn prs_endpoint_answers_empty_without_github_and_404_for_unknown_repos() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
+        serve(listener, AppState::with_state_dir(Session::new(), None))
             .await
             .unwrap();
     });
@@ -892,7 +894,10 @@ async fn prs_endpoint_answers_empty_without_github_and_404_for_unknown_repos() {
 async fn shutdown_completes_while_an_sse_connection_is_open() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
-    let server = tokio::spawn(serve(listener, AppState::new(Session::new())));
+    let server = tokio::spawn(serve(
+        listener,
+        AppState::with_state_dir(Session::new(), None),
+    ));
 
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -944,7 +949,10 @@ async fn shutdown_completes_while_an_sse_connection_is_open() {
 async fn shutdown_endpoint_stops_the_server() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
-    let server = tokio::spawn(serve(listener, AppState::new(Session::new())));
+    let server = tokio::spawn(serve(
+        listener,
+        AppState::with_state_dir(Session::new(), None),
+    ));
 
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {

@@ -18,6 +18,7 @@ use tokio_stream::{Stream, StreamExt};
 
 use crate::app::{CommitDetailView, FileDiffView, RepoView, Session};
 
+use super::counts::{state_dir, CountCache};
 use super::{assets, PING_MARKER};
 
 /// One executed external command, kept for the UI's command log.
@@ -90,12 +91,19 @@ pub struct AppState {
     /// fetch — lets the UI mark pushed tags apart from local-only ones.
     remote_tags: Arc<Mutex<HashMap<String, std::collections::HashSet<String>>>>,
     /// Commit count of each repository's last successful read, the basis
-    /// for the estimated analysis percentage.
-    commit_counts: Arc<Mutex<HashMap<String, usize>>>,
+    /// for the estimated analysis percentage. Persisted so the estimate
+    /// survives server restarts.
+    commit_counts: Arc<CountCache>,
 }
 
 impl AppState {
     pub fn new(session: Session) -> Self {
+        Self::with_state_dir(session, state_dir().as_deref())
+    }
+
+    /// Like [`new`](Self::new) with an explicit state directory (`None`
+    /// keeps all persisted state memory-only) — for tests.
+    pub fn with_state_dir(session: Session, state: Option<&std::path::Path>) -> Self {
         let (updates, _) = broadcast::channel(16);
         let (shutdown, _) = watch::channel(false);
         Self {
@@ -105,7 +113,7 @@ impl AppState {
             command_log: Arc::new(Mutex::new(VecDeque::new())),
             pr_cache: Arc::new(Mutex::new(HashMap::new())),
             remote_tags: Arc::new(Mutex::new(HashMap::new())),
-            commit_counts: Arc::new(Mutex::new(HashMap::new())),
+            commit_counts: Arc::new(CountCache::load(state)),
         }
     }
 
@@ -150,12 +158,7 @@ impl AppState {
             }
             last_sent = Some(Instant::now());
             let id = p.path.to_string_lossy().into_owned();
-            let expected = self
-                .commit_counts
-                .lock()
-                .expect("commit counts mutex")
-                .get(&id)
-                .copied();
+            let expected = self.commit_counts.get(&id);
             let _ = self.updates.send(ServerEvent::Analyzing(AnalyzeProgress {
                 id,
                 index: p.index + 1,
@@ -165,14 +168,12 @@ impl AppState {
             }));
         });
         let _ = self.updates.send(ServerEvent::Analyzed);
-        {
-            let mut counts = self.commit_counts.lock().expect("commit counts mutex");
-            for view in &views {
-                if view.error.is_none() {
-                    counts.insert(view.id.clone(), view.commits.len());
-                }
-            }
-        }
+        self.commit_counts.update(
+            views
+                .iter()
+                .filter(|view| view.error.is_none())
+                .map(|view| (view.id.clone(), view.commits.len())),
+        );
         for command in executed {
             self.push_log(CommandLogEntry {
                 time: epoch_now(),
@@ -771,9 +772,7 @@ async fn events(
     let stream = BroadcastStream::new(state.updates.subscribe()).map(|event| {
         Ok(match event {
             // A lagged receiver missed events; a reload resyncs it.
-            Ok(ServerEvent::Update) | Err(_) => {
-                Event::default().event("update").data("changed")
-            }
+            Ok(ServerEvent::Update) | Err(_) => Event::default().event("update").data("changed"),
             Ok(ServerEvent::Analyzing(progress)) => Event::default()
                 .event("analyzing")
                 .data(serde_json::to_string(&progress).unwrap_or_default()),

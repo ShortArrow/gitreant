@@ -4,6 +4,7 @@
 mod api;
 mod assets;
 mod client;
+mod counts;
 
 pub use api::{router, AppState};
 pub use client::{ping, post_repo, post_shutdown};

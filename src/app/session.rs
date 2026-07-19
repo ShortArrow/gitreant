@@ -73,7 +73,6 @@ impl Session {
     pub fn is_empty(&self) -> bool {
         self.paths.is_empty()
     }
-
 }
 
 /// How far a multi-repository view read has come, reported just before and
@@ -115,9 +114,11 @@ pub fn read_views(
                 commits: 0,
             });
             // Forward the walk's running count sparsely: the server throttles
-            // by time on top, this only bounds the callback overhead.
+            // by time on top, this only bounds the callback overhead. 64 is
+            // fine-grained enough that even a medium repository surfaces a
+            // moving counter.
             let walked = read_repo_with_progress(path, |commits| {
-                if commits % 512 == 0 {
+                if commits % 64 == 0 {
                     progress(ReadProgress {
                         index,
                         total,
@@ -170,7 +171,10 @@ fn annotate_verification(
         // Cache failures as "unknown" so a broken gpg setup does not
         // re-run (and re-log) the check on every view read.
         for id in &pending {
-            session.verify_cache.entry(id.clone()).or_insert(('?', None));
+            session
+                .verify_cache
+                .entry(id.clone())
+                .or_insert(('?', None));
         }
         Some(ExecutedCommand {
             repo: path.to_string_lossy().into_owned(),

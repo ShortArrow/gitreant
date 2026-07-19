@@ -309,6 +309,10 @@ export default async function globalSetup(_config: FullConfig) {
   const repoK = makeRepoK();
   const repoL = makeRepoL();
 
+  // Keep the spawned server's persisted state (commit-count baselines)
+  // inside .tmp so runs stay hermetic and reproducible.
+  process.env.GITREANT_STATE_DIR = path.join(tmpDir, "state");
+
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
 
