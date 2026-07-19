@@ -27,3 +27,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0020](0020-lane-principles.md) | レーン割当はHEAD左端直線・分岐は右へ・マージは右から | Accepted |
 | [0021](0021-tag-operations.md) | タグ操作もgit CLI委譲でコミット行とバッジのメニューに載せる | Accepted |
 | [0022](0022-pane-split.md) | ペイン分割はリポジトリ比較用途に絞り2ペイン横並びから始める | Accepted |
+| [0023](0023-progressive-loading.md) | 読み込みは一覧先行・リポジトリ並列・行ページングで段階化する | Accepted |
