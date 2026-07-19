@@ -69,7 +69,7 @@ async fn ping_add_dedupe_and_serve_spa() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::with_state_dir(Session::new(), None))
+        serve(listener, AppState::new(Session::new()))
             .await
             .unwrap();
     });
@@ -132,10 +132,10 @@ async fn ping_add_dedupe_and_serve_spa() {
     );
 }
 
-/// The SSE contract the SPA's analyzing indicator relies on: each view
-/// read streams `analyzing` events whose JSON payload names the repo and
-/// its position, then an `analyzed` terminator; a re-read carries the
-/// previous commit count as `expected` (the percentage denominator).
+/// The SSE contract the SPA's analyzing indicator relies on: each
+/// repository read streams `analyzing` events whose JSON payload names
+/// the repo and its running commit counter, then an `analyzed` event
+/// carrying the repository id (ADR 0023).
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn analyzing_progress_streams_over_sse() {
     let tmp = tempfile::tempdir().unwrap();
@@ -146,9 +146,7 @@ async fn analyzing_progress_streams_over_sse() {
     let mut session = Session::new();
     session.add(tmp.path()).unwrap();
     tokio::spawn(async move {
-        serve(listener, AppState::with_state_dir(session, None))
-            .await
-            .unwrap();
+        serve(listener, AppState::new(session)).await.unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -212,36 +210,35 @@ async fn analyzing_progress_streams_over_sse() {
         serde_json::from_str(data).expect("analyzing payload is JSON")
     };
 
-    // First read: position 1/1, counter at the start, no baseline yet.
     let reads: Vec<&str> = stream_text.split("event: analyzed").collect();
     assert!(reads.len() >= 3, "expected two reads in {stream_text:?}");
     let first = payload(reads[0]);
-    assert!(!first["id"].as_str().unwrap_or_default().is_empty());
-    assert_eq!(first["index"], 1);
-    assert_eq!(first["total"], 1);
+    let id = first["id"].as_str().unwrap_or_default().to_string();
+    assert!(!id.is_empty());
     assert_eq!(first["commits"], 0);
-    assert!(first["expected"].is_null(), "no baseline on the first read");
 
-    // Second read: the first read's commit count became the baseline.
-    let second = payload(reads[1]);
-    assert_eq!(second["expected"], 1);
+    // The analyzed terminator names the repository whose read finished.
+    let after = &stream_text[stream_text.find("event: analyzed").unwrap()..];
+    let done = after
+        .lines()
+        .find_map(|line| line.strip_prefix("data: "))
+        .expect("analyzed data line");
+    assert_eq!(done, id);
 }
 
-/// Removing a repository from the view must not drop its percentage
-/// baseline: re-attaching it analyzes with the previous commit count as
-/// `expected` right away.
+/// The instant repository list answers without reading any graph, and a
+/// single repository's view comes from POST /api/view (ADR 0023).
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn a_readded_repository_keeps_its_percentage_baseline() {
+async fn list_and_per_repo_view_endpoints() {
     let tmp = tempfile::tempdir().unwrap();
     init_repo_with_commit(tmp.path());
-    let repo_path = tmp.path().to_string_lossy().into_owned();
 
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
+    let mut session = Session::new();
+    session.add(tmp.path()).unwrap();
     tokio::spawn(async move {
-        serve(listener, AppState::with_state_dir(Session::new(), None))
-            .await
-            .unwrap();
+        serve(listener, AppState::new(session)).await.unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -256,67 +253,38 @@ async fn a_readded_repository_keeps_its_percentage_baseline() {
     .unwrap();
     assert!(up, "server did not come up");
 
-    let stream_text = tokio::task::spawn_blocking(move || {
-        // Attach: the add's view read stores the commit count baseline.
-        let body = serde_json::json!({ "path": repo_path }).to_string();
-        let added = http_post_json(port, "/api/repos", &body);
-        let added: serde_json::Value = serde_json::from_str(
-            added
-                .lines()
-                .find(|line| line.starts_with('{'))
-                .expect("add response body"),
+    tokio::task::spawn_blocking(move || {
+        // The list carries ids/names/paths only — no commits.
+        let list = http_get(port, "/api/list");
+        let entries: serde_json::Value = serde_json::from_str(
+            list.lines()
+                .find(|line| line.starts_with('['))
+                .expect("list body"),
         )
-        .expect("add response JSON");
-        let id = added["id"].as_str().expect("repo id").to_string();
+        .expect("list JSON");
+        let id = entries[0]["id"].as_str().expect("repo id").to_string();
+        assert!(!entries[0]["name"].as_str().unwrap_or_default().is_empty());
+        assert!(
+            !list.contains("\"commits\""),
+            "list must stay light: {list}"
+        );
 
-        // Detach.
-        let remove = serde_json::json!({ "path": id }).to_string();
-        http_request_json(port, "DELETE", "/api/repos", &remove);
+        // The per-repository view has the graph.
+        let body = serde_json::json!({ "repo": id }).to_string();
+        let view = http_post_json(port, "/api/view", &body);
+        assert!(view.contains("\"root\""), "commit summary missing: {view}");
+        assert!(view.contains("\"lane_count\""), "layout missing: {view}");
 
-        // Subscribe, then re-attach: its analyzing event must already
-        // carry the baseline recorded before the removal.
-        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
-        stream
-            .set_read_timeout(Some(std::time::Duration::from_millis(200)))
-            .unwrap();
-        write!(
-            stream,
-            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/event-stream\r\n\r\n"
-        )
-        .unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(300));
-        http_post_json(port, "/api/repos", &body);
-
-        let mut buf = Vec::new();
-        let mut chunk = [0u8; 4096];
-        let start = std::time::Instant::now();
-        while start.elapsed() < std::time::Duration::from_secs(10) {
-            match stream.read(&mut chunk) {
-                Ok(0) => break,
-                Ok(n) => buf.extend_from_slice(&chunk[..n]),
-                Err(_) => {}
-            }
-            if String::from_utf8_lossy(&buf).contains("event: analyzed") {
-                break;
-            }
-        }
-        String::from_utf8_lossy(&buf).into_owned()
+        // An unknown repository is a 404.
+        let missing = serde_json::json!({ "repo": "/nowhere" }).to_string();
+        let response = http_post_json(port, "/api/view", &missing);
+        assert!(
+            response.starts_with("HTTP/1.1 404"),
+            "expected 404: {response}"
+        );
     })
     .await
     .unwrap();
-
-    let start = stream_text
-        .find("event: analyzing")
-        .unwrap_or_else(|| panic!("no analyzing event in {stream_text:?}"));
-    let data = stream_text[start..]
-        .lines()
-        .find_map(|line| line.strip_prefix("data: "))
-        .expect("analyzing data line");
-    let payload: serde_json::Value = serde_json::from_str(data).expect("payload JSON");
-    assert_eq!(
-        payload["expected"], 1,
-        "the re-attached repository lost its baseline: {payload}"
-    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -343,7 +311,7 @@ async fn commit_endpoint_returns_detail() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::with_state_dir(Session::new(), None))
+        serve(listener, AppState::new(Session::new()))
             .await
             .unwrap();
     });
@@ -433,7 +401,7 @@ async fn diff_endpoint_returns_unified_hunks() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::with_state_dir(Session::new(), None))
+        serve(listener, AppState::new(Session::new()))
             .await
             .unwrap();
     });
@@ -518,7 +486,7 @@ async fn fetch_endpoint_updates_remote_refs() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::with_state_dir(Session::new(), None))
+        serve(listener, AppState::new(Session::new()))
             .await
             .unwrap();
     });
@@ -624,7 +592,7 @@ async fn fetch_endpoint_reports_per_repo_errors() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::with_state_dir(Session::new(), None))
+        serve(listener, AppState::new(Session::new()))
             .await
             .unwrap();
     });
@@ -690,7 +658,7 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::with_state_dir(Session::new(), None))
+        serve(listener, AppState::new(Session::new()))
             .await
             .unwrap();
     });
@@ -786,7 +754,7 @@ async fn branch_create_endpoint_adds_a_branch_without_checkout() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::with_state_dir(Session::new(), None))
+        serve(listener, AppState::new(Session::new()))
             .await
             .unwrap();
     });
@@ -851,7 +819,7 @@ async fn tag_endpoints_create_and_delete_tags() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::with_state_dir(Session::new(), None))
+        serve(listener, AppState::new(Session::new()))
             .await
             .unwrap();
     });
@@ -939,7 +907,7 @@ async fn prs_endpoint_answers_empty_without_github_and_404_for_unknown_repos() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::with_state_dir(Session::new(), None))
+        serve(listener, AppState::new(Session::new()))
             .await
             .unwrap();
     });
@@ -986,10 +954,7 @@ async fn prs_endpoint_answers_empty_without_github_and_404_for_unknown_repos() {
 async fn shutdown_completes_while_an_sse_connection_is_open() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
-    let server = tokio::spawn(serve(
-        listener,
-        AppState::with_state_dir(Session::new(), None),
-    ));
+    let server = tokio::spawn(serve(listener, AppState::new(Session::new())));
 
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -1041,10 +1006,7 @@ async fn shutdown_completes_while_an_sse_connection_is_open() {
 async fn shutdown_endpoint_stops_the_server() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
-    let server = tokio::spawn(serve(
-        listener,
-        AppState::with_state_dir(Session::new(), None),
-    ));
+    let server = tokio::spawn(serve(listener, AppState::new(Session::new())));
 
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {

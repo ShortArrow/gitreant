@@ -18,7 +18,6 @@ use tokio_stream::{Stream, StreamExt};
 
 use crate::app::{CommitDetailView, FileDiffView, RepoView, Session};
 
-use super::counts::{state_dir, CountCache};
 use super::{assets, PING_MARKER};
 
 /// One executed external command, kept for the UI's command log.
@@ -48,21 +47,14 @@ struct PrLookup {
     merged: Vec<crate::git::MergedPullRequest>,
 }
 
-/// How far the current multi-repository read has come, streamed to SSE
-/// listeners as the `analyzing` event payload.
+/// How far a repository read has come, streamed to SSE listeners as the
+/// `analyzing` event payload (ADR 0023: per-repository, counter only).
 #[derive(Clone, Debug, Serialize)]
 struct AnalyzeProgress {
     /// The repository id (canonical path) being read.
     id: String,
-    /// 1-based position of this repository in the read.
-    index: usize,
-    /// How many repositories the read covers.
-    total: usize,
     /// Commits read so far in this repository.
     commits: usize,
-    /// The commit count of the previous successful read, when known — the
-    /// denominator for an estimated percentage.
-    expected: Option<usize>,
 }
 
 /// What the server broadcasts to SSE listeners.
@@ -72,8 +64,8 @@ enum ServerEvent {
     Update,
     /// A (potentially slow) read of a repository is in progress.
     Analyzing(AnalyzeProgress),
-    /// The current view read finished; any analyzing indicator can clear.
-    Analyzed,
+    /// This repository's read finished; its indicator can clear.
+    Analyzed(String),
 }
 
 /// How often per-repository read progress is streamed at most.
@@ -90,20 +82,10 @@ pub struct AppState {
     /// Tag names known to exist on each repository's origin, refreshed on
     /// fetch — lets the UI mark pushed tags apart from local-only ones.
     remote_tags: Arc<Mutex<HashMap<String, std::collections::HashSet<String>>>>,
-    /// Commit count of each repository's last successful read, the basis
-    /// for the estimated analysis percentage. Persisted so the estimate
-    /// survives server restarts.
-    commit_counts: Arc<CountCache>,
 }
 
 impl AppState {
     pub fn new(session: Session) -> Self {
-        Self::with_state_dir(session, state_dir().as_deref())
-    }
-
-    /// Like [`new`](Self::new) with an explicit state directory (`None`
-    /// keeps all persisted state memory-only) — for tests.
-    pub fn with_state_dir(session: Session, state: Option<&std::path::Path>) -> Self {
         let (updates, _) = broadcast::channel(16);
         let (shutdown, _) = watch::channel(false);
         Self {
@@ -113,7 +95,6 @@ impl AppState {
             command_log: Arc::new(Mutex::new(VecDeque::new())),
             pr_cache: Arc::new(Mutex::new(HashMap::new())),
             remote_tags: Arc::new(Mutex::new(HashMap::new())),
-            commit_counts: Arc::new(CountCache::load(state)),
         }
     }
 
@@ -144,37 +125,29 @@ impl AppState {
         self.shutdown.subscribe()
     }
 
-    /// Read every repository view, logging any external commands the read ran
-    /// (signature verification) and marking tags known to exist on origin.
-    /// Streams per-repository progress to SSE listeners so the UI can show
-    /// what is being analyzed while a slow repository loads.
-    fn views(&self) -> Vec<RepoView> {
-        // Throttled so a huge commit walk does not flood the SSE channel;
-        // the start of each repository (commits == 0) always goes out.
-        let mut last_sent: Option<Instant> = None;
-        let (mut views, executed) = crate::app::read_views(&self.session, |p| {
-            if p.commits > 0 && last_sent.is_some_and(|at| at.elapsed() < ANALYZE_THROTTLE) {
+    /// Read one repository's view, streaming its analyzing counter to SSE
+    /// listeners, logging any external command the read ran (signature
+    /// verification) and marking tags known to exist on origin.
+    fn read_one(&self, path: &std::path::Path) -> RepoView {
+        let id = path.to_string_lossy().into_owned();
+        let _ = self.updates.send(ServerEvent::Analyzing(AnalyzeProgress {
+            id: id.clone(),
+            commits: 0,
+        }));
+        // Throttled so a huge commit walk does not flood the SSE channel.
+        let mut last_sent = Instant::now();
+        let (mut view, executed) = crate::app::read_view(&self.session, path, |commits| {
+            if last_sent.elapsed() < ANALYZE_THROTTLE {
                 return;
             }
-            last_sent = Some(Instant::now());
-            let id = p.path.to_string_lossy().into_owned();
-            let expected = self.commit_counts.get(&id);
+            last_sent = Instant::now();
             let _ = self.updates.send(ServerEvent::Analyzing(AnalyzeProgress {
-                id,
-                index: p.index + 1,
-                total: p.total,
-                commits: p.commits,
-                expected,
+                id: id.clone(),
+                commits,
             }));
         });
-        let _ = self.updates.send(ServerEvent::Analyzed);
-        self.commit_counts.update(
-            views
-                .iter()
-                .filter(|view| view.error.is_none())
-                .map(|view| (view.id.clone(), view.commits.len())),
-        );
-        for command in executed {
+        let _ = self.updates.send(ServerEvent::Analyzed(id));
+        if let Some(command) = executed {
             self.push_log(CommandLogEntry {
                 time: epoch_now(),
                 repo: command.repo,
@@ -184,17 +157,28 @@ impl AppState {
             });
         }
         let remote_tags = self.remote_tags.lock().expect("remote tags mutex");
-        for view in &mut views {
-            let Some(on_origin) = remote_tags.get(&view.id) else {
-                continue;
-            };
+        if let Some(on_origin) = remote_tags.get(&view.id) {
             for r in &mut view.refs {
                 if r.kind == "tag" && r.remote.is_none() && on_origin.contains(&r.name) {
                     r.remote = Some("origin".to_string());
                 }
             }
         }
-        views
+        view
+    }
+
+    /// Read every repository view, in insertion order.
+    fn views(&self) -> Vec<RepoView> {
+        self.repo_paths()
+            .into_iter()
+            .map(|(_, path)| self.read_one(&path))
+            .collect()
+    }
+
+    /// Read the view of the repository identified by `id`, if displayed.
+    fn view_of(&self, id: &str) -> Option<RepoView> {
+        let path = self.repo_path(id)?;
+        Some(self.read_one(&path))
     }
 
     /// Add a repository; returns whether it was newly added. Notifies SSE
@@ -250,6 +234,8 @@ pub fn router(state: AppState) -> Router {
             "/api/repos",
             get(list_repos).post(add_repo).delete(remove_repo),
         )
+        .route("/api/list", get(list_light))
+        .route("/api/view", post(repo_view))
         .route("/api/commit", post(commit_detail))
         .route("/api/diff", post(file_diff))
         .route("/api/commit-diff", post(commit_diff))
@@ -282,6 +268,53 @@ async fn blocking_views(state: &AppState) -> Vec<RepoView> {
 
 async fn list_repos(State(state): State<AppState>) -> Json<Vec<RepoView>> {
     Json(blocking_views(&state).await)
+}
+
+/// One entry of the instant repository list (ADR 0023): everything the
+/// drawer needs before any graph has been read.
+#[derive(Serialize)]
+struct RepoListEntry {
+    id: String,
+    name: String,
+    path: String,
+}
+
+async fn list_light(State(state): State<AppState>) -> Json<Vec<RepoListEntry>> {
+    Json(
+        state
+            .repo_paths()
+            .into_iter()
+            .map(|(id, path)| RepoListEntry {
+                name: path
+                    .file_name()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| "repo".to_string()),
+                path: path.to_string_lossy().into_owned(),
+                id,
+            })
+            .collect(),
+    )
+}
+
+#[derive(Deserialize)]
+struct RepoViewRequest {
+    repo: String,
+}
+
+async fn repo_view(
+    State(state): State<AppState>,
+    Json(req): Json<RepoViewRequest>,
+) -> Result<Json<RepoView>, (StatusCode, String)> {
+    let reader = state.clone();
+    let id = req.repo.clone();
+    tokio::task::spawn_blocking(move || reader.view_of(&id))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map(Json)
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ))
 }
 
 #[derive(Deserialize)]
@@ -776,7 +809,7 @@ async fn events(
             Ok(ServerEvent::Analyzing(progress)) => Event::default()
                 .event("analyzing")
                 .data(serde_json::to_string(&progress).unwrap_or_default()),
-            Ok(ServerEvent::Analyzed) => Event::default().event("analyzed").data("done"),
+            Ok(ServerEvent::Analyzed(id)) => Event::default().event("analyzed").data(id),
         })
     });
     Sse::new(stream).keep_alive(KeepAlive::default())
