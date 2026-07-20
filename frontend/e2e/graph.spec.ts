@@ -831,6 +831,37 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("commit-row")).toHaveCount(5);
   });
 
+  test("a pane opened mid-read shows how many commits are read", async ({
+    page,
+  }) => {
+    // Hold the graph read open and feed a synthetic counter: the opened
+    // pane must name the running commit count, not a stale zero.
+    const list = (await (await page.request.get("/api/list")).json()) as {
+      id: string;
+    }[];
+    await page.route("**/api/view", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await route.continue();
+    });
+    await page.route("**/api/events", (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+        body: `event: analyzing\ndata: ${JSON.stringify({
+          id: list[0].id,
+          commits: 1234,
+        })}\n\n`,
+      }),
+    );
+    await page.reload();
+    await page.locator('[data-repo-name="repoA"]').click();
+
+    const empty = page.getByTestId("pane-empty");
+    await expect(empty).toContainText("Analyzing");
+    await expect(empty).toContainText("(1234 commits)");
+    await expect(empty).not.toContainText("(0 commits)");
+  });
+
   test("graph rows page in until the whole history is shown", async ({
     page,
   }) => {

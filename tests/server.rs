@@ -233,7 +233,11 @@ async fn analyzing_progress_streams_over_sse() {
     let first = payload(reads[0]);
     let id = first["id"].as_str().unwrap_or_default().to_string();
     assert!(!id.is_empty());
-    assert_eq!(first["commits"], 0);
+    // The counter reflects the commits actually read — never a leading
+    // zero that could stick on screen while a later phase runs.
+    let last_analyzing = reads[0].rsplit("event: analyzing").next().unwrap();
+    let last = payload(&format!("event: analyzing{last_analyzing}"));
+    assert_eq!(last["commits"], 1, "expected the read's one commit counted");
 
     // The analyzed terminator names the repository whose read finished.
     let after = &stream_text[stream_text.find("event: analyzed").unwrap()..];

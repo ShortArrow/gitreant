@@ -98,6 +98,10 @@ pub fn read_view(
     });
     match walked {
         Ok(mut data) => {
+            // The walk is done: report its true total now, before the
+            // (possibly slow) signature verification, so the counter never
+            // lags at a stale value while gpg runs.
+            on_commits(data.commits.len());
             let command = annotate_verification(session, path, &mut data);
             (build_view(path, &data), command)
         }

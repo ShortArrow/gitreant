@@ -675,8 +675,8 @@ export function App() {
                   ) : entry ? (
                     <div className="pane-empty" data-testid="pane-empty">
                       {t("analyzingRepo", { path: entry.path })}
-                      {analyzing.has(entry.id)
-                        ? ` (${t("commitsCount", { n: analyzing.get(entry.id) ?? 0 })})`
+                      {(analyzing.get(entry.id) ?? 0) > 0
+                        ? ` (${t("commitsCount", { n: analyzing.get(entry.id)! })})`
                         : ""}
                     </div>
                   ) : (

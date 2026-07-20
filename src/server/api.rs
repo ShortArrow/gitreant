@@ -130,22 +130,32 @@ impl AppState {
     /// verification) and marking tags known to exist on origin.
     fn read_one(&self, path: &std::path::Path) -> RepoView {
         let id = path.to_string_lossy().into_owned();
-        let _ = self.updates.send(ServerEvent::Analyzing(AnalyzeProgress {
-            id: id.clone(),
-            commits: 0,
-        }));
-        // Throttled so a huge commit walk does not flood the SSE channel.
-        let mut last_sent = Instant::now();
+        // Stream the walk's running commit count. The first update goes out
+        // at once and the rest are throttled so a huge walk cannot flood the
+        // SSE channel; there is no leading zero to get stuck on screen.
+        let mut last_sent: Option<Instant> = None;
+        let mut sent_count: Option<usize> = None;
+        let mut last_count = 0;
         let (mut view, executed) = crate::app::read_view(&self.session, path, |commits| {
-            if last_sent.elapsed() < ANALYZE_THROTTLE {
+            last_count = commits;
+            if last_sent.is_some_and(|at| at.elapsed() < ANALYZE_THROTTLE) {
                 return;
             }
-            last_sent = Instant::now();
+            last_sent = Some(Instant::now());
+            sent_count = Some(commits);
             let _ = self.updates.send(ServerEvent::Analyzing(AnalyzeProgress {
                 id: id.clone(),
                 commits,
             }));
         });
+        // Always land on the true total, even when the throttle swallowed
+        // the final walk update.
+        if sent_count != Some(last_count) {
+            let _ = self.updates.send(ServerEvent::Analyzing(AnalyzeProgress {
+                id: id.clone(),
+                commits: last_count,
+            }));
+        }
         let _ = self.updates.send(ServerEvent::Analyzed(id));
         if let Some(command) = executed {
             self.push_log(CommandLogEntry {
