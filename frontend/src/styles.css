@@ -785,12 +785,16 @@ body {
   --badge: var(--muted);
 }
 
+/* The remote-name prefix reads as a filled chip so a pushed ref stays
+ * clearly two-zoned even within one hue (a green tag's "origin" segment
+ * vs its green body). */
 .badge-remote .badge-remote-name {
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
-  background: color-mix(in srgb, var(--badge) 28%, transparent);
-  border-right: 1px solid color-mix(in srgb, var(--badge) 40%, transparent);
+  color: var(--bg-elev);
+  background: color-mix(in srgb, var(--badge) 72%, var(--bg-elev));
+  border-right: 1px solid color-mix(in srgb, var(--badge) 60%, transparent);
 }
 
 /* Dropdown menus: branch badges (fixed at cursor) and diff selections. */
