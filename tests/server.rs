@@ -574,6 +574,16 @@ async fn fetch_endpoint_updates_remote_refs() {
     let clone = tmp.path().join("clone");
     run(&clone, &["tag", "vlocal"]);
 
+    // A tag on a second, non-origin remote must be named by that remote,
+    // not left as local-only (the user pushed to `source`, not `origin`).
+    let backup = tmp.path().join("backup");
+    std::fs::create_dir(&backup).unwrap();
+    init_repo_with_commit(&backup);
+    run(&backup, &["tag", "vshared"]);
+    run(&clone, &["tag", "vshared"]);
+    let backup_str = backup.to_string_lossy().into_owned();
+    run(&clone, &["remote", "add", "backup", &backup_str]);
+
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
@@ -645,6 +655,10 @@ async fn fetch_endpoint_updates_remote_refs() {
     assert!(
         !ref_entry("vlocal").contains("\"remote\""),
         "vlocal must stay local-only: {after}"
+    );
+    assert!(
+        ref_entry("vshared").contains("\"remote\":\"backup\""),
+        "vshared not named by its non-origin remote: {after}"
     );
 
     // The executed git commands show up in the command log.

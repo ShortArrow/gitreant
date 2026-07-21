@@ -79,9 +79,10 @@ pub struct AppState {
     shutdown: watch::Sender<bool>,
     command_log: Arc<Mutex<VecDeque<CommandLogEntry>>>,
     pr_cache: Arc<Mutex<HashMap<String, (Instant, PrLookup)>>>,
-    /// Tag names known to exist on each repository's origin, refreshed on
-    /// fetch — lets the UI mark pushed tags apart from local-only ones.
-    remote_tags: Arc<Mutex<HashMap<String, std::collections::HashSet<String>>>>,
+    /// Per repository, the remote each tag was pushed to (tag name → remote
+    /// name), refreshed on fetch — lets the UI mark pushed tags apart from
+    /// local-only ones and name the remote.
+    remote_tags: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
 }
 
 impl AppState {
@@ -167,10 +168,12 @@ impl AppState {
             });
         }
         let remote_tags = self.remote_tags.lock().expect("remote tags mutex");
-        if let Some(on_origin) = remote_tags.get(&view.id) {
+        if let Some(tag_remotes) = remote_tags.get(&view.id) {
             for r in &mut view.refs {
-                if r.kind == "tag" && r.remote.is_none() && on_origin.contains(&r.name) {
-                    r.remote = Some("origin".to_string());
+                if r.kind == "tag" && r.remote.is_none() {
+                    if let Some(remote) = tag_remotes.get(&r.name) {
+                        r.remote = Some(remote.clone());
+                    }
                 }
             }
         }
@@ -488,25 +491,32 @@ async fn fetch_remotes(State(state): State<AppState>) -> Json<FetchResponse> {
                     ok: result.is_ok(),
                     message: result.as_ref().err().cloned().unwrap_or_default(),
                 });
-                // Refresh which tags exist on origin, so the views can mark
-                // pushed tags apart from local-only ones.
-                if crate::git::has_origin(&path) {
-                    let tags = crate::git::remote_tags(&path);
+                // Refresh which remote (if any) each tag was pushed to, so the
+                // views can mark pushed tags apart from local-only ones and
+                // name the remote. origin wins when a tag is on several.
+                let mut tag_remotes: HashMap<String, String> = HashMap::new();
+                for listing in crate::git::tag_remotes(&path) {
                     logger.push_log(CommandLogEntry {
                         time: epoch_now(),
                         repo: repo.clone(),
-                        command: crate::git::remote_tags_command(&path),
-                        ok: tags.is_ok(),
-                        message: tags.as_ref().err().cloned().unwrap_or_default(),
+                        command: listing.command,
+                        ok: listing.result.is_ok(),
+                        message: listing.result.as_ref().err().cloned().unwrap_or_default(),
                     });
-                    if let Ok(tags) = tags {
-                        logger
-                            .remote_tags
-                            .lock()
-                            .expect("remote tags mutex")
-                            .insert(repo.clone(), tags.into_iter().collect());
+                    if let Ok(tags) = listing.result {
+                        for tag in tags {
+                            let entry = tag_remotes.entry(tag).or_insert_with(|| listing.remote.clone());
+                            if listing.remote == "origin" {
+                                *entry = "origin".to_string();
+                            }
+                        }
                     }
                 }
+                logger
+                    .remote_tags
+                    .lock()
+                    .expect("remote tags mutex")
+                    .insert(repo.clone(), tag_remotes);
                 result.err().map(|message| FetchError { repo, message })
             })
             .collect()

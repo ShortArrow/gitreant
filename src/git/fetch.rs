@@ -29,30 +29,58 @@ pub fn fetch_remotes(path: &Path) -> Result<(), String> {
     }
 }
 
-/// Whether the repository has an `origin` remote configured — the guard that
-/// keeps `remote_tags` from spamming the command log on remote-less repos.
-pub fn has_origin(path: &Path) -> bool {
+/// Names of the repository's configured remotes, in name order (empty when
+/// there are none or the repository cannot be read).
+pub fn remote_names(path: &Path) -> Vec<String> {
     gix::discover(path)
         .ok()
-        .is_some_and(|repo| repo.config_snapshot().string("remote.origin.url").is_some())
+        .map(|repo| {
+            repo.remote_names()
+                .into_iter()
+                .map(|name| name.to_string())
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
-const LS_REMOTE_TAGS_ARGS: [&str; 4] = ["ls-remote", "--tags", "--refs", "origin"];
-
-/// The command line `remote_tags` executes, for the command log.
-pub fn remote_tags_command(path: &Path) -> String {
-    format!(
-        "git -C {} {}",
-        path.display(),
-        LS_REMOTE_TAGS_ARGS.join(" ")
-    )
+fn ls_remote_tags_args(remote: &str) -> [String; 4] {
+    [
+        "ls-remote".to_string(),
+        "--tags".to_string(),
+        "--refs".to_string(),
+        remote.to_string(),
+    ]
 }
 
-/// The tag names existing on `origin`, so the UI can tell pushed tags from
-/// local-only ones. A network call — run it alongside fetch, not on reads.
-pub fn remote_tags(path: &Path) -> Result<Vec<String>, String> {
+/// One remote's tag listing: the command run and, on success, its tag names.
+pub struct RemoteTagList {
+    pub remote: String,
+    pub command: String,
+    pub result: Result<Vec<String>, String>,
+}
+
+/// `ls-remote --tags` every configured remote, so the UI can tell which
+/// remote (if any) a tag was pushed to. A network call per remote — run it
+/// alongside fetch, not on reads. The caller logs each command and folds
+/// the results into a tag→remote map.
+pub fn tag_remotes(path: &Path) -> Vec<RemoteTagList> {
+    remote_names(path)
+        .into_iter()
+        .map(|remote| {
+            let args = ls_remote_tags_args(&remote);
+            let command = format!("git -C {} {}", path.display(), args.join(" "));
+            RemoteTagList {
+                result: ls_remote_tags(path, &args),
+                remote,
+                command,
+            }
+        })
+        .collect()
+}
+
+fn ls_remote_tags(path: &Path, args: &[String; 4]) -> Result<Vec<String>, String> {
     let mut command = Command::new("git");
-    command.arg("-C").arg(path).args(LS_REMOTE_TAGS_ARGS);
+    command.arg("-C").arg(path).args(args);
     hide_console(&mut command);
     let output = command
         .output()
@@ -100,8 +128,10 @@ mod tests {
     }
 
     #[test]
-    fn remote_tags_command_names_the_query() {
-        let cmd = remote_tags_command(std::path::Path::new("/repos/demo"));
-        assert_eq!(cmd, "git -C /repos/demo ls-remote --tags --refs origin");
+    fn ls_remote_tags_args_target_the_named_remote() {
+        assert_eq!(
+            ls_remote_tags_args("source"),
+            ["ls-remote", "--tags", "--refs", "source"],
+        );
     }
 }
