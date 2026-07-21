@@ -39,6 +39,8 @@ export const mergeRepo: RepoView = {
     { name: "main", target: "m", kind: "branch" },
     { name: "main", target: "m", remote: "origin", kind: "branch" },
     { name: "feature", target: "f1", kind: "branch" },
+    { name: "v1.0", target: "a1", kind: "tag" },
+    { name: "v0.9", target: "a1", remote: "origin", kind: "tag" },
   ],
   commits: [
     { ...commit("m", 0, 0, 0, ["a2", "f1"], "merge feature branch"), signature: "openpgp" },

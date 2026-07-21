@@ -739,13 +739,17 @@ body {
  * name, PR mark) carries its own uniform padding and the pill itself none,
  * so local and remote variants space identically. */
 .badge-ref {
+  /* One accent per badge kind drives both the body and the remote-name
+   * segment, so a tag's origin marker is green like the rest of the tag,
+   * not the branch blue. */
+  --badge: var(--accent);
   display: inline-flex;
   align-items: stretch;
   padding: 0;
   overflow: hidden;
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--badge);
+  border-color: color-mix(in srgb, var(--badge) 40%, transparent);
+  background: color-mix(in srgb, var(--badge) 12%, transparent);
 }
 
 .badge-ref-name {
@@ -758,24 +762,20 @@ body {
 /* Tags and the stash read apart from branches: same pill shape, their own
  * tint plus a small kind icon. */
 .badge-kind-tag {
-  color: var(--success);
-  border-color: color-mix(in srgb, var(--success) 40%, transparent);
-  background: color-mix(in srgb, var(--success) 12%, transparent);
+  --badge: var(--success);
 }
 
 .badge-kind-stash,
 .badge-kind-other {
-  color: var(--muted);
-  border-color: color-mix(in srgb, var(--muted) 40%, transparent);
-  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  --badge: var(--muted);
 }
 
 .badge-remote .badge-remote-name {
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
-  background: color-mix(in srgb, var(--accent) 28%, transparent);
-  border-right: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--badge) 28%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--badge) 40%, transparent);
 }
 
 /* Dropdown menus: branch badges (fixed at cursor) and diff selections. */
