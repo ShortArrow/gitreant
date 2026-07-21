@@ -141,10 +141,15 @@ fn collect_refs(repo: &gix::Repository) -> Vec<RefInfo> {
     let mut refs = Vec::new();
     for reference in iter.filter_map(Result::ok) {
         let mut reference = reference;
-        let (name, remote, kind) = classify(
-            &reference.name().as_bstr().to_string(),
-            &reference.name().shorten().to_string(),
-        );
+        let full = reference.name().as_bstr().to_string();
+        // A remote's symbolic HEAD (refs/remotes/<remote>/HEAD) just points at
+        // that remote's default branch; it is not a branch of its own, and git
+        // tools omit it. Showing it would double the default branch under a
+        // bogus "HEAD" badge.
+        if full.starts_with("refs/remotes/") && full.ends_with("/HEAD") {
+            continue;
+        }
+        let (name, remote, kind) = classify(&full, &reference.name().shorten().to_string());
         if let Ok(id) = reference.peel_to_id() {
             refs.push(RefInfo {
                 name,

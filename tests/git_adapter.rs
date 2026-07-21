@@ -65,6 +65,16 @@ fn remote_refs_carry_their_remote_name() {
     git(dir, &["config", "commit.gpgsign", "false"]);
     commit(dir, "root", 1000);
     git(dir, &["update-ref", "refs/remotes/origin/main", "HEAD"]);
+    // The remote's symbolic HEAD (origin/HEAD -> origin/main) must not
+    // surface as a bogus "HEAD" branch badge.
+    git(
+        dir,
+        &[
+            "symbolic-ref",
+            "refs/remotes/origin/HEAD",
+            "refs/remotes/origin/main",
+        ],
+    );
 
     let repo = read_repo(dir).expect("read repo");
 
@@ -80,6 +90,10 @@ fn remote_refs_carry_their_remote_name() {
         .expect("remote-tracking ref");
     assert_eq!(remote.name, "main");
     assert_eq!(remote.target, local.target);
+    assert!(
+        !repo.refs.iter().any(|r| r.name == "HEAD"),
+        "the remote symbolic HEAD must be excluded"
+    );
 }
 
 #[test]
