@@ -24,32 +24,18 @@ main (CLI) ──▶ server (axum) ──▶ app (session) ──▶ domain (gra
   and converts them into a topologically ordered commit list.
 - **app**: manages the set of displayed repositories and composes layout
   results with metadata into JSON views.
-- **server**: REST (`/api/repos`) and SSE (`/api/events`), SPA serving via
-  `rust-embed`, single-instance detection (`/api/ping` + `POST /api/repos`).
+- **server**: REST + SSE endpoints, SPA serving via `rust-embed`, and
+  single-instance detection over loopback.
 - **frontend**: receives lane-precomputed JSON and draws the graph with
   hand-rolled SVG.
 
 ## API
 
-| Method | Path           | Description                                           |
-| ------ | -------------- | ----------------------------------------------------- |
-| GET    | `/api/ping`    | Liveness marker (single-instance detection)           |
-| GET    | `/api/repos`   | Graph JSON of the displayed repositories              |
-| POST   | `/api/repos`   | Add `{ "path": "..." }` to the session                |
-| DELETE | `/api/repos`   | Remove `{ "path": "<id>" }` from the session          |
-| POST   | `/api/commit`  | Details of `{ "repo": "<id>", "id": "<commit>" }`: full message + changed files |
-| POST   | `/api/diff`    | Unified diff of `{ "repo", "id", "path" }` against the first parent |
-| POST   | `/api/commit-diff` | Unified diffs of every file `{ "repo", "id" }` changed |
-| POST   | `/api/fetch`   | `git fetch --all --prune` every displayed repository (needs git CLI) |
-| POST   | `/api/checkout` | `git switch` to `{ "repo": "<id>", "reference": "<branch>" }` (remote refs detach) |
-| POST   | `/api/merge`   | `git merge --no-edit` `{ "repo": "<id>", "reference": "<ref>" }` into the checked-out branch |
-| POST   | `/api/tag`     | `git tag` `{ "repo": "<id>", "name": "...", "commit": "<id>" }` (lightweight) |
-| DELETE | `/api/tag`     | `git tag -d` `{ "repo": "<id>", "name": "..." }` (local only) |
-| POST   | `/api/prs`     | Open PRs of `{ "repo": "<id>" }` via `gh pr list` (empty without gh; cached 5 min) |
-| GET    | `/api/log`     | Executed external commands (ring buffer of 200), oldest first |
-| POST   | `/api/pick`    | Open a native folder picker on the server machine     |
-| POST   | `/api/shutdown` | Stop the running server (used by `gitreant --shutdown`) |
-| GET    | `/api/events`  | SSE; emits `update` when repositories are added/removed |
+The `/api/*` routes are defined in one place — the `router()` function in
+`src/server/api.rs`. Read it there rather than a table here, which only
+duplicates the code and drifts out of date. Conventions across the routes:
+a repository is addressed by its `id` (its canonical path), request and
+response bodies are JSON, and `/api/events` is a Server-Sent Events stream.
 
 ## Tests
 
@@ -66,7 +52,7 @@ $ cd frontend && pnpm test:e2e  # Playwright E2E (generates fixtures, starts ser
 - `server`: ping / add / remove / dedup / shutdown / 404 fallback over a real
   socket.
 - `detach`: runs the real binary to verify detach-by-default, `--shutdown`,
-  and single-instance forwarding of a second invocation.
+  `restart` (same repositories come back up), and single-instance forwarding.
 - `unit` (Vitest): pure frontend functions — unified-diff parsing, file-tree
   building, edge paths, theme resolution, width clamping.
 - `e2e` (Playwright): drawer listing, tab open/close, graph rendering
