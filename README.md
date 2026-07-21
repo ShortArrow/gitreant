@@ -83,6 +83,11 @@ gitreant doctor       check the environment: git (required), gh and gpg
                       (optional feature enablers), and whether a server is
                       already running on the port; exits non-zero when a
                       required tool is missing
+gitreant restart      restart the running server, keeping the repositories it
+                      shows; a fresh process re-verifies every signature and
+                      picks up a rebuilt binary
+gitreant refresh      re-verify commit signatures in place, without restarting
+                      (use after adding a key to your gpg keyring)
 ```
 
 ## Contributing

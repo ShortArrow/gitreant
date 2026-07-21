@@ -4,7 +4,9 @@
 //! returning control to the shell. If a gitreant server is already running on
 //! the port, the given repositories are handed to it instead (mirroring `mo`'s
 //! single-instance behaviour). `--foreground` keeps the server in the current
-//! terminal; `--shutdown` stops the running server.
+//! terminal; `--shutdown` stops the running server. `restart` brings the same
+//! repositories back up in a fresh process; `refresh` re-verifies signatures
+//! in place.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -13,7 +15,9 @@ use clap::{Parser, Subcommand};
 
 use gitreant::app::{canonical, Session};
 use gitreant::doctor;
-use gitreant::server::{bind, ping, post_repo, post_shutdown, serve, AppState};
+use gitreant::server::{
+    bind, get_repo_paths, ping, post_refresh, post_repo, post_shutdown, serve, AppState,
+};
 
 #[derive(Parser)]
 #[command(
@@ -49,12 +53,19 @@ struct Cli {
 enum Command {
     /// Check the external tools gitreant relies on (git, gh, gpg).
     Doctor,
+    /// Restart the running server, keeping the repositories it shows.
+    Restart,
+    /// Re-verify commit signatures in place, without restarting.
+    Refresh,
 }
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    if let Some(Command::Doctor) = cli.command {
-        return run_doctor(&cli);
+    match cli.command {
+        Some(Command::Doctor) => return run_doctor(&cli),
+        Some(Command::Restart) => return restart(&cli),
+        Some(Command::Refresh) => return refresh(&cli),
+        None => {}
     }
     if cli.shutdown {
         return shutdown_running(&cli);
@@ -70,7 +81,7 @@ fn main() -> ExitCode {
     } else if cli.foreground {
         run_server(&cli, &paths)
     } else {
-        start_background(&cli, &paths)
+        start_background(&cli, &paths, true)
     }
 }
 
@@ -83,6 +94,75 @@ fn run_doctor(cli: &Cli) -> ExitCode {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE
+    }
+}
+
+/// Stop the running server and start a fresh one with the same repositories
+/// (plus any given on the command line). A new process starts with an empty
+/// signature cache, so restarting re-verifies every commit; it also picks up
+/// a rebuilt binary. The browser tab reconnects on the same port, so none is
+/// opened.
+fn restart(cli: &Cli) -> ExitCode {
+    let mut paths: Vec<PathBuf> = cli.paths.clone();
+    if ping(cli.port) {
+        match get_repo_paths(cli.port) {
+            Ok(existing) => paths.extend(existing.into_iter().map(PathBuf::from)),
+            Err(e) => {
+                eprintln!("could not read the running server's repositories: {e}");
+                return ExitCode::FAILURE;
+            }
+        }
+        if let Err(e) = post_shutdown(cli.port) {
+            eprintln!("failed to stop the running server: {e}");
+            return ExitCode::FAILURE;
+        }
+        // Wait for the old server to release the port before rebinding it.
+        let mut stopped = false;
+        for _ in 0..100 {
+            if !ping(cli.port) {
+                stopped = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        if !stopped {
+            eprintln!("the running server did not stop in time");
+            return ExitCode::FAILURE;
+        }
+        // A moment for the socket to settle before the new server binds it.
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
+
+    // Dedupe (canonicalized) while preserving order.
+    let mut seen = std::collections::HashSet::new();
+    let mut unique = Vec::new();
+    for path in paths {
+        if seen.insert(canonical(&path)) {
+            unique.push(path);
+        }
+    }
+    if unique.is_empty() {
+        unique.push(PathBuf::from("."));
+    }
+    start_background(cli, &unique, false)
+}
+
+/// Ask the running server to re-verify signatures in place (drop the cached
+/// verdicts). Cheaper than a restart when only the verification is stale.
+fn refresh(cli: &Cli) -> ExitCode {
+    if !ping(cli.port) {
+        eprintln!("no gitreant running on port {}", cli.port);
+        return ExitCode::FAILURE;
+    }
+    match post_refresh(cli.port) {
+        Ok(()) => {
+            println!("re-verifying signatures on port {}", cli.port);
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("refresh failed: {e}");
+            ExitCode::FAILURE
+        }
     }
 }
 
@@ -101,8 +181,9 @@ fn shutdown_running(cli: &Cli) -> ExitCode {
 }
 
 /// Spawn a detached copy of ourselves as the server, wait until it answers,
-/// then open the browser and return control to the shell (mirroring `mo`).
-fn start_background(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
+/// then (when `open`) open the browser and return control to the shell
+/// (mirroring `mo`).
+fn start_background(cli: &Cli, paths: &[PathBuf], open: bool) -> ExitCode {
     let exe = match std::env::current_exe() {
         Ok(exe) => exe,
         Err(e) => {
@@ -137,7 +218,9 @@ fn start_background(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
                 cli.port,
                 child.id()
             );
-            open_browser(cli);
+            if open {
+                open_browser(cli);
+            }
             return ExitCode::SUCCESS;
         }
         if let Ok(Some(status)) = child.try_wait() {

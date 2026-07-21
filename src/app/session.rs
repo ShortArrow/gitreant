@@ -73,6 +73,12 @@ impl Session {
     pub fn is_empty(&self) -> bool {
         self.paths.is_empty()
     }
+
+    /// Forget every cached signature verdict so the next view read verifies
+    /// them again — e.g. after the local gpg keyring gained a missing key.
+    pub fn clear_verify_cache(&mut self) {
+        self.verify_cache.clear();
+    }
 }
 
 /// Read one repository and build its view, reporting the running commit

@@ -39,6 +39,31 @@ pub fn post_shutdown(port: u16) -> Result<(), String> {
     }
 }
 
+/// Ask the running server to drop its cached signature verdicts and
+/// re-verify (without restarting).
+pub fn post_refresh(port: u16) -> Result<(), String> {
+    match request(port, "POST", "/api/refresh", None, REQUEST_TIMEOUT)? {
+        (200, _) => Ok(()),
+        (status, body) => Err(format!("server returned {status}: {body}")),
+    }
+}
+
+/// The repository paths a running server currently displays, so a restart
+/// can bring the same set back up.
+pub fn get_repo_paths(port: u16) -> Result<Vec<String>, String> {
+    match request(port, "GET", "/api/list", None, REQUEST_TIMEOUT)? {
+        (200, body) => {
+            let list: Vec<serde_json::Value> =
+                serde_json::from_str(&body).map_err(|e| format!("parse repo list: {e}"))?;
+            Ok(list
+                .into_iter()
+                .filter_map(|e| e.get("path").and_then(|p| p.as_str()).map(str::to_string))
+                .collect())
+        }
+        (status, body) => Err(format!("server returned {status}: {body}")),
+    }
+}
+
 fn request(
     port: u16,
     method: &str,

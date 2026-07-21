@@ -6,7 +6,7 @@ mod assets;
 mod client;
 
 pub use api::{router, AppState};
-pub use client::{ping, post_repo, post_shutdown};
+pub use client::{get_repo_paths, ping, post_refresh, post_repo, post_shutdown};
 
 use std::net::SocketAddr;
 

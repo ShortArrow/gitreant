@@ -248,6 +248,75 @@ async fn analyzing_progress_streams_over_sse() {
     assert_eq!(done, id);
 }
 
+/// POST /api/refresh drops cached verdicts and tells clients to reload, so
+/// re-verification happens after the local gpg keyring changes.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn refresh_notifies_clients_to_reload() {
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    let mut session = Session::new();
+    session.add(tmp.path()).unwrap();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(session)).await.unwrap();
+    });
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    let stream_text = tokio::task::spawn_blocking(move || {
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_millis(200)))
+            .unwrap();
+        write!(
+            stream,
+            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/event-stream\r\n\r\n"
+        )
+        .unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(300));
+
+        let response = http_post_json(port, "/api/refresh", "");
+        assert!(
+            response.starts_with("HTTP/1.1 200"),
+            "refresh should return 200: {response}"
+        );
+
+        let mut buf = Vec::new();
+        let mut chunk = [0u8; 4096];
+        let start = std::time::Instant::now();
+        while start.elapsed() < std::time::Duration::from_secs(5) {
+            match stream.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                Err(_) => {}
+            }
+            if String::from_utf8_lossy(&buf).contains("event: update") {
+                break;
+            }
+        }
+        String::from_utf8_lossy(&buf).into_owned()
+    })
+    .await
+    .unwrap();
+
+    assert!(
+        stream_text.contains("event: update"),
+        "refresh must broadcast an update: {stream_text:?}"
+    );
+}
+
 /// The instant repository list answers without reading any graph, and a
 /// single repository's view comes from POST /api/view (ADR 0023).
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -143,3 +143,56 @@ fn detaches_by_default_and_stops_via_shutdown() {
         "server still answering after --shutdown"
     );
 }
+
+#[test]
+fn restart_brings_the_same_repositories_back_up() {
+    let port = free_port();
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+    let name = tmp
+        .path()
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+
+    let exe = env!("CARGO_BIN_EXE_gitreant");
+    let mut launcher = Command::new(exe)
+        .arg(tmp.path())
+        .args(["--port", &port.to_string(), "--no-open"])
+        .spawn()
+        .unwrap();
+    assert!(
+        wait_exit(&mut launcher, Duration::from_secs(60)).is_some_and(|s| s.success()),
+        "launcher did not detach cleanly"
+    );
+    assert!(ping(port), "server is not answering");
+    assert!(
+        get_repos(port).contains(&name),
+        "repo missing before restart"
+    );
+
+    // Restart preserves the displayed repository and comes back on the port.
+    // `.status()` (not `.output()`): restart detaches a server that would
+    // inherit a captured stdout pipe on Windows and block the wait forever.
+    let restart = Command::new(exe)
+        .args(["restart", "--port", &port.to_string()])
+        .status()
+        .expect("run restart");
+    assert!(restart.success(), "restart failed: {restart}");
+    assert!(
+        wait_until(|| ping(port), Duration::from_secs(30)),
+        "server did not come back after restart"
+    );
+    assert!(
+        get_repos(port).contains(&name),
+        "restart lost the repository"
+    );
+
+    let shutdown = Command::new(exe)
+        .args(["--port", &port.to_string(), "--shutdown"])
+        .status()
+        .unwrap();
+    assert!(shutdown.success(), "--shutdown failed: {shutdown}");
+    assert!(wait_until(|| !ping(port), Duration::from_secs(10)));
+}

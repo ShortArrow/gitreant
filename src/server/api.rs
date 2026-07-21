@@ -183,6 +183,17 @@ impl AppState {
         Some(self.read_one(&path))
     }
 
+    /// Drop cached signature verdicts and tell clients to reload, so the
+    /// next read re-verifies every signed commit (e.g. after a key was
+    /// added to the local gpg keyring).
+    fn refresh(&self) {
+        self.session
+            .lock()
+            .expect("session mutex")
+            .clear_verify_cache();
+        let _ = self.updates.send(ServerEvent::Update);
+    }
+
     /// Add a repository; returns whether it was newly added. Notifies SSE
     /// listeners on a successful, non-duplicate add. Returns the repository id
     /// and whether it was newly added.
@@ -235,6 +246,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/repos", post(add_repo).delete(remove_repo))
         .route("/api/list", get(list_light))
         .route("/api/view", post(repo_view))
+        .route("/api/refresh", post(refresh))
         .route("/api/commit", post(commit_detail))
         .route("/api/diff", post(file_diff))
         .route("/api/commit-diff", post(commit_diff))
@@ -310,10 +322,16 @@ async fn repo_view(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     .map(Json)
-        .ok_or((
-            StatusCode::NOT_FOUND,
-            format!("unknown repository: {}", req.repo),
-        ))
+    .ok_or((
+        StatusCode::NOT_FOUND,
+        format!("unknown repository: {}", req.repo),
+    ))
+}
+
+/// Drop cached signature verdicts; clients reload and the reads re-verify.
+async fn refresh(State(state): State<AppState>) -> StatusCode {
+    state.refresh();
+    StatusCode::OK
 }
 
 #[derive(Deserialize)]
