@@ -386,6 +386,15 @@ export async function pickFolder(): Promise<string | null> {
   return data.path;
 }
 
+/** Drop the server's cached signature verdicts and re-verify — the SPA
+ * reloads on the resulting update. Use after adding a key to gpg. */
+export async function refreshVerdicts(): Promise<void> {
+  const response = await fetch("/api/refresh", { method: "POST" });
+  if (!response.ok) {
+    throw new Error(`refresh failed: ${response.status}`);
+  }
+}
+
 /** Remove a repository. Returns the authoritative updated repo list. */
 export async function removeRepo(id: string): Promise<RepoListEntry[]> {
   const response = await fetch("/api/repos", {

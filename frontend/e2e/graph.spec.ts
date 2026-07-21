@@ -1191,6 +1191,22 @@ test.describe.serial("gitreant UI", () => {
     await page.keyboard.press("Escape");
   });
 
+  test("the settings dialog re-verifies signatures on demand", async ({
+    page,
+  }) => {
+    let refreshed = false;
+    await page.route("**/api/refresh", (route) => {
+      refreshed = true;
+      route.fulfill({ status: 200, body: "" });
+    });
+
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("reverify").click();
+    // The action fires and closes the dialog.
+    await expect(page.getByTestId("settings-panel")).toHaveCount(0);
+    await expect.poll(() => refreshed).toBe(true);
+  });
+
   test("the command palette opens with Ctrl+K and runs commands", async ({
     page,
   }) => {

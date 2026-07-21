@@ -348,6 +348,21 @@ body {
   cursor: pointer;
 }
 
+.settings-action {
+  align-self: flex-start;
+  padding: 4px 12px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--border) 40%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.settings-action:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
 .palette {
   width: min(520px, 90vw);
   background: var(--bg-elev);

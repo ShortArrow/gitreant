@@ -5,6 +5,7 @@ import {
   fetchRemotes,
   fetchRepoList,
   fetchRepoView,
+  refreshVerdicts,
   removeRepo,
   type CommandLogEntry,
   type RepoListEntry,
@@ -561,6 +562,22 @@ export function App() {
                     {label}
                   </label>
                 ))}
+              </fieldset>
+              <fieldset className="settings-group">
+                <legend>{t("settingsMaintenance")}</legend>
+                <button
+                  type="button"
+                  className="settings-action"
+                  data-testid="reverify"
+                  title={t("reverifyHint")}
+                  onClick={() => {
+                    recordAction("Re-verify signatures");
+                    refreshVerdicts().catch(() => {});
+                    setSettingsOpen(false);
+                  }}
+                >
+                  {t("reverifySignatures")}
+                </button>
               </fieldset>
             </div>
           </div>
