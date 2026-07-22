@@ -338,6 +338,29 @@ export async function fetchRepoList(): Promise<RepoListEntry[]> {
   return response.json();
 }
 
+/** A repository's uncommitted / unpushed summary for the drawer. */
+export interface RepoStatus {
+  /** Uncommitted changes (staged, unstaged and untracked). */
+  dirty: number;
+  /** Commits on a local branch that are on no remote. */
+  unpushed: number;
+  /** Local branches that track no upstream. */
+  local_branches: number;
+}
+
+/** The git-state summary of one repository (runs git; loaded per repo). */
+export async function fetchRepoStatus(id: string): Promise<RepoStatus> {
+  const response = await fetch("/api/status", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo: id }),
+  });
+  if (!response.ok) {
+    throw new Error(`failed to load status: ${response.status}`);
+  }
+  return response.json();
+}
+
 /** One repository's view (graph, refs, layout) — the slow read. `limit`
  * caps the returned rows to a paged prefix (ADR 0023). */
 export async function fetchRepoView(

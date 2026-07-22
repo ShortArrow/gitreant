@@ -11,10 +11,13 @@ import {
   TagIcon,
   ColumnsIcon,
   DiffIcon,
+  DotFillIcon,
   DownloadIcon,
   FileDirectoryIcon,
   FileDirectoryOpenFillIcon,
   GearIcon,
+  GitBranchIcon,
+  ArrowUpIcon,
   ListUnorderedIcon,
   MoonIcon,
   PlusIcon,
@@ -70,6 +73,18 @@ export function CollapseIcon() {
 /** Expand the drawer from its rail. */
 export function ExpandIcon() {
   return <ChevronRightIcon className="btn-icon" size={SIZE} />;
+}
+
+/** Drawer status indicators: uncommitted changes, unpushed commits and
+ * local-only branches. */
+export function DirtyIcon() {
+  return <DotFillIcon size={12} />;
+}
+export function UnpushedIcon() {
+  return <ArrowUpIcon size={12} />;
+}
+export function LocalBranchIcon() {
+  return <GitBranchIcon size={12} />;
 }
 
 /** Chevron pointing down (closed) or up (open): the message-body bar. */

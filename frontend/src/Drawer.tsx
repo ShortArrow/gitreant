@@ -1,7 +1,15 @@
 import { useState } from "react";
-import { pickFolder, type RepoListEntry } from "./api";
+import { pickFolder, type RepoListEntry, type RepoStatus } from "./api";
 import { ContextMenu } from "./ContextMenu";
-import { AddIcon, BrowseIcon, CollapseIcon, ExpandIcon } from "./Icons";
+import {
+  AddIcon,
+  BrowseIcon,
+  CollapseIcon,
+  DirtyIcon,
+  ExpandIcon,
+  LocalBranchIcon,
+  UnpushedIcon,
+} from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { ResizeHandle, useStoredWidth } from "./Resizer";
 import { useT } from "./settings";
@@ -18,6 +26,46 @@ export function analyzeNote(
   return commits > 0 ? `${label} (${t("commitsCount", { n: commits })})` : label;
 }
 
+/** Small drawer indicators for a repository's uncommitted / unpushed state;
+ * each count is hidden when zero, so a clean repository shows nothing. */
+function RepoStats({ status }: { status?: RepoStatus }) {
+  const t = useT();
+  if (!status) return null;
+  const { dirty, unpushed, local_branches: local } = status;
+  if (dirty === 0 && unpushed === 0 && local === 0) return null;
+  return (
+    <span className="repo-item-status" data-testid="repo-status">
+      {dirty > 0 && (
+        <span
+          className="repo-stat repo-stat-dirty"
+          data-testid="stat-dirty"
+          title={t("dirtyCount", { n: dirty })}
+        >
+          <DirtyIcon /> {dirty}
+        </span>
+      )}
+      {unpushed > 0 && (
+        <span
+          className="repo-stat repo-stat-unpushed"
+          data-testid="stat-unpushed"
+          title={t("unpushedCount", { n: unpushed })}
+        >
+          <UnpushedIcon /> {unpushed}
+        </span>
+      )}
+      {local > 0 && (
+        <span
+          className="repo-stat repo-stat-branch"
+          data-testid="stat-branch"
+          title={t("localBranchCount", { n: local })}
+        >
+          <LocalBranchIcon /> {local}
+        </span>
+      )}
+    </span>
+  );
+}
+
 interface DrawerProps {
   repos: RepoListEntry[];
   activeId: string | null;
@@ -26,6 +74,8 @@ interface DrawerProps {
   pending?: string | null;
   /** Running commit counters of in-flight reads, by repository id. */
   analyzing?: Map<string, number> | null;
+  /** Per-repo uncommitted/unpushed summary, by repository id. */
+  statuses?: Map<string, RepoStatus> | null;
   /** False until the first repository list arrived. */
   loaded?: boolean;
   onToggle: () => void;
@@ -44,6 +94,7 @@ export function Drawer({
   collapsed,
   pending = null,
   analyzing = null,
+  statuses = null,
   loaded = true,
   onToggle,
   onSelect,
@@ -173,6 +224,7 @@ export function Drawer({
             <span className="repo-item-path" title={repo.path}>
               {repo.path}
             </span>
+            <RepoStats status={statuses?.get(repo.id) ?? undefined} />
             <button
               className="icon-btn repo-remove"
               title={t("removeFromView")}

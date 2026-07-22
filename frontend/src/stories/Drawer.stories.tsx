@@ -25,6 +25,11 @@ export const Default: Story = {
           repos={repos}
           activeId={activeId}
           collapsed={collapsed}
+          statuses={
+            new Map([
+              [repos[0].id, { dirty: 3, unpushed: 2, local_branches: 1 }],
+            ])
+          }
           onToggle={() => setCollapsed((c) => !c)}
           onSelect={setActiveId}
           onOpenRight={(id) => console.log("open right", id)}

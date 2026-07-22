@@ -36,6 +36,36 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("graph")).toHaveCount(0);
   });
 
+  test("the drawer shows a repository's uncommitted and unpushed counts", async ({
+    page,
+  }) => {
+    // The fixtures are clean, so stub the per-repo status: repoA is dirty
+    // and ahead, repoB is clean (no indicators).
+    const list = (await (await page.request.get("/api/list")).json()) as {
+      id: string;
+      name: string;
+    }[];
+    const repoAId = list.find((r) => r.name === "repoA")!.id;
+    await page.route("**/api/status", (route) => {
+      const { repo } = route.request().postDataJSON();
+      const body =
+        repo === repoAId
+          ? { dirty: 3, unpushed: 2, local_branches: 1 }
+          : { dirty: 0, unpushed: 0, local_branches: 0 };
+      route.fulfill({ json: body });
+    });
+    await page.reload();
+
+    const repoA = page.locator('[data-repo-name="repoA"]');
+    await expect(repoA.getByTestId("stat-dirty")).toHaveText(/3/);
+    await expect(repoA.getByTestId("stat-unpushed")).toHaveText(/2/);
+    await expect(repoA.getByTestId("stat-branch")).toHaveText(/1/);
+    // A clean repository shows no indicators.
+    await expect(
+      page.locator('[data-repo-name="repoB"]').getByTestId("repo-status"),
+    ).toHaveCount(0);
+  });
+
   test("selecting repoA opens a tab and renders the graph", async ({ page }) => {
     await page.locator('[data-repo-name="repoA"]').click();
 

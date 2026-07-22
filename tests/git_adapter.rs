@@ -7,7 +7,7 @@ use std::process::Command;
 
 use gitreant::domain::layout;
 use gitreant::git::{
-    read_commit, read_commit_diff, read_file_diff, read_repo, read_repo_with_progress,
+    read_commit, read_commit_diff, read_file_diff, read_repo, read_repo_with_progress, read_status,
 };
 
 fn git(dir: &Path, args: &[&str]) {
@@ -94,6 +94,25 @@ fn remote_refs_carry_their_remote_name() {
         !repo.refs.iter().any(|r| r.name == "HEAD"),
         "the remote symbolic HEAD must be excluded"
     );
+}
+
+#[test]
+fn read_status_counts_uncommitted_unpushed_and_local_branches() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    commit(dir, "root", 1000);
+    // An untracked file is an uncommitted change.
+    std::fs::write(dir.join("new.txt"), "hi\n").unwrap();
+    // A second branch that tracks no upstream.
+    git(dir, &["branch", "feature"]);
+
+    let status = read_status(dir);
+    assert_eq!(status.dirty, 1, "one untracked file");
+    assert_eq!(status.local_branches, 2, "main and feature track nothing");
+    // With no remote, every commit is unpushed.
+    assert!(status.unpushed >= 1, "the root commit is unpushed");
 }
 
 #[test]

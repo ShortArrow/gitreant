@@ -4,12 +4,14 @@ import {
   fetchCommandLog,
   fetchRemotes,
   fetchRepoList,
+  fetchRepoStatus,
   fetchRepoView,
   refreshVerdicts,
   removeRepo,
   revealPath,
   type CommandLogEntry,
   type RepoListEntry,
+  type RepoStatus,
   type RepoView,
 } from "./api";
 import { CommandPalette } from "./CommandPalette";
@@ -56,6 +58,8 @@ export function App() {
   const [repos, setRepos] = useState<RepoListEntry[]>([]);
   // Each repository view lands independently as its (parallel) read ends.
   const [views, setViews] = useState<Map<string, RepoView>>(new Map());
+  // Per-repo git-state summary for the drawer indicators, also parallel.
+  const [statuses, setStatuses] = useState<Map<string, RepoStatus>>(new Map());
   // Loading the repo list and running a fetch fail independently; a successful
   // reload right after a failed fetch must not wipe the fetch error.
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -88,6 +92,13 @@ export function App() {
     (list: RepoListEntry[], seq: number) => {
       for (const entry of list) {
         loadView(entry.id, seq);
+        fetchRepoStatus(entry.id)
+          .then((status) => {
+            if (seq === fetchSeq.current) {
+              setStatuses((prev) => new Map(prev).set(entry.id, status));
+            }
+          })
+          .catch(() => {});
       }
     },
     [loadView],
@@ -191,6 +202,10 @@ export function App() {
     const ids = new Set(repos.map((r) => r.id));
     setLayout((prev) => paneModel.retainRepos(prev, ids));
     setViews((prev) => {
+      if ([...prev.keys()].every((id) => ids.has(id))) return prev;
+      return new Map([...prev].filter(([id]) => ids.has(id)));
+    });
+    setStatuses((prev) => {
       if ([...prev.keys()].every((id) => ids.has(id))) return prev;
       return new Map([...prev].filter(([id]) => ids.has(id)));
     });
@@ -440,6 +455,7 @@ export function App() {
         collapsed={collapsed}
         pending={pendingAdd}
         analyzing={analyzing}
+        statuses={statuses}
         loaded={loaded}
         onToggle={() => setCollapsed((c) => !c)}
         onSelect={openTab}

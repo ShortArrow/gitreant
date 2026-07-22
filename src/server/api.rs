@@ -249,6 +249,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/repos", post(add_repo).delete(remove_repo))
         .route("/api/list", get(list_light))
         .route("/api/view", post(repo_view))
+        .route("/api/status", post(repo_status))
         .route("/api/refresh", post(refresh))
         .route("/api/commit", post(commit_detail))
         .route("/api/diff", post(file_diff))
@@ -336,6 +337,40 @@ async fn repo_view(
 async fn refresh(State(state): State<AppState>) -> StatusCode {
     state.refresh();
     StatusCode::OK
+}
+
+#[derive(Deserialize)]
+struct StatusRequest {
+    repo: String,
+}
+
+/// A repository's uncommitted / unpushed summary, for the drawer indicators.
+#[derive(Serialize)]
+struct StatusResponse {
+    dirty: usize,
+    unpushed: usize,
+    local_branches: usize,
+}
+
+/// The git-state summary of one repository (uncommitted changes, unpushed
+/// commits, local-only branches). Runs git subprocesses, so it is loaded
+/// per repository after the instant list, not folded into it.
+async fn repo_status(
+    State(state): State<AppState>,
+    Json(req): Json<StatusRequest>,
+) -> Result<Json<StatusResponse>, (StatusCode, String)> {
+    let path = state.repo_path(&req.repo).ok_or((
+        StatusCode::NOT_FOUND,
+        format!("unknown repository: {}", req.repo),
+    ))?;
+    let status = tokio::task::spawn_blocking(move || crate::git::read_status(&path))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Json(StatusResponse {
+        dirty: status.dirty,
+        unpushed: status.unpushed,
+        local_branches: status.local_branches,
+    }))
 }
 
 #[derive(Deserialize)]

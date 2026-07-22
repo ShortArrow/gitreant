@@ -204,7 +204,7 @@ body {
 .repo-item {
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-areas: "name remove" "path remove";
+  grid-template-areas: "name remove" "path remove" "status remove";
   align-items: center;
   gap: 0 6px;
   padding: 7px 8px;
@@ -226,6 +226,33 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.repo-item-status {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+.repo-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.repo-stat-dirty {
+  color: var(--warning, #d29922);
+}
+
+.repo-stat-unpushed {
+  color: var(--accent);
+}
+
+.repo-stat-branch {
+  color: var(--muted);
 }
 
 .repo-item-path {
