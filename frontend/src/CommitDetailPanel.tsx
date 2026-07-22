@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CommitDetail, FileChange } from "./api";
+import { ContextMenu } from "./ContextMenu";
 import { CopyText } from "./CopyText";
 import { BodyToggleIcon, DiffAllIcon, FlatIcon, TreeIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
@@ -61,6 +62,7 @@ export function CommitDetailPanel({
   verified,
   signatureKey,
   onSelectFile,
+  onOpenFile,
   onShowAllDiffs,
   onClose,
 }: {
@@ -73,6 +75,8 @@ export function CommitDetailPanel({
   signatureKey?: string;
   /** Called with the repository-relative path of a clicked file. */
   onSelectFile: (path: string) => void;
+  /** Open a changed file with the OS default handler. */
+  onOpenFile: (path: string) => void;
   /** Called when every changed file's diff should open at once. */
   onShowAllDiffs: () => void;
   onClose: () => void;
@@ -80,6 +84,11 @@ export function CommitDetailPanel({
   const t = useT();
   const [view, setView] = useState<FilesView>(storedFilesView);
   const [bodyOpen, setBodyOpen] = useState<boolean>(storedBodyOpen);
+  const [fileMenu, setFileMenu] = useState<{
+    x: number;
+    y: number;
+    path: string;
+  } | null>(null);
   const toggleBody = () => {
     setBodyOpen((open) => {
       try {
@@ -138,10 +147,28 @@ export function CommitDetailPanel({
             onToggleBody={toggleBody}
             onChangeView={changeView}
             onSelectFile={onSelectFile}
+            onFileMenu={(e, path) => {
+              e.preventDefault();
+              setFileMenu({ x: e.clientX, y: e.clientY, path });
+            }}
             onShowAllDiffs={onShowAllDiffs}
           />
         )}
       </div>
+      {fileMenu && (
+        <ContextMenu
+          x={fileMenu.x}
+          y={fileMenu.y}
+          items={[
+            {
+              id: "file-open",
+              label: t("openInEditor"),
+              run: () => onOpenFile(fileMenu.path),
+            },
+          ]}
+          onClose={() => setFileMenu(null)}
+        />
+      )}
     </aside>
   );
 }
@@ -155,6 +182,7 @@ function DetailBody({
   onToggleBody,
   onChangeView,
   onSelectFile,
+  onFileMenu,
   onShowAllDiffs,
 }: {
   detail: CommitDetail;
@@ -165,6 +193,7 @@ function DetailBody({
   onToggleBody: () => void;
   onChangeView: (view: FilesView) => void;
   onSelectFile: (path: string) => void;
+  onFileMenu: (e: React.MouseEvent, path: string) => void;
   onShowAllDiffs: () => void;
 }) {
   const t = useT();
@@ -287,6 +316,7 @@ function DetailBody({
               label={file.path}
               depth={0}
               onSelect={onSelectFile}
+              onFileMenu={onFileMenu}
             />
           ))}
         {view === "tree" && (
@@ -294,6 +324,7 @@ function DetailBody({
             nodes={buildFileTree(detail.files)}
             depth={0}
             onSelect={onSelectFile}
+            onFileMenu={onFileMenu}
           />
         )}
       </ul>
@@ -305,10 +336,12 @@ function TreeRows({
   nodes,
   depth,
   onSelect,
+  onFileMenu,
 }: {
   nodes: FileTreeNode[];
   depth: number;
   onSelect: (path: string) => void;
+  onFileMenu: (e: React.MouseEvent, path: string) => void;
 }) {
   return (
     <>
@@ -323,7 +356,12 @@ function TreeRows({
               {node.name}/
             </div>
             <ul className="detail-files">
-              <TreeRows nodes={node.children} depth={depth + 1} onSelect={onSelect} />
+              <TreeRows
+                nodes={node.children}
+                depth={depth + 1}
+                onSelect={onSelect}
+                onFileMenu={onFileMenu}
+              />
             </ul>
           </li>
         ) : (
@@ -333,6 +371,7 @@ function TreeRows({
             label={node.name}
             depth={depth}
             onSelect={onSelect}
+            onFileMenu={onFileMenu}
           />
         ),
       )}
@@ -345,11 +384,13 @@ function FileRow({
   label,
   depth,
   onSelect,
+  onFileMenu,
 }: {
   change: FileChange;
   label: string;
   depth: number;
   onSelect: (path: string) => void;
+  onFileMenu: (e: React.MouseEvent, path: string) => void;
 }) {
   return (
     <li
@@ -357,6 +398,7 @@ function FileRow({
       data-testid="detail-file"
       style={{ paddingLeft: depth * 14 }}
       onClick={() => onSelect(change.path)}
+      onContextMenu={(e) => onFileMenu(e, change.path)}
     >
       <span className={`file-status file-status-${change.status}`}>
         {change.status}

@@ -18,6 +18,7 @@ import {
   fetchFileDiff,
   fetchPrs,
   mergeRef,
+  revealPath,
   type BranchOpResult,
   type CommitDetail,
   type FileDiff,
@@ -529,6 +530,9 @@ export function RepoCard({
           verified={selectedCommit?.verified}
           signatureKey={selectedCommit?.signature_key}
           onSelectFile={(path) => setDiffTarget({ kind: "file", path })}
+          onOpenFile={(path) => {
+            revealPath(repo.id, path).catch(() => {});
+          }}
           onShowAllDiffs={() => setDiffTarget({ kind: "all" })}
           onClose={() => {
             setSelected(null);

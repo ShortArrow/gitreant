@@ -68,6 +68,8 @@ const en = {
   cmdCheckoutBranch: "Checkout branch: {name}",
   openRightPane: "Open in the right pane",
   moveLeftPane: "Move to the left pane",
+  revealInExplorer: "Reveal in file manager",
+  openInEditor: "Open in editor",
   // Drawer
   repositories: "Repositories",
   analyzing: "Analyzing…",
@@ -173,6 +175,8 @@ const ja: Record<MsgKey, string> = {
   cmdCheckoutBranch: "ブランチをチェックアウト: {name}",
   openRightPane: "右のペインで開く",
   moveLeftPane: "左のペインへ移動",
+  revealInExplorer: "ファイルマネージャで開く",
+  openInEditor: "エディタで開く",
   repositories: "リポジトリ",
   analyzing: "解析中…",
   analyzingRepo: "{path} を解析中…",

@@ -145,6 +145,40 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("graph")).toBeVisible();
   });
 
+  test("reveal a repo folder and open a changed file via the OS", async ({
+    page,
+  }) => {
+    // Both actions hit /api/reveal; stub it so nothing actually launches,
+    // and check the payloads.
+    const reveals: Array<{ repo: string; path?: string }> = [];
+    await page.route("**/api/reveal", async (route) => {
+      reveals.push(route.request().postDataJSON());
+      await route.fulfill({ status: 200, body: "" });
+    });
+
+    // Drawer: "Reveal in file manager" opens the repository folder.
+    await page.locator('[data-repo-name="repoA"]').click({ button: "right" });
+    await page.getByTestId("drawer-reveal").click();
+    await expect.poll(() => reveals.length).toBe(1);
+    expect(reveals[0].path ?? null).toBeNull();
+    expect(reveals[0].repo).toContain("repoA");
+
+    // File list: "Open in editor" opens the repository-relative file.
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page
+      .getByTestId("commit-row")
+      .filter({ hasText: "main-1" })
+      .click();
+    await page
+      .getByTestId("detail-file")
+      .filter({ hasText: "README.md" })
+      .click({ button: "right" });
+    await page.getByTestId("file-open").click();
+    await expect.poll(() => reveals.length).toBe(2);
+    expect(reveals[1].path).toBe("README.md");
+    expect(reveals[1].repo).toContain("repoA");
+  });
+
   test("changed files can be shown as a directory tree", async ({ page }) => {
     await page.locator('[data-repo-name="repoA"]').click();
     await page

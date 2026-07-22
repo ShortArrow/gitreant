@@ -28,6 +28,7 @@ export const Default: Story = {
           onToggle={() => setCollapsed((c) => !c)}
           onSelect={setActiveId}
           onOpenRight={(id) => console.log("open right", id)}
+          onReveal={(id) => console.log("reveal", id)}
           onRemove={(id) => console.log("remove", id)}
           onAdd={async (path) => console.log("add", path)}
         />
@@ -44,6 +45,7 @@ export const Collapsed: Story = {
     onToggle: () => {},
     onSelect: () => {},
     onOpenRight: () => {},
+    onReveal: () => {},
     onRemove: () => {},
     onAdd: async () => {},
   },
@@ -60,6 +62,7 @@ export const AnalyzingRepo: Story = {
     onToggle: () => {},
     onSelect: () => {},
     onOpenRight: () => {},
+    onReveal: () => {},
     onRemove: () => {},
     onAdd: async () => {},
   },
@@ -73,6 +76,7 @@ export const Empty: Story = {
     onToggle: () => {},
     onSelect: () => {},
     onOpenRight: () => {},
+    onReveal: () => {},
     onRemove: () => {},
     onAdd: async () => {},
   },

@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::convert::Infallible;
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -262,6 +262,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/log", get(command_log))
         .route("/api/events", get(events))
         .route("/api/pick", post(pick_folder))
+        .route("/api/reveal", post(reveal))
         .route("/api/shutdown", post(shutdown))
         .fallback(assets::static_handler)
         .with_state(state)
@@ -335,6 +336,55 @@ async fn repo_view(
 async fn refresh(State(state): State<AppState>) -> StatusCode {
     state.refresh();
     StatusCode::OK
+}
+
+#[derive(Deserialize)]
+struct RevealRequest {
+    /// The repository id (its canonical path).
+    repo: String,
+    /// Repository-relative file to open; the folder itself when absent.
+    #[serde(default)]
+    path: Option<String>,
+}
+
+/// The absolute path to reveal inside `root`: the folder, or a
+/// repository-relative file. Rejects absolute paths and any `..`, so a
+/// request can never open something outside the repository.
+fn resolve_reveal_target(root: &Path, rel: Option<&str>) -> Result<PathBuf, String> {
+    let Some(rel) = rel.filter(|r| !r.is_empty()) else {
+        return Ok(root.to_path_buf());
+    };
+    let rel_path = Path::new(rel);
+    let escapes = rel_path.components().any(|c| {
+        matches!(
+            c,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        )
+    });
+    if rel_path.is_absolute() || escapes {
+        return Err("path must stay inside the repository".to_string());
+    }
+    Ok(root.join(rel_path))
+}
+
+/// Open a repository folder — or a file inside it — with the OS default
+/// handler (Explorer / Finder / xdg-open): the drawer reveals a repo, the
+/// commit file list opens a file. A local, single-user desktop action.
+async fn reveal(
+    State(state): State<AppState>,
+    Json(req): Json<RevealRequest>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let root = state.repo_path(&req.repo).ok_or((
+        StatusCode::NOT_FOUND,
+        format!("unknown repository: {}", req.repo),
+    ))?;
+    let target = resolve_reveal_target(&root, req.path.as_deref())
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    tokio::task::spawn_blocking(move || open::that(target))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("open failed: {e}")))?;
+    Ok(StatusCode::OK)
 }
 
 #[derive(Deserialize)]
@@ -842,4 +892,33 @@ async fn events(
         })
     });
     Sse::new(stream).keep_alive(KeepAlive::default())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reveal_target_defaults_to_the_repository_folder() {
+        let root = Path::new("/repos/demo");
+        assert_eq!(resolve_reveal_target(root, None).unwrap(), root);
+        assert_eq!(resolve_reveal_target(root, Some("")).unwrap(), root);
+    }
+
+    #[test]
+    fn reveal_target_joins_a_relative_file() {
+        let root = Path::new("/repos/demo");
+        assert_eq!(
+            resolve_reveal_target(root, Some("src/main.rs")).unwrap(),
+            root.join("src/main.rs"),
+        );
+    }
+
+    #[test]
+    fn reveal_target_rejects_escaping_paths() {
+        let root = Path::new("/repos/demo");
+        assert!(resolve_reveal_target(root, Some("../secret")).is_err());
+        assert!(resolve_reveal_target(root, Some("a/../../b")).is_err());
+        assert!(resolve_reveal_target(root, Some("/etc/passwd")).is_err());
+    }
 }

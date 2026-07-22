@@ -386,6 +386,19 @@ export async function pickFolder(): Promise<string | null> {
   return data.path;
 }
 
+/** Open a repository folder (or a repository-relative file when `path` is
+ * given) with the OS default handler on the server machine. */
+export async function revealPath(repo: string, path?: string): Promise<void> {
+  const response = await fetch("/api/reveal", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo, path }),
+  });
+  if (!response.ok) {
+    throw new Error((await response.text()) || `reveal failed: ${response.status}`);
+  }
+}
+
 /** Drop the server's cached signature verdicts and re-verify — the SPA
  * reloads on the resulting update. Use after adding a key to gpg. */
 export async function refreshVerdicts(): Promise<void> {

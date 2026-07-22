@@ -6,7 +6,12 @@ const meta: Meta<typeof CommitDetailPanel> = {
   title: "Pane/CommitDetailPanel",
   component: CommitDetailPanel,
   parameters: { layout: "padded" },
-  args: { onClose: () => {}, onSelectFile: () => {}, onShowAllDiffs: () => {} },
+  args: {
+    onClose: () => {},
+    onSelectFile: () => {},
+    onOpenFile: () => {},
+    onShowAllDiffs: () => {},
+  },
 };
 export default meta;
 

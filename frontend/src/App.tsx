@@ -7,6 +7,7 @@ import {
   fetchRepoView,
   refreshVerdicts,
   removeRepo,
+  revealPath,
   type CommandLogEntry,
   type RepoListEntry,
   type RepoView,
@@ -443,6 +444,10 @@ export function App() {
         onToggle={() => setCollapsed((c) => !c)}
         onSelect={openTab}
         onOpenRight={openRight}
+        onReveal={(id) => {
+          recordAction(`Reveal ${id}`);
+          revealPath(id).catch(() => {});
+        }}
         onRemove={handleRemove}
         onAdd={handleAdd}
       />

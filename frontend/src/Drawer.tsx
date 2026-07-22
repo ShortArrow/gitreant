@@ -32,6 +32,8 @@ interface DrawerProps {
   onSelect: (id: string) => void;
   /** Open the repository in the right pane (ADR 0022). */
   onOpenRight: (id: string) => void;
+  /** Reveal the repository folder in the OS file manager. */
+  onReveal: (id: string) => void;
   onRemove: (id: string) => void;
   onAdd: (path: string) => Promise<void>;
 }
@@ -46,6 +48,7 @@ export function Drawer({
   onToggle,
   onSelect,
   onOpenRight,
+  onReveal,
   onRemove,
   onAdd,
 }: DrawerProps) {
@@ -208,6 +211,11 @@ export function Drawer({
               id: "drawer-open-right",
               label: t("openRightPane"),
               run: () => onOpenRight(menu.id),
+            },
+            {
+              id: "drawer-reveal",
+              label: t("revealInExplorer"),
+              run: () => onReveal(menu.id),
             },
           ]}
           onClose={() => setMenu(null)}
