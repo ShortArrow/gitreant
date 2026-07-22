@@ -317,6 +317,77 @@ async fn refresh_notifies_clients_to_reload() {
     );
 }
 
+/// Pushed tags light up without a manual fetch: listing a repository kicks
+/// off a background `ls-remote`, and the view soon annotates the tag with
+/// its remote.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn listing_auto_learns_pushed_tags() {
+    let tmp = tempfile::tempdir().unwrap();
+    let origin = tmp.path().join("origin");
+    std::fs::create_dir(&origin).unwrap();
+    init_repo_with_commit(&origin);
+    let run = |dir: &Path, args: &[&str]| {
+        let status = Command::new("git")
+            .current_dir(dir)
+            .args(args)
+            .env("GIT_AUTHOR_NAME", "T")
+            .env("GIT_AUTHOR_EMAIL", "t@e.com")
+            .env("GIT_COMMITTER_NAME", "T")
+            .env("GIT_COMMITTER_EMAIL", "t@e.com")
+            .status()
+            .unwrap();
+        assert!(status.success(), "git {args:?} failed");
+    };
+    run(&origin, &["tag", "vremote"]);
+    run(tmp.path(), &["clone", "-q", "origin", "clone"]);
+    let clone = tmp.path().join("clone");
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    let mut session = Session::new();
+    session.add(&clone).unwrap();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(session)).await.unwrap();
+    });
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    let annotated = tokio::task::spawn_blocking(move || {
+        // Listing triggers the background ls-remote; poll the view until the
+        // tag is marked as on origin (never having called /api/fetch).
+        let list = http_get(port, "/api/list");
+        let entries: serde_json::Value = serde_json::from_str(
+            list.lines().find(|l| l.starts_with('[')).expect("list body"),
+        )
+        .unwrap();
+        let id = entries[0]["id"].as_str().unwrap().to_string();
+        let body = serde_json::json!({ "repo": id }).to_string();
+        for _ in 0..100 {
+            // Re-list so the auto-refresh has a chance to have started.
+            http_get(port, "/api/list");
+            let view = http_post_json(port, "/api/view", &body);
+            if view.contains("\"remote\":\"origin\"") {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(annotated, "the pushed tag was never auto-marked as on origin");
+}
+
 /// The instant repository list answers without reading any graph, and a
 /// single repository's view comes from POST /api/view (ADR 0023).
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

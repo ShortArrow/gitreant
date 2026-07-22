@@ -83,6 +83,10 @@ pub struct AppState {
     /// name), refreshed on fetch — lets the UI mark pushed tags apart from
     /// local-only ones and name the remote.
     remote_tags: Arc<Mutex<HashMap<String, HashMap<String, String>>>>,
+    /// Repositories whose tag remotes were already refreshed this session,
+    /// so the automatic `ls-remote` runs once per repository rather than on
+    /// every listing.
+    tag_refresh_started: Arc<Mutex<std::collections::HashSet<String>>>,
 }
 
 impl AppState {
@@ -96,7 +100,49 @@ impl AppState {
             command_log: Arc::new(Mutex::new(VecDeque::new())),
             pr_cache: Arc::new(Mutex::new(HashMap::new())),
             remote_tags: Arc::new(Mutex::new(HashMap::new())),
+            tag_refresh_started: Arc::new(Mutex::new(std::collections::HashSet::new())),
         }
+    }
+
+    /// Learn which remote each tag was pushed to for any repository not yet
+    /// refreshed this session, in the background, then tell clients to
+    /// reload so the pushed-tag badges appear without a manual fetch.
+    /// `ls-remote` is a network call, so this runs off the request path and
+    /// at most once per repository.
+    fn ensure_tag_remotes(&self) {
+        let fresh: Vec<(String, PathBuf)> = {
+            let mut started = self.tag_refresh_started.lock().expect("tag refresh mutex");
+            self.repo_paths()
+                .into_iter()
+                .filter(|(id, _)| started.insert(id.clone()))
+                .collect()
+        };
+        if fresh.is_empty() {
+            return;
+        }
+        let state = self.clone();
+        tokio::spawn(async move {
+            let worker = state.clone();
+            let changed = tokio::task::spawn_blocking(move || {
+                let mut changed = false;
+                for (id, path) in fresh {
+                    let map = fold_tag_remotes(&path);
+                    changed |= !map.is_empty();
+                    worker
+                        .remote_tags
+                        .lock()
+                        .expect("remote tags mutex")
+                        .insert(id, map);
+                }
+                changed
+            })
+            .await
+            .unwrap_or(false);
+            if changed {
+                // Wake clients only when something is actually on a remote.
+                let _ = state.updates.send(ServerEvent::Update);
+            }
+        });
     }
 
     /// The cached PR lookup of a repository, unless it went stale.
@@ -299,8 +345,28 @@ fn light_list(state: &AppState) -> Vec<RepoListEntry> {
         .collect()
 }
 
+/// Fold every remote's tag listing into a tag→remote map, preferring
+/// `origin` when a tag is on several remotes. Best effort: a remote whose
+/// `ls-remote` failed contributes nothing.
+fn fold_tag_remotes(path: &std::path::Path) -> HashMap<String, String> {
+    let mut map = HashMap::new();
+    for listing in crate::git::tag_remotes(path) {
+        if let Ok(tags) = listing.result {
+            for tag in tags {
+                let entry = map.entry(tag).or_insert_with(|| listing.remote.clone());
+                if listing.remote == "origin" {
+                    *entry = "origin".to_string();
+                }
+            }
+        }
+    }
+    map
+}
+
 async fn list_light(State(state): State<AppState>) -> Json<Vec<RepoListEntry>> {
-    Json(light_list(&state))
+    let entries = light_list(&state);
+    state.ensure_tag_remotes();
+    Json(entries)
 }
 
 #[derive(Deserialize)]
