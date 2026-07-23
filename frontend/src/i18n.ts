@@ -156,6 +156,18 @@ const en = {
   copyAll: "Copy all",
   copyLine: "Copy line",
   resizeLog: "Resize the command log",
+  // Info dialog
+  info: "Info",
+  infoTitle: "Environment",
+  closeInfo: "Close info",
+  copiedInfo: "Copied",
+  infoCliVersion: "CLI",
+  infoSpaVersion: "SPA",
+  infoServer: "Server",
+  infoBrowser: "Browser",
+  infoLanguage: "Language",
+  infoViewport: "Viewport",
+  cmdOpenInfo: "Show environment info",
 } as const;
 
 export type MsgKey = keyof typeof en;
@@ -278,6 +290,17 @@ const ja: Record<MsgKey, string> = {
   copyAll: "すべてコピー",
   copyLine: "この行をコピー",
   resizeLog: "コマンドログの高さを変更",
+  info: "情報",
+  infoTitle: "環境情報",
+  closeInfo: "情報を閉じる",
+  copiedInfo: "コピーしました",
+  infoCliVersion: "CLI",
+  infoSpaVersion: "SPA",
+  infoServer: "サーバ",
+  infoBrowser: "ブラウザ",
+  infoLanguage: "言語",
+  infoViewport: "画面",
+  cmdOpenInfo: "環境情報を表示",
 } as const;
 
 export const MESSAGES: Record<Lang, Record<MsgKey, string>> = { en, ja };

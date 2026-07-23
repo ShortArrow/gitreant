@@ -457,6 +457,37 @@ body {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
+/* ---- Info dialog ---- */
+.info-list {
+  margin: 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.info-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.info-row dt {
+  color: var(--muted);
+}
+
+.info-row dd {
+  margin: 0;
+  word-break: break-all;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  user-select: text;
+}
+
+.info-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .palette {
   width: min(520px, 90vw);
   background: var(--bg-elev);
@@ -524,10 +555,12 @@ body {
 
 .resize-handle-v {
   position: absolute;
-  top: 0;
+  /* Straddle the pane's top border so the grab zone sits ON the divider
+   * line instead of inside the toolbar row. */
+  top: -3px;
   left: 0;
   right: 0;
-  height: 6px;
+  height: 7px;
   cursor: row-resize;
   touch-action: none;
   z-index: 1;
@@ -546,6 +579,9 @@ body {
 }
 
 .log-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);

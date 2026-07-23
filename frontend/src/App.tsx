@@ -17,7 +17,14 @@ import {
 import { CommandPalette } from "./CommandPalette";
 import { ContextMenu } from "./ContextMenu";
 import { Drawer } from "./Drawer";
-import { FetchIcon, LogIcon, ReloadIcon, SettingsIcon } from "./Icons";
+import {
+  FetchIcon,
+  InfoButtonIcon,
+  LogIcon,
+  ReloadIcon,
+  SettingsIcon,
+} from "./Icons";
+import { InfoPanel } from "./InfoPanel";
 import { LabeledButton } from "./LabeledButton";
 import { LogPane } from "./LogPane";
 import * as paneModel from "./paneModel";
@@ -327,6 +334,7 @@ export function App() {
   const focusedActiveId = layout.panes[layout.focused]?.activeId ?? null;
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [buttonStyle, setButtonStyle] = useState<ButtonStyle>(storedButtonStyle);
   const changeButtonStyle = (style: ButtonStyle) => {
     setButtonStyle(style);
@@ -385,6 +393,7 @@ export function App() {
       } else if (e.key === "Escape") {
         setPaletteOpen(false);
         setSettingsOpen(false);
+        setInfoOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -418,6 +427,7 @@ export function App() {
           run: () => setLogOpen((open) => !open),
         },
         { id: "settings", title: m.cmdOpenSettings, run: () => setSettingsOpen(true) },
+        { id: "info", title: m.cmdOpenInfo, run: () => setInfoOpen(true) },
         {
           id: "theme",
           title: m.cmdToggleTheme,
@@ -545,6 +555,14 @@ export function App() {
             }}
           />
           <LabeledButton
+            icon={<InfoButtonIcon />}
+            label={t("info")}
+            testId="info-toggle"
+            className="topbar-btn"
+            active={infoOpen}
+            onClick={() => setInfoOpen((open) => !open)}
+          />
+          <LabeledButton
             icon={<SettingsIcon />}
             label={t("settings")}
             testId="settings-toggle"
@@ -554,6 +572,8 @@ export function App() {
           />
           <ThemeToggle />
         </div>
+
+        {infoOpen && <InfoPanel onClose={() => setInfoOpen(false)} />}
 
         {settingsOpen && (
           <div

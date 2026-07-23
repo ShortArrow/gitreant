@@ -364,6 +364,7 @@ impl AppState {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/ping", get(ping))
+        .route("/api/about", get(about))
         .route("/api/repos", post(add_repo).delete(remove_repo))
         .route("/api/list", get(list_light))
         .route("/api/view", post(repo_view))
@@ -390,6 +391,21 @@ pub fn router(state: AppState) -> Router {
 
 async fn ping() -> &'static str {
     PING_MARKER
+}
+
+/// What this server was built from, for the info dialog.
+#[derive(Serialize)]
+struct AboutView {
+    version: &'static str,
+    /// Short commit hash baked in at build time ("unknown" without git).
+    commit: &'static str,
+}
+
+async fn about() -> Json<AboutView> {
+    Json(AboutView {
+        version: env!("CARGO_PKG_VERSION"),
+        commit: env!("GITREANT_COMMIT"),
+    })
 }
 
 /// View reads run gix and (for signed commits) git/gpg subprocesses; keep

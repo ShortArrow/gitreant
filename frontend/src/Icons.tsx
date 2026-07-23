@@ -7,6 +7,8 @@ import {
   ChevronRightIcon,
   ChevronUpIcon,
   CopyIcon as OcticonCopyIcon,
+  InfoIcon as OcticonInfoIcon,
+  IterationsIcon,
   MarkGithubIcon,
   StackIcon,
   TagIcon,
@@ -140,6 +142,21 @@ export function PrLinkIcon() {
 /** Copy a log entry (or the whole log) to the clipboard. */
 export function CopyIcon() {
   return <OcticonCopyIcon size={12} />;
+}
+
+/** Opens the environment-info dialog. */
+export function InfoButtonIcon() {
+  return <OcticonInfoIcon className="btn-icon" size={SIZE} />;
+}
+
+/** Toggle line wrapping in the command log. */
+export function WrapIcon() {
+  return <IterationsIcon className="btn-icon" size={SIZE} />;
+}
+
+/** Copy the whole command log. */
+export function CopyAllIcon() {
+  return <OcticonCopyIcon className="btn-icon" size={SIZE} />;
 }
 
 /** Accordion disclosure: right when collapsed, down when expanded. */

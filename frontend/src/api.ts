@@ -386,6 +386,21 @@ export async function fetchSubmoduleGraphs(
   return response.json();
 }
 
+/** What the server was built from, for the info dialog. */
+export interface AboutView {
+  version: string;
+  /** Short commit hash baked in at build time ("unknown" without git). */
+  commit: string;
+}
+
+export async function fetchAbout(): Promise<AboutView> {
+  const response = await fetch("/api/about");
+  if (!response.ok) {
+    throw new Error(`failed to load about: ${response.status}`);
+  }
+  return response.json();
+}
+
 /** A repository's uncommitted / unpushed summary for the drawer. */
 export interface RepoStatus {
   /** Uncommitted changes (staged, unstaged and untracked). */

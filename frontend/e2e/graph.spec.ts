@@ -1148,6 +1148,23 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("log-toggle").click();
   });
 
+  test("the info dialog lists environment details for copying", async ({
+    page,
+  }) => {
+    await page.getByTestId("info-toggle").click();
+    await expect(page.getByTestId("info-panel")).toBeVisible();
+
+    // CLI/SPA versions with commits, server, browser, language, viewport.
+    await expect(page.getByTestId("info-value")).toHaveCount(6);
+    await expect(page.getByTestId("info-value").first()).toContainText(
+      /\d+\.\d+\.\d+ \(/,
+    );
+    await expect(page.getByTestId("info-copy-all")).toBeEnabled();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("info-panel")).toHaveCount(0);
+  });
+
   test("the log pane wraps, resizes and offers copy controls", async ({
     page,
   }) => {
@@ -1156,6 +1173,18 @@ test.describe.serial("gitreant UI", () => {
     await expect(pane).toBeVisible();
     await page.getByTestId("reload").click();
     await expect(pane.getByTestId("log-entry").first()).toBeVisible();
+
+    // The toolbar buttons follow the button-style setting.
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("button-style-icon").click();
+    await page.keyboard.press("Escape");
+    const wrapButton = page.getByTestId("log-wrap-toggle");
+    await expect(wrapButton).not.toContainText("Wrap");
+    await expect(wrapButton.locator("svg")).toHaveCount(1);
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("button-style-icon-label").click();
+    await page.keyboard.press("Escape");
+    await expect(wrapButton).toContainText("Wrap");
 
     // The wrap toggle flips the entries between clipped and wrapped.
     const entries = pane.locator(".log-entries");
