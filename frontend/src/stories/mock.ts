@@ -93,6 +93,38 @@ export const longMergeRepo: RepoView = (() => {
   };
 })();
 
+/** A repo carrying a `git stash`: the stash commit fans out to its index and
+ * untracked-files helper commits. Hidden by default (each stash reads as one
+ * node); the stash-internals toggle reveals the dashed helper links. */
+export const stashRepo: RepoView = {
+  id: "/repos/wip",
+  name: "wip",
+  path: "/home/user/repos/wip",
+  head: "m",
+  refs: [
+    { name: "main", target: "m", kind: "branch" },
+    { name: "stash", target: "s", kind: "stash" },
+  ],
+  commits: [
+    commit("m", 0, 0, 0, ["a1"], "main: latest work"),
+    { ...commit("s", 1, 1, 1, ["a1", "idx", "unt"], "WIP on main: stashed") },
+    { ...commit("idx", 2, 1, 1, ["a1"], "index on main"), stash_internal: true },
+    { ...commit("unt", 3, 2, 2, [], "untracked files on main"), stash_internal: true },
+    commit("a1", 4, 0, 0, ["a0"], "main: initial layout"),
+    commit("a0", 5, 0, 0, [], "root commit"),
+  ],
+  edges: [
+    edge("m", "a1", 0, 0, 0),
+    { ...edge("s", "a1", 1, 0, 1), fork: true },
+    { ...edge("s", "idx", 1, 1, 1), dashed: true },
+    { ...edge("s", "unt", 1, 2, 2), dashed: true },
+    { ...edge("idx", "a1", 1, 0, 1), fork: true, dashed: true },
+    edge("a1", "a0", 0, 0, 0),
+  ],
+  lane_count: 3,
+  total: 6,
+};
+
 /** A small linear repo. */
 export const linearRepo: RepoView = {
   id: "/repos/notes",

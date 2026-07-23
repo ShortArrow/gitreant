@@ -13,6 +13,15 @@ use serde::Serialize;
 pub struct CommitInput {
     pub id: String,
     pub parents: Vec<String>,
+    /// This commit is a `git stash` entry. Its second and further parents are
+    /// the index and untracked-files helper commits — internal structure the
+    /// layout marks (dashed edges, `stash_internal` nodes) so the frontend can
+    /// fold it away or reveal it, the way squash-merge links toggle.
+    pub stash: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 /// A commit placed on the grid.
@@ -26,6 +35,10 @@ pub struct GraphNode {
     /// Stable color index for the branch this commit sits on.
     pub color: usize,
     pub parents: Vec<String>,
+    /// A stash's index/untracked helper commit — reachable only through the
+    /// stash. The frontend hides these by default so a stash reads as one node.
+    #[serde(skip_serializing_if = "is_false")]
+    pub stash_internal: bool,
 }
 
 /// A link from a commit (`from`) to one of its parents (`to`).
@@ -42,6 +55,10 @@ pub struct GraphEdge {
     /// own lane and bends at the parent (fork point). Merge edges bend at
     /// the merge commit instead.
     pub fork: bool,
+    /// Drawn dashed: a link into a stash's internal structure, auxiliary the
+    /// way squash-merge links are, rather than real first-class ancestry.
+    #[serde(skip_serializing_if = "is_false")]
+    pub dashed: bool,
 }
 
 /// The laid-out graph ready for rendering.
@@ -80,6 +97,10 @@ pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
     let mut nodes = Vec::with_capacity(commits.len());
     let mut edges = Vec::new();
 
+    // A stash's index/untracked helper commits are its second and further
+    // parents; anything reachable only through them is stash-internal too.
+    let stash_helpers = stash_internal_ids(commits);
+
     for (row, commit) in commits.iter().enumerate() {
         // Lanes held for fork corridors down to this commit free up now.
         state.release_holds(&commit.id);
@@ -92,11 +113,13 @@ pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
             lane: my_lane,
             color: my_color,
             parents: commit.parents.clone(),
+            stash_internal: stash_helpers.contains(commit.id.as_str()),
         });
 
         if commit.parents.is_empty() {
             state.free(my_lane);
         } else {
+            let from_internal = stash_helpers.contains(commit.id.as_str());
             for (index, parent) in commit.parents.iter().enumerate() {
                 let is_first = index == 0;
                 let target_lane = state.route_to_parent(
@@ -116,6 +139,9 @@ pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
                         state.colors[target_lane]
                     },
                     fork: is_first && target_lane != my_lane,
+                    // The stash's own links to its helpers, and any edge from a
+                    // helper onward, are the auxiliary structure drawn dashed.
+                    dashed: from_internal || (commit.stash && !is_first),
                 });
             }
         }
@@ -126,6 +152,17 @@ pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
         edges,
         lane_count: state.lanes.len(),
     }
+}
+
+/// The index and untracked-files helper commits of every stash: their second
+/// and further parents. These render as `stash_internal` nodes reached by
+/// dashed edges, so the frontend can fold each stash down to a single node.
+fn stash_internal_ids(commits: &[CommitInput]) -> std::collections::HashSet<String> {
+    commits
+        .iter()
+        .filter(|c| c.stash)
+        .flat_map(|c| c.parents.iter().skip(1).cloned())
+        .collect()
 }
 
 /// The ids on `head`'s first-parent chain, as far as it stays inside
@@ -293,6 +330,14 @@ mod tests {
         CommitInput {
             id: id.to_string(),
             parents: parents.iter().map(|s| s.to_string()).collect(),
+            stash: false,
+        }
+    }
+
+    fn stash(id: &str, parents: &[&str]) -> CommitInput {
+        CommitInput {
+            stash: true,
+            ..ci(id, parents)
         }
     }
 
@@ -534,6 +579,37 @@ mod tests {
         let lane_of = |id: &str| g.nodes.iter().find(|n| n.id == id).unwrap().lane;
         assert_eq!(lane_of("A"), 0);
         assert_ne!(lane_of("D"), 0, "held fork lane was reused too early");
+    }
+
+    #[test]
+    fn stash_helper_edges_are_dashed_and_helpers_marked_internal() {
+        // A stash S: first parent Base (real ancestry), second parent Idx (the
+        // index helper, itself parented on Base), third parent Unt (the
+        // untracked-files helper, rootless). The links into the helpers are
+        // dashed and the helpers are stash_internal; the stash's own line down
+        // to Base stays solid, first-class ancestry.
+        let g = layout(
+            &[
+                stash("S", &["Base", "Idx", "Unt"]),
+                ci("Idx", &["Base"]),
+                ci("Unt", &[]),
+                ci("Base", &[]),
+            ],
+            None,
+        );
+
+        let node = |id: &str| g.nodes.iter().find(|n| n.id == id).unwrap();
+        assert!(node("Idx").stash_internal);
+        assert!(node("Unt").stash_internal);
+        assert!(!node("S").stash_internal);
+        assert!(!node("Base").stash_internal);
+
+        let edge =
+            |from: &str, to: &str| g.edges.iter().find(|e| e.from == from && e.to == to).unwrap();
+        assert!(!edge("S", "Base").dashed, "ancestry to base stays solid");
+        assert!(edge("S", "Idx").dashed, "index helper link is dashed");
+        assert!(edge("S", "Unt").dashed, "untracked helper link is dashed");
+        assert!(edge("Idx", "Base").dashed, "onward helper edge is dashed");
     }
 
     #[test]

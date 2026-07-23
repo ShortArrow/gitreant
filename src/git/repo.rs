@@ -58,11 +58,18 @@ pub struct RepoData {
 impl RepoData {
     /// The commits reduced to the layout algorithm's input.
     pub fn commit_inputs(&self) -> Vec<CommitInput> {
+        let stashes: HashSet<&str> = self
+            .refs
+            .iter()
+            .filter(|r| r.kind == "stash")
+            .map(|r| r.target.as_str())
+            .collect();
         self.commits
             .iter()
             .map(|c| CommitInput {
                 id: c.id.clone(),
                 parents: c.parents.clone(),
+                stash: stashes.contains(c.id.as_str()),
             })
             .collect()
     }
@@ -415,5 +422,61 @@ mod tests {
         assert_eq!(github_web_url("https://gitlab.com/o/r.git"), None);
         assert_eq!(github_web_url("../local/path"), None);
         assert_eq!(github_web_url("https://github.com/only-owner"), None);
+    }
+
+    fn oid(hex: &str) -> gix::ObjectId {
+        gix::ObjectId::from_hex(hex.as_bytes()).expect("valid 40-hex object id")
+    }
+
+    fn raw(id: gix::ObjectId, parents: &[gix::ObjectId], time: i64) -> RawCommit {
+        RawCommit {
+            id,
+            parents: parents.to_vec(),
+            summary: String::new(),
+            author: String::new(),
+            time,
+            signature: None,
+        }
+    }
+
+    #[test]
+    fn stash_helper_commits_stay_below_the_stash_commit() {
+        // `git stash` writes three commits that share one timestamp: the stash
+        // commit itself and its index and untracked-files parents. The
+        // untracked parent has no parents of its own — nothing but the stash
+        // points at it — so with identical times a naive time sort could float
+        // it above the stash. Topological order must keep every child (here the
+        // stash) strictly before its parents regardless of the tie.
+        // These are the real ids from V:\RqmGuiWithMacro that read reversed.
+        let t = 1_752_134_250; // the shared stash timestamp
+        let stash = oid("2e67720893b8bf9327d659e55b2aff48952dec02");
+        let untracked = oid("6c439db34558180d4a217168c1f0cf7734d1fbf9");
+        let base = oid("8ef96920000000000000000000000000000000aa");
+        let index = oid("5911c460000000000000000000000000000000bb");
+        let tip = oid("aaaaaaaa0000000000000000000000000000ffff");
+
+        let ordered = topological_order(vec![
+            raw(tip, &[base], t + 100),          // main tip, newer than the stash
+            raw(stash, &[base, index, untracked], t),
+            raw(index, &[base], t),
+            raw(untracked, &[], t),
+            raw(base, &[], t - 100),
+        ]);
+
+        let pos = |id: gix::ObjectId| {
+            ordered
+                .iter()
+                .position(|c| c.id == id.to_string())
+                .unwrap_or_else(|| panic!("{id} missing from order"))
+        };
+        assert!(
+            pos(stash) < pos(untracked),
+            "the stash commit must render above its untracked parent"
+        );
+        assert!(
+            pos(stash) < pos(index),
+            "the stash commit must render above its index parent"
+        );
+        assert!(pos(index) < pos(base), "children precede the shared base");
     }
 }

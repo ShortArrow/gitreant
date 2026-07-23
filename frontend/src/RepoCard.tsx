@@ -32,7 +32,12 @@ import { PrLinkIcon, StashBadgeIcon, TagBadgeIcon } from "./Icons";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
 import { format, MESSAGES } from "./i18n";
 import { useCommands, type PaletteCommand } from "./palette";
-import { SettingsContext, useSquashLinks, useT } from "./settings";
+import {
+  SettingsContext,
+  useSquashLinks,
+  useStashInternals,
+  useT,
+} from "./settings";
 import { CommitDetailPanel } from "./CommitDetailPanel";
 import { FileDiffPane } from "./FileDiffPane";
 import {
@@ -49,6 +54,7 @@ import {
   linkPath,
   rowTime,
   squashLinks,
+  stashView,
 } from "./graph";
 
 /** Group refs by the commit id they point at, so each row can show its badges. */
@@ -121,7 +127,14 @@ export function RepoCard({
   loadPrs?: (repoId: string) => Promise<PrLookupView>;
 }) {
   const t = useT();
-  const rowOf = useMemo(() => rowIndex(repo.commits), [repo.commits]);
+  // Fold each stash to a single node unless the internals toggle reveals its
+  // dashed helper structure; everything the graph renders reads off `view`.
+  const showStashInternals = useStashInternals();
+  const view = useMemo(
+    () => stashView(repo, showStashInternals),
+    [repo, showStashInternals],
+  );
+  const rowOf = useMemo(() => rowIndex(view.commits), [view.commits]);
   const refMap = useMemo(() => refsByCommit(repo), [repo.refs]);
 
   // PRs by head branch name (open) plus merged ones for squash links; loads
@@ -273,10 +286,10 @@ export function RepoCard({
   }
 
   const showSquashLinks = useSquashLinks();
-  const links = showSquashLinks ? squashLinks(repo, mergedPrs) : [];
+  const links = showSquashLinks ? squashLinks(view, mergedPrs) : [];
   // Link corridors beyond the real lanes widen the drawing.
-  const width = graphWidth(laneSpan(repo.lane_count, links));
-  const height = graphHeight(repo.commits.length);
+  const width = graphWidth(laneSpan(view.lane_count, links));
+  const height = graphHeight(view.commits.length);
   const selectedCommit = selected
     ? repo.commits.find((c) => c.id === selected)
     : undefined;
@@ -353,13 +366,18 @@ export function RepoCard({
           height={height}
           viewBox={`0 0 ${width} ${height}`}
         >
-          {repo.edges.map((edge, i) => (
+          {view.edges.map((edge, i) => (
+            // A stash's helper links are auxiliary structure: dashed, like the
+            // squash-merge links below, rather than first-class ancestry.
             <path
               key={`e${i}`}
+              data-testid={edge.dashed ? "stash-edge" : undefined}
               d={edgePath(edge, rowOf)}
               fill="none"
               stroke={laneColor(edge.color)}
               strokeWidth={2}
+              strokeDasharray={edge.dashed ? "4 3" : undefined}
+              opacity={edge.dashed ? 0.7 : undefined}
             />
           ))}
           {links.map((link, i) => (
@@ -377,7 +395,7 @@ export function RepoCard({
               opacity={0.7}
             />
           ))}
-          {repo.commits.map((commit) =>
+          {view.commits.map((commit) =>
             commit.id === repo.head ? (
               // HEAD: a ring in the branch color with the center punched out
               // to the card background, like vscode-git-graph. Both colors go
@@ -405,7 +423,7 @@ export function RepoCard({
         </svg>
 
         <ul className="commits">
-          {repo.commits.map((commit) => {
+          {view.commits.map((commit) => {
             const refs = refMap.get(commit.id) ?? [];
             const isHead = repo.head === commit.id;
             return (

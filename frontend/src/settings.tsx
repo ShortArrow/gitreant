@@ -70,19 +70,46 @@ export function storeSquashLinks(on: boolean) {
   }
 }
 
+export const STASH_INTERNALS_KEY = "gitreant-stash-internals";
+
+/** Whether a stash's index/untracked internals are revealed with dashed
+ * links (default off — each stash reads as a single node). */
+export function storedStashInternals(): boolean {
+  try {
+    return localStorage.getItem(STASH_INTERNALS_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
+export function storeStashInternals(on: boolean) {
+  try {
+    localStorage.setItem(STASH_INTERNALS_KEY, on ? "on" : "off");
+  } catch {
+    // localStorage may be unavailable; the state change alone is enough.
+  }
+}
+
 export const SettingsContext = createContext<{
   buttonStyle: ButtonStyle;
   lang: Lang;
   squashLinks: boolean;
+  stashInternals: boolean;
 }>({
   buttonStyle: "icon-label",
   lang: "en",
   squashLinks: true,
+  stashInternals: false,
 });
 
 /** Whether squash-merge links should be drawn. */
 export function useSquashLinks(): boolean {
   return useContext(SettingsContext).squashLinks;
+}
+
+/** Whether a stash's internal structure is revealed with dashed links. */
+export function useStashInternals(): boolean {
+  return useContext(SettingsContext).stashInternals;
 }
 
 export function useButtonStyle(): ButtonStyle {

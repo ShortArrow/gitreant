@@ -8,6 +8,7 @@ import {
   ROW_HEIGHT,
   rowTime,
   squashLinks,
+  stashView,
 } from "./graph";
 
 test("rowTime renders a fixed-width local timestamp", () => {
@@ -215,6 +216,44 @@ test("squashLinks skips PRs whose branch or commit left the graph", () => {
       { number: 3, url: "u", branch: "feature", merge_commit: "squash" },
     ]),
   ).toEqual([]);
+});
+
+test("stashView folds stash internals away and compacts the rows", () => {
+  // A stash S (row 0) with an index helper Idx (row 1) and untracked Unt
+  // (row 2), then a real commit C (row 3). With internals hidden the two
+  // helpers drop out, C moves up to row 1, and edges touching a helper go.
+  const repo = repoWith({
+    commits: [
+      { ...commit("S", 0, 0, 0), parents: ["C", "Idx", "Unt"] },
+      { ...commit("Idx", 1, 1, 1), stash_internal: true, parents: ["C"] },
+      { ...commit("Unt", 2, 2, 2), stash_internal: true },
+      commit("C", 3, 0, 0),
+    ],
+    edges: [
+      { from: "S", to: "C", from_lane: 0, to_lane: 0, color: 0, fork: false },
+      {
+        from: "S",
+        to: "Idx",
+        from_lane: 0,
+        to_lane: 1,
+        color: 1,
+        fork: false,
+        dashed: true,
+      },
+    ],
+    total: 4,
+  });
+
+  const hidden = stashView(repo, false);
+  expect(hidden.commits.map((c) => c.id)).toEqual(["S", "C"]);
+  expect(hidden.commits.map((c) => c.row)).toEqual([0, 1]);
+  // The dashed helper edge is gone; the real ancestry edge survives.
+  expect(hidden.edges).toEqual([
+    { from: "S", to: "C", from_lane: 0, to_lane: 0, color: 0, fork: false },
+  ]);
+
+  // Revealed: the repo is returned unchanged so the dashed links can render.
+  expect(stashView(repo, true)).toBe(repo);
 });
 
 test("linkPath bends into the via lane, runs vertically, and bends back", () => {

@@ -81,6 +81,24 @@ export function edgePath(
   return yBend >= y2 ? curve : `${curve} L${x2},${y2}`;
 }
 
+/**
+ * The view to render given the stash-internals toggle. When off, a stash's
+ * index/untracked helper commits are dropped and the remaining rows compacted
+ * so each stash reads as a single node and no vertical gap is left behind;
+ * edges into the hidden helpers fall away with them. When on, the repo is
+ * returned unchanged and the helpers' dashed links are drawn.
+ */
+export function stashView(repo: RepoView, showInternals: boolean): RepoView {
+  if (showInternals || !repo.commits.some((c) => c.stash_internal)) {
+    return repo;
+  }
+  const visible = repo.commits.filter((c) => !c.stash_internal);
+  const kept = new Set(visible.map((c) => c.id));
+  const commits = visible.map((c, row) => ({ ...c, row }));
+  const edges = repo.edges.filter((e) => kept.has(e.from) && kept.has(e.to));
+  return { ...repo, commits, edges };
+}
+
 /** Map every commit id to its row for quick edge/parent lookups. */
 export function rowIndex(commits: CommitView[]): Map<string, number> {
   const map = new Map<string, number>();

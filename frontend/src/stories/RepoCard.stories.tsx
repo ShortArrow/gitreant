@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { RepoCard } from "../RepoCard";
+import { SettingsContext } from "../settings";
 import {
   commitDetail,
   erroredRepo,
@@ -7,6 +8,7 @@ import {
   linearRepo,
   longMergeRepo,
   mergeRepo,
+  stashRepo,
 } from "./mock";
 
 const meta: Meta<typeof RepoCard> = {
@@ -35,6 +37,31 @@ export const LongSpanMerge: Story = {
 
 export const Linear: Story = {
   args: { repo: linearRepo },
+};
+
+/** A stash with the internals toggle off: it folds down to a single node. */
+export const StashCollapsed: Story = {
+  args: { repo: stashRepo },
+};
+
+/** The same stash with the internals revealed: dashed links fan out to the
+ * index and untracked-files helper commits. */
+export const StashInternals: Story = {
+  args: { repo: stashRepo },
+  decorators: [
+    (Story) => (
+      <SettingsContext.Provider
+        value={{
+          buttonStyle: "icon-label",
+          lang: "en",
+          squashLinks: true,
+          stashInternals: true,
+        }}
+      >
+        <Story />
+      </SettingsContext.Provider>
+    ),
+  ],
 };
 
 export const ReadError: Story = {

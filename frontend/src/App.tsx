@@ -38,6 +38,8 @@ import {
   storedLangSetting,
   storeSquashLinks,
   storedSquashLinks,
+  storeStashInternals,
+  storedStashInternals,
   type ButtonStyle,
 } from "./settings";
 import { ThemeToggle } from "./ThemeToggle";
@@ -336,10 +338,17 @@ export function App() {
     setSquashLinks(on);
     storeSquashLinks(on);
   };
+  const [stashInternals, setStashInternals] = useState<boolean>(
+    storedStashInternals,
+  );
+  const changeStashInternals = (on: boolean) => {
+    setStashInternals(on);
+    storeStashInternals(on);
+  };
   const lang = resolveLang(langSetting, navigator.language);
   const settings = useMemo(
-    () => ({ buttonStyle, lang, squashLinks }),
-    [buttonStyle, lang, squashLinks],
+    () => ({ buttonStyle, lang, squashLinks, stashInternals }),
+    [buttonStyle, lang, squashLinks, stashInternals],
   );
   const t = (key: keyof typeof MESSAGES.en, params?: Record<string, string | number>) =>
     format(MESSAGES[lang][key], params);
@@ -400,6 +409,11 @@ export function App() {
           id: "squash-links",
           title: m.cmdToggleSquashLinks,
           run: () => changeSquashLinks(!storedSquashLinks()),
+        },
+        {
+          id: "stash-internals",
+          title: m.cmdToggleStashInternals,
+          run: () => changeStashInternals(!storedStashInternals()),
         },
         ...(["icon", "icon-label", "label"] as const).map((style) => ({
           id: `buttons:${style}`,
@@ -561,6 +575,15 @@ export function App() {
                     onChange={(e) => changeSquashLinks(e.target.checked)}
                   />
                   {t("squashLinksSetting")}
+                </label>
+                <label className="settings-option">
+                  <input
+                    type="checkbox"
+                    data-testid="stash-internals-toggle"
+                    checked={stashInternals}
+                    onChange={(e) => changeStashInternals(e.target.checked)}
+                  />
+                  {t("stashInternalsSetting")}
                 </label>
               </fieldset>
               <fieldset className="settings-group">

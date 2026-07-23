@@ -14,6 +14,9 @@ export interface CommitView {
   verified?: boolean;
   /** Signing key id, when gpg could attribute one. */
   signature_key?: string;
+  /** A stash's index/untracked helper commit; hidden unless the stash
+   *  internals toggle is on. */
+  stash_internal?: boolean;
 }
 
 export interface GraphEdge {
@@ -25,6 +28,8 @@ export interface GraphEdge {
   /** Lane-crossing first-parent edge: runs in the child's lane, bends at
    *  the parent. Merge edges bend at the merge commit instead. */
   fork: boolean;
+  /** Drawn dashed: an auxiliary link into a stash's internal structure. */
+  dashed?: boolean;
 }
 
 /** The `analyzing` SSE event payload: how far the server's current
