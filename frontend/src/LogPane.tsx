@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { CopyIcon } from "./Icons";
+import { CopyAllIcon, CopyIcon, WrapIcon } from "./Icons";
+import { LabeledButton } from "./LabeledButton";
 import type { LogItem } from "./logModel";
 import { HeightResizeHandle, useStoredWidth } from "./Resizer";
 import { useT } from "./settings";
@@ -59,24 +60,22 @@ export function LogPane({ items }: { items: LogItem[] }) {
         testId="log-resize"
       />
       <div className="log-toolbar">
-        <button
-          type="button"
-          className={`log-tool${wrap ? " active" : ""}`}
-          aria-pressed={wrap}
-          data-testid="log-wrap-toggle"
-          onClick={toggleWrap}
-        >
-          {t("logWrap")}
-        </button>
-        <button
-          type="button"
+        <LabeledButton
+          icon={<WrapIcon />}
+          label={t("logWrap")}
+          testId="log-wrap-toggle"
           className="log-tool"
-          data-testid="log-copy-all"
+          active={wrap}
+          onClick={toggleWrap}
+        />
+        <LabeledButton
+          icon={<CopyAllIcon />}
+          label={t("copyAll")}
+          testId="log-copy-all"
+          className="log-tool"
           disabled={ordered.length === 0}
           onClick={() => copyText(ordered.map(entryLine).join("\n"))}
-        >
-          {t("copyAll")}
-        </button>
+        />
       </div>
 
       {items.length === 0 && <p className="log-empty">{t("noActivity")}</p>}
