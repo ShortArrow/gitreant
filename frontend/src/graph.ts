@@ -237,10 +237,11 @@ export interface SquashLink {
  * merged-PR data.
  *
  * Routing rule: lines may cross other lines, but must not run along an
- * occupied vertical corridor or over a node. Each link's vertical run takes
- * the first lane right of both endpoints whose corridor rows hold no node,
- * no real edge's vertical run, and no other link — usually a free real lane
- * right next to the endpoints instead of a far-right virtual one.
+ * occupied vertical corridor or over a node. Each link's vertical run
+ * prefers the endpoints' own lanes (usually the branch lane is empty above
+ * its tip — no width cost, and the link hugs the branch it annotates), then
+ * the nearest free lane right of the leftmost endpoint, growing rightward
+ * only when everything nearer is occupied.
  */
 export function squashLinks(
   repo: RepoView,
@@ -278,6 +279,24 @@ export function squashLinks(
   const isFree = (lane: number, a: number, b: number) =>
     !(blocked.get(lane) ?? []).some(([s, e]) => s <= b && a <= e);
 
+  // The corridor lane for a link between these endpoints: their own lanes
+  // first (no width cost), then the nearest free lane right of the leftmost
+  // endpoint.
+  const freeLane = (
+    fromLane: number,
+    toLane: number,
+    top: number,
+    bottom: number,
+  ): number => {
+    for (const lane of [toLane, fromLane]) {
+      if (isFree(lane, top, bottom)) return lane;
+    }
+    for (let lane = Math.min(fromLane, toLane) + 1; ; lane += 1) {
+      if (lane === fromLane || lane === toLane) continue;
+      if (isFree(lane, top, bottom)) return lane;
+    }
+  };
+
   const links: SquashLink[] = [];
   for (const pr of merged) {
     const tipId = repo.refs.find(
@@ -293,7 +312,7 @@ export function squashLinks(
     if (to.row - from.row > 1) {
       const corridorTop = from.row + 1;
       const corridorBottom = to.row - 1;
-      while (!isFree(via, corridorTop, corridorBottom)) via += 1;
+      via = freeLane(from.lane, to.lane, corridorTop, corridorBottom);
       block(via, corridorTop, corridorBottom);
     }
     links.push({

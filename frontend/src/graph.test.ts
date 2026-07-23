@@ -4,6 +4,7 @@ import {
   crossPath,
   edgePath,
   graphWidth,
+  laneSpan,
   linkPath,
   nodeX,
   nodeY,
@@ -126,9 +127,10 @@ test("squashLinks pick the first lane free over their row range", () => {
   ]);
 });
 
-test("squashLinks reuse a free real lane instead of drifting right", () => {
-  // lane_count 4, but lanes 2 and 3 hold nothing between the endpoints:
-  // the corridor takes lane 2, not a virtual lane at 4.
+test("squashLinks reuse a free endpoint lane instead of drifting right", () => {
+  // The tip's lane (1) holds "mid" inside the corridor, but the landed
+  // commit's own lane (0) is empty between the endpoints — the link runs
+  // straight down it rather than opening a lane to the right.
   const repo = repoWith({
     lane_count: 4,
     refs: [{ name: "feature", target: "tip", kind: "branch" }],
@@ -142,16 +144,46 @@ test("squashLinks reuse a free real lane instead of drifting right", () => {
   const links = squashLinks(repo, [
     { number: 7, url: "u", branch: "feature", merge_commit: "squash" },
   ]);
+  expect(links[0].via).toBe(0);
+});
+
+test("squashLinks run down the tip's own lane when it is free", () => {
+  // The spine (lane 0) is occupied by main's own line, but the branch lane
+  // is empty above its tip: the corridor takes the tip's lane and the
+  // drawing stays exactly as wide as the real graph.
+  const repo = repoWith({
+    lane_count: 3,
+    refs: [{ name: "feature", target: "tip", kind: "branch" }],
+    commits: [
+      commit("squash", 0, 0, 0),
+      commit("m1", 1, 0, 0),
+      commit("m2", 2, 0, 0),
+      commit("tip", 4, 2, 2),
+      commit("root", 5, 0, 0),
+    ],
+    edges: [
+      { from: "squash", to: "m1", from_lane: 0, to_lane: 0, color: 0, fork: false },
+      { from: "m1", to: "m2", from_lane: 0, to_lane: 0, color: 0, fork: false },
+      { from: "m2", to: "root", from_lane: 0, to_lane: 0, color: 0, fork: false },
+    ],
+  });
+  const links = squashLinks(repo, [
+    { number: 7, url: "u", branch: "feature", merge_commit: "squash" },
+  ]);
   expect(links[0].via).toBe(2);
+  expect(laneSpan(repo.lane_count, links)).toBe(3);
 });
 
 test("squashLinks skip lanes whose corridor is blocked", () => {
-  // A node sits at (row 2, lane 2), so the corridor moves to lane 3.
+  // Nodes occupy both endpoint lanes and lane 2 inside the corridor, so
+  // every nearer candidate is rejected and the corridor lands on lane 3.
   const repo = repoWith({
     lane_count: 3,
     commits: [
       commit("squash", 0, 0, 0),
-      commit("blocker", 2, 2, 2),
+      commit("b0", 1, 0, 0),
+      commit("b1", 2, 1, 1),
+      commit("b2", 3, 2, 2),
       commit("tip", 4, 1, 1),
       commit("root", 5, 0, 0),
     ],
@@ -181,7 +213,8 @@ test("squashLinks share a lane when their row ranges do not overlap", () => {
     { number: 1, url: "u", branch: "feature", merge_commit: "squash" },
     { number: 2, url: "u", branch: "other", merge_commit: "squash2" },
   ]);
-  expect(links.map((l) => l.via)).toEqual([2, 2]);
+  // Both corridors fit in the tips' own free lane, one below the other.
+  expect(links.map((l) => l.via)).toEqual([1, 1]);
 });
 
 test("squashLinks stack overlapping corridors on separate lanes", () => {
