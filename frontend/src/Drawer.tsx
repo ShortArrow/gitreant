@@ -170,12 +170,13 @@ export function Drawer({
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  // Attaching a submodule makes it viewable, then select it.
-  const openSubmodule = async (path: string) => {
+  // Attaching a submodule makes it viewable; then show it in a pane. Opening
+  // it on the right sits its graph beside the superproject's (ADR 0022).
+  const openSubmodule = async (path: string, side: "here" | "right" = "here") => {
     setError(null);
     try {
       await onAdd(path);
-      onSelect(path);
+      side === "right" ? onOpenRight(path) : onSelect(path);
     } catch (err) {
       setError(String(err));
     }
@@ -440,6 +441,11 @@ export function Drawer({
               id: "submodule-open",
               label: t("openSubmodule"),
               run: () => openSubmodule(subMenu.path),
+            },
+            {
+              id: "submodule-open-right",
+              label: t("openRightPane"),
+              run: () => openSubmodule(subMenu.path, "right"),
             },
             {
               id: "submodule-copy-path",
