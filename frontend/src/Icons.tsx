@@ -6,6 +6,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronUpIcon,
+  CopyIcon as OcticonCopyIcon,
   MarkGithubIcon,
   StackIcon,
   TagIcon,
@@ -134,6 +135,11 @@ export function LineMenuIcon() {
 /** The GitHub mark on a branch badge that links to its pull request. */
 export function PrLinkIcon() {
   return <MarkGithubIcon size={12} />;
+}
+
+/** Copy a log entry (or the whole log) to the clipboard. */
+export function CopyIcon() {
+  return <OcticonCopyIcon size={12} />;
 }
 
 /** Marks a tag badge apart from branch badges. */

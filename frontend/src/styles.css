@@ -483,13 +483,62 @@ body {
 /* ---- Command log pane ---- */
 .log-pane {
   flex: none;
-  /* Fixed height: the pane must not grow line by line as entries arrive. */
-  height: 180px;
-  overflow-y: auto;
+  /* The drag handle sets the height (inline style); entries scroll inside so
+   * the pane never grows line by line as entries arrive. */
+  position: relative;
+  display: flex;
+  flex-direction: column;
   border-top: 1px solid var(--border);
   background: var(--bg-elev);
   font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   font-size: 12px;
+}
+
+.resize-handle-v {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: row-resize;
+  touch-action: none;
+  z-index: 1;
+}
+
+.resize-handle-v:hover,
+.resize-handle-v:active {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.log-toolbar {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px 4px;
+}
+
+.log-tool {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.log-tool:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.log-tool:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.log-tool.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg));
 }
 
 .log-empty {
@@ -498,6 +547,8 @@ body {
 }
 
 .log-entries {
+  flex: 1 1 auto;
+  overflow-y: auto;
   list-style: none;
   margin: 0;
   padding: 4px 0;
@@ -516,8 +567,22 @@ body {
 }
 
 .log-command {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Wrap mode: long commands wrap onto continuation lines instead of clipping. */
+.log-wrap .log-entry {
+  white-space: normal;
+}
+
+.log-wrap .log-command,
+.log-wrap .log-message {
+  overflow: visible;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .log-entry-error .log-command {
@@ -533,6 +598,26 @@ body {
   color: var(--danger);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.log-copy {
+  flex: none;
+  margin-left: auto;
+  visibility: hidden;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.log-entry:hover .log-copy {
+  visibility: visible;
+}
+
+.log-copy:hover {
+  color: var(--text);
 }
 
 /* The wrapper spans exist only for the theme swap; without this the SVG

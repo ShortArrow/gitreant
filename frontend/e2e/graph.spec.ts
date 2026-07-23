@@ -1146,6 +1146,40 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("log-toggle").click();
   });
 
+  test("the log pane wraps, resizes and offers copy controls", async ({
+    page,
+  }) => {
+    await page.getByTestId("log-toggle").click();
+    const pane = page.getByTestId("log-pane");
+    await expect(pane).toBeVisible();
+    await page.getByTestId("reload").click();
+    await expect(pane.getByTestId("log-entry").first()).toBeVisible();
+
+    // The wrap toggle flips the entries between clipped and wrapped.
+    const entries = pane.locator(".log-entries");
+    await expect(entries).not.toHaveClass(/log-wrap/);
+    await page.getByTestId("log-wrap-toggle").click();
+    await expect(entries).toHaveClass(/log-wrap/);
+
+    // Copy controls: a per-line button surfaces on hover, plus copy-all.
+    await expect(page.getByTestId("log-copy-all")).toBeEnabled();
+    const entry = pane.getByTestId("log-entry").first();
+    await entry.hover();
+    await expect(entry.getByTestId("log-copy")).toBeVisible();
+
+    // Dragging the top handle upward grows the pane.
+    const before = (await pane.boundingBox())!.height;
+    const box = (await page.getByTestId("log-resize").boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y - 70);
+    await page.mouse.up();
+    expect((await pane.boundingBox())!.height).toBeGreaterThan(before);
+
+    await page.getByTestId("log-wrap-toggle").click();
+    await page.getByTestId("log-toggle").click();
+  });
+
   test("a branch with an open PR links to its GitHub page", async ({
     page,
   }) => {

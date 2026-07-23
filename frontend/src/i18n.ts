@@ -146,6 +146,10 @@ const en = {
   selectionActions: "Selection actions",
   // Log pane
   noActivity: "No activity yet.",
+  logWrap: "Wrap",
+  copyAll: "Copy all",
+  copyLine: "Copy line",
+  resizeLog: "Resize the command log",
 } as const;
 
 export type MsgKey = keyof typeof en;
@@ -258,6 +262,10 @@ const ja: Record<MsgKey, string> = {
   noPermalinkSide: "この側にはパーマリンクを作れない行が含まれています",
   selectionActions: "選択中の操作",
   noActivity: "まだ何も実行されていません。",
+  logWrap: "折り返し",
+  copyAll: "すべてコピー",
+  copyLine: "この行をコピー",
+  resizeLog: "コマンドログの高さを変更",
 } as const;
 
 export const MESSAGES: Record<Lang, Record<MsgKey, string>> = { en, ja };

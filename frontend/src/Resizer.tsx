@@ -78,3 +78,43 @@ export function ResizeHandle({
     />
   );
 }
+
+/**
+ * A horizontal drag handle on a panel's top edge. Dragging up grows the panel
+ * (reports `startHeight + pointer travel upward`).
+ */
+export function HeightResizeHandle({
+  height,
+  onHeight,
+  label,
+  testId,
+}: {
+  height: number;
+  onHeight: (height: number) => void;
+  label: string;
+  testId: string;
+}) {
+  const startDrag = (down: React.PointerEvent<HTMLDivElement>) => {
+    down.preventDefault();
+    const handle = down.currentTarget;
+    const startY = down.clientY;
+    const startHeight = height;
+    handle.setPointerCapture(down.pointerId);
+    const move = (e: PointerEvent) => onHeight(startHeight + (startY - e.clientY));
+    const stop = () => handle.removeEventListener("pointermove", move);
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", stop, { once: true });
+    handle.addEventListener("pointercancel", stop, { once: true });
+  };
+
+  return (
+    <div
+      className="resize-handle-v"
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label={label}
+      data-testid={testId}
+      onPointerDown={startDrag}
+    />
+  );
+}
