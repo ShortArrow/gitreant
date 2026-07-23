@@ -34,6 +34,7 @@ import { format, MESSAGES } from "./i18n";
 import { useCommands, type PaletteCommand } from "./palette";
 import {
   SettingsContext,
+  useAvatars,
   useSquashLinks,
   useStashInternals,
   useT,
@@ -130,6 +131,7 @@ export function RepoCard({
   // Fold each stash to a single node unless the internals toggle reveals its
   // dashed helper structure; everything the graph renders reads off `view`.
   const showStashInternals = useStashInternals();
+  const showAvatars = useAvatars();
   const view = useMemo(
     () => stashView(repo, showStashInternals),
     [repo, showStashInternals],
@@ -524,6 +526,21 @@ export function RepoCard({
                         </span>
                       );
                     })()}
+                  {showAvatars && commit.avatar && (
+                    <img
+                      className="commit-avatar"
+                      data-testid="commit-avatar"
+                      src={commit.avatar}
+                      alt=""
+                      loading="lazy"
+                      width={16}
+                      height={16}
+                      onError={(e) => {
+                        // Offline or a stale URL: drop the broken image quietly.
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  )}
                   {commit.author} ·{" "}
                   <span
                     className="commit-time"

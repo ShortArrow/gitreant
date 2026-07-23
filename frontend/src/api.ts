@@ -17,6 +17,8 @@ export interface CommitView {
   /** A stash's index/untracked helper commit; hidden unless the stash
    *  internals toggle is on. */
   stash_internal?: boolean;
+  /** The author's GitHub avatar URL, when the server could resolve one. */
+  avatar?: string;
 }
 
 export interface GraphEdge {

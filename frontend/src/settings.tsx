@@ -90,16 +90,37 @@ export function storeStashInternals(on: boolean) {
   }
 }
 
+export const AVATARS_KEY = "gitreant-avatars";
+
+/** Whether GitHub author avatars are shown on commit rows (default on). */
+export function storedAvatars(): boolean {
+  try {
+    return localStorage.getItem(AVATARS_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function storeAvatars(on: boolean) {
+  try {
+    localStorage.setItem(AVATARS_KEY, on ? "on" : "off");
+  } catch {
+    // localStorage may be unavailable; the state change alone is enough.
+  }
+}
+
 export const SettingsContext = createContext<{
   buttonStyle: ButtonStyle;
   lang: Lang;
   squashLinks: boolean;
   stashInternals: boolean;
+  avatars: boolean;
 }>({
   buttonStyle: "icon-label",
   lang: "en",
   squashLinks: true,
   stashInternals: false,
+  avatars: true,
 });
 
 /** Whether squash-merge links should be drawn. */
@@ -110,6 +131,11 @@ export function useSquashLinks(): boolean {
 /** Whether a stash's internal structure is revealed with dashed links. */
 export function useStashInternals(): boolean {
   return useContext(SettingsContext).stashInternals;
+}
+
+/** Whether GitHub author avatars are shown on commit rows. */
+export function useAvatars(): boolean {
+  return useContext(SettingsContext).avatars;
 }
 
 export function useButtonStyle(): ButtonStyle {

@@ -19,6 +19,7 @@ const fixtures = JSON.parse(
   repoK: string;
   repoL: string;
   repoM: string;
+  repoN: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -1589,6 +1590,40 @@ test.describe.serial("gitreant UI", () => {
     await repoM.hover();
     await repoM.getByTestId("repo-remove").click();
     await expect(page.locator('[data-repo-name="repoM"]')).toHaveCount(0);
+  });
+
+  test("a noreply author gets a GitHub avatar the toggle can hide", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoN);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoN"]')).toBeVisible();
+    await page.locator('[data-repo-name="repoN"]').click();
+
+    // The noreply email resolves to an avatar URL with no network call.
+    const avatar = page.getByTestId("commit-avatar").first();
+    await expect(avatar).toHaveAttribute(
+      "src",
+      "https://avatars.githubusercontent.com/u/1?v=4",
+    );
+
+    // The settings toggle removes the avatars entirely.
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("avatars-toggle").uncheck();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("commit-avatar")).toHaveCount(0);
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("avatars-toggle").check();
+    await page.keyboard.press("Escape");
+    // The <img> may not load offline (it hides itself on error), so assert it
+    // is back in the DOM rather than visible.
+    await expect(page.getByTestId("commit-avatar")).toHaveCount(1);
+
+    // Restore the served set.
+    const repoN = page.locator('[data-repo-name="repoN"]');
+    await repoN.hover();
+    await repoN.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoN"]')).toHaveCount(0);
   });
 
   test("tags can be created on a commit and deleted from their badge", async ({

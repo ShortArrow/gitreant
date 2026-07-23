@@ -1,6 +1,7 @@
 //! Adapter over `gix` that reads a local repository into plain data the rest of
 //! the app can consume. Isolates the (evolving) gitoxide API from the domain.
 
+mod avatar;
 mod branch;
 mod detail;
 mod fetch;
@@ -16,6 +17,7 @@ pub use branch::{
 pub use detail::{
     read_commit, read_commit_diff, read_file_diff, CommitDetail, FileChange, FileDiff,
 };
+pub use avatar::{avatar_search_command, gh_search_avatar, noreply_avatar_url};
 pub use fetch::{fetch_command, fetch_remotes, tag_remotes, RemoteTagList};
 pub use prs::{
     gh_available, list_merged_prs, list_prs, merged_pr_command, pr_command, MergedPullRequest,

@@ -125,6 +125,28 @@ export const stashRepo: RepoView = {
   total: 6,
 };
 
+/** A linear repo whose commits carry resolved GitHub author avatars. */
+export const avatarRepo: RepoView = {
+  id: "/repos/team",
+  name: "team",
+  path: "/home/user/repos/team",
+  head: "c2",
+  refs: [{ name: "main", target: "c2", kind: "branch" }],
+  commits: [
+    {
+      ...commit("c2", 0, 0, 0, ["c1"], "feat: add endpoint"),
+      avatar: "https://avatars.githubusercontent.com/u/1?v=4",
+    },
+    {
+      ...commit("c1", 1, 0, 0, [], "chore: scaffold"),
+      avatar: "https://github.com/octocat.png",
+    },
+  ],
+  edges: [edge("c2", "c1", 0, 0, 0)],
+  lane_count: 1,
+  total: 2,
+};
+
 /** A small linear repo. */
 export const linearRepo: RepoView = {
   id: "/repos/notes",

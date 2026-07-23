@@ -16,6 +16,7 @@ const commands = [
   command("theme", "Toggle theme"),
   command("squash-links", "Toggle squash-merge links"),
   command("stash-internals", "Toggle stash internals"),
+  command("avatars", "Toggle GitHub avatars"),
   command("open-a", "Open repository: repoA"),
   command("open-b", "Open repository: repoB"),
   command("checkout-main", "Checkout branch: main"),

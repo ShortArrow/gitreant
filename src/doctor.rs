@@ -20,7 +20,11 @@ const TOOLS: [(&str, bool, &str); 3] = [
         true,
         "fetch, checkout, merge, tag and branch operations",
     ),
-    ("gh", false, "pull-request links and squash-merge links"),
+    (
+        "gh",
+        false,
+        "pull-request links, squash-merge links and author avatars",
+    ),
     ("gpg", false, "commit signature verification"),
 ];
 

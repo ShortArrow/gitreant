@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { RepoCard } from "../RepoCard";
 import { SettingsContext } from "../settings";
 import {
+  avatarRepo,
   commitDetail,
   erroredRepo,
   fileDiff,
@@ -56,12 +57,18 @@ export const StashInternals: Story = {
           lang: "en",
           squashLinks: true,
           stashInternals: true,
+          avatars: true,
         }}
       >
         <Story />
       </SettingsContext.Provider>
     ),
   ],
+};
+
+/** Commit rows with GitHub author avatars resolved by the server. */
+export const Avatars: Story = {
+  args: { repo: avatarRepo },
 };
 
 export const ReadError: Story = {

@@ -13,6 +13,8 @@ pub struct CommitMeta {
     pub id: String,
     pub summary: String,
     pub author: String,
+    /// Author email, used only to resolve a GitHub avatar (never displayed).
+    pub email: String,
     /// Committer time, seconds since the Unix epoch.
     pub time: i64,
     /// Parent ids, filtered to commits present in this dataset.
@@ -218,6 +220,7 @@ struct RawCommit {
     parents: Vec<gix::ObjectId>,
     summary: String,
     author: String,
+    email: String,
     time: i64,
     signature: Option<String>,
 }
@@ -253,6 +256,7 @@ fn collect_commits(
             parents,
             summary: commit_summary(&commit),
             author: commit_author(&commit),
+            email: commit_email(&commit),
             time: commit_time(&commit),
             signature: signature_kind(&commit),
         });
@@ -272,6 +276,13 @@ fn commit_author(commit: &gix::Commit) -> String {
     commit
         .author()
         .map(|a| a.name.to_string())
+        .unwrap_or_default()
+}
+
+fn commit_email(commit: &gix::Commit) -> String {
+    commit
+        .author()
+        .map(|a| a.email.to_string())
         .unwrap_or_default()
 }
 
@@ -323,6 +334,7 @@ fn topological_order(raw: Vec<RawCommit>) -> Vec<CommitMeta> {
             id: commit.id.to_string(),
             summary: commit.summary.clone(),
             author: commit.author.clone(),
+            email: commit.email.clone(),
             time: commit.time,
             parents,
             signature: commit.signature.clone(),
@@ -434,6 +446,7 @@ mod tests {
             parents: parents.to_vec(),
             summary: String::new(),
             author: String::new(),
+            email: String::new(),
             time,
             signature: None,
         }

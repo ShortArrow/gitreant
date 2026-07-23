@@ -871,6 +871,15 @@ body {
   padding-left: 12px;
 }
 
+.commit-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  vertical-align: text-bottom;
+  margin-right: 5px;
+  background: var(--bg-elev);
+}
+
 .commit-hash,
 .detail-key {
   background: none;

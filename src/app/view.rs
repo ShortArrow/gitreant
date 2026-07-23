@@ -17,6 +17,13 @@ pub struct CommitView {
     pub parents: Vec<String>,
     pub summary: String,
     pub author: String,
+    /// Author email, kept server-side only (to resolve an avatar via the
+    /// cache); never sent to the client.
+    #[serde(skip)]
+    pub email: String,
+    /// The author's GitHub avatar URL, when one is known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar: Option<String>,
     pub time: i64,
     /// Kind of the embedded signature ("openpgp", "ssh", ...), if signed.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -198,6 +205,10 @@ pub fn build_view(id: &Path, data: &RepoData) -> RepoView {
             parents: node.parents.clone(),
             summary: meta.summary.clone(),
             author: meta.author.clone(),
+            // Resolve the free (no-network) avatar now; the gh fallback fills
+            // the rest later from the server's cache (see `read_one`).
+            avatar: crate::git::noreply_avatar_url(&meta.email),
+            email: meta.email.clone(),
             time: meta.time,
             signature: meta.signature.clone(),
             verified: meta.verified,
@@ -243,6 +254,7 @@ mod tests {
             id: id.to_string(),
             summary: summary.to_string(),
             author: "Tester".to_string(),
+            email: "tester@example.com".to_string(),
             time,
             parents: parents.iter().map(|s| s.to_string()).collect(),
             signature: None,

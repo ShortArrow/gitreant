@@ -87,6 +87,12 @@ pub struct AppState {
     /// so the automatic `ls-remote` runs once per repository rather than on
     /// every listing.
     tag_refresh_started: Arc<Mutex<std::collections::HashSet<String>>>,
+    /// Author email → GitHub avatar URL, resolved via a `gh` user search for
+    /// emails the free noreply parse could not place. Shared across repos.
+    avatars: Arc<Mutex<HashMap<String, String>>>,
+    /// Emails a `gh` avatar search was already attempted for, so each email is
+    /// queried at most once per session (whether or not it matched).
+    avatar_started: Arc<Mutex<std::collections::HashSet<String>>>,
 }
 
 impl AppState {
@@ -101,6 +107,8 @@ impl AppState {
             pr_cache: Arc::new(Mutex::new(HashMap::new())),
             remote_tags: Arc::new(Mutex::new(HashMap::new())),
             tag_refresh_started: Arc::new(Mutex::new(std::collections::HashSet::new())),
+            avatars: Arc::new(Mutex::new(HashMap::new())),
+            avatar_started: Arc::new(Mutex::new(std::collections::HashSet::new())),
         }
     }
 
@@ -140,6 +148,50 @@ impl AppState {
             .unwrap_or(false);
             if changed {
                 // Wake clients only when something is actually on a remote.
+                let _ = state.updates.send(ServerEvent::Update);
+            }
+        });
+    }
+
+    /// Resolve `emails` to GitHub avatars with a `gh` user search, in the
+    /// background, then tell clients to reload so the newly-found avatars
+    /// appear. Each email is searched at most once per session; the search is a
+    /// network call skipped entirely when `gh` is absent, so a missing avatar
+    /// never surfaces as an error.
+    fn ensure_avatars(&self, emails: Vec<String>) {
+        if !crate::git::gh_available() {
+            return;
+        }
+        let fresh: Vec<String> = {
+            let mut started = self.avatar_started.lock().expect("avatar started mutex");
+            emails
+                .into_iter()
+                .filter(|e| !e.is_empty() && started.insert(e.clone()))
+                .collect()
+        };
+        if fresh.is_empty() {
+            return;
+        }
+        let state = self.clone();
+        tokio::spawn(async move {
+            let worker = state.clone();
+            let found = tokio::task::spawn_blocking(move || {
+                let mut found = false;
+                for email in fresh {
+                    if let Some(url) = crate::git::gh_search_avatar(&email) {
+                        worker
+                            .avatars
+                            .lock()
+                            .expect("avatars mutex")
+                            .insert(email, url);
+                        found = true;
+                    }
+                }
+                found
+            })
+            .await
+            .unwrap_or(false);
+            if found {
                 let _ = state.updates.send(ServerEvent::Update);
             }
         });
@@ -213,15 +265,35 @@ impl AppState {
                 message: command.message,
             });
         }
-        let remote_tags = self.remote_tags.lock().expect("remote tags mutex");
-        if let Some(tag_remotes) = remote_tags.get(&view.id) {
-            for r in &mut view.refs {
-                if r.kind == "tag" && r.remote.is_none() {
-                    if let Some(remote) = tag_remotes.get(&r.name) {
-                        r.remote = Some(remote.clone());
+        {
+            let remote_tags = self.remote_tags.lock().expect("remote tags mutex");
+            if let Some(tag_remotes) = remote_tags.get(&view.id) {
+                for r in &mut view.refs {
+                    if r.kind == "tag" && r.remote.is_none() {
+                        if let Some(remote) = tag_remotes.get(&r.name) {
+                            r.remote = Some(remote.clone());
+                        }
                     }
                 }
             }
+        }
+        // Fill avatars the free noreply parse left open from the gh-search
+        // cache, and schedule a search for any still-unknown author email.
+        let mut unresolved: Vec<String> = Vec::new();
+        {
+            let avatars = self.avatars.lock().expect("avatars mutex");
+            for c in &mut view.commits {
+                if c.avatar.is_some() || c.email.is_empty() {
+                    continue;
+                }
+                match avatars.get(&c.email) {
+                    Some(url) => c.avatar = Some(url.clone()),
+                    None => unresolved.push(c.email.clone()),
+                }
+            }
+        }
+        if !unresolved.is_empty() {
+            self.ensure_avatars(unresolved);
         }
         view
     }

@@ -303,6 +303,18 @@ function makeRepoM(): string {
   return dir;
 }
 
+/** repoN: a commit authored with a GitHub `noreply` email, so the server
+ * resolves an avatar URL from the string alone (no network). */
+function makeRepoN(): string {
+  const dir = initRepo("repoN");
+  const t = 1_700_000_000;
+  commit(dir, "n-1", t, {
+    GIT_AUTHOR_EMAIL: "1+octocat@users.noreply.github.com",
+    GIT_COMMITTER_EMAIL: "1+octocat@users.noreply.github.com",
+  });
+  return dir;
+}
+
 /** Set by makeRepoI; the teardown must talk to the same gpg installation. */
 let gpgconfBin = "gpgconf";
 
@@ -326,6 +338,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoK = makeRepoK();
   const repoL = makeRepoL();
   const repoM = makeRepoM();
+  const repoN = makeRepoN();
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
@@ -347,6 +360,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoK,
         repoL,
         repoM,
+        repoN,
       },
       null,
       2,
