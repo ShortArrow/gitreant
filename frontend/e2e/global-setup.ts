@@ -315,6 +315,25 @@ function makeRepoN(): string {
   return dir;
 }
 
+/** repoO: a superproject with one submodule, so the drawer can group them.
+ * The submodule is added over the file transport (opt-in for recent git). */
+function makeRepoO(): string {
+  const child = initRepo("repoO-sub");
+  commit(child, "sub-1", 1_700_000_000);
+  const parent = initRepo("repoO");
+  commit(parent, "o-1", 1_700_000_000);
+  git(parent, [
+    "-c",
+    "protocol.file.allow=always",
+    "submodule",
+    "add",
+    "../repoO-sub",
+    "sub",
+  ]);
+  commit(parent, "add submodule", 1_700_000_010);
+  return parent;
+}
+
 /** Set by makeRepoI; the teardown must talk to the same gpg installation. */
 let gpgconfBin = "gpgconf";
 
@@ -339,6 +358,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoL = makeRepoL();
   const repoM = makeRepoM();
   const repoN = makeRepoN();
+  const repoO = makeRepoO();
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
@@ -361,6 +381,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoL,
         repoM,
         repoN,
+        repoO,
       },
       null,
       2,

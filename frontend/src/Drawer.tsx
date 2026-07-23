@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { pickFolder, type RepoListEntry, type RepoStatus } from "./api";
 import { ContextMenu } from "./ContextMenu";
 import {
@@ -6,6 +6,7 @@ import {
   BrowseIcon,
   CollapseIcon,
   DirtyIcon,
+  DisclosureIcon,
   ExpandIcon,
   LocalBranchIcon,
   UnpushedIcon,
@@ -161,6 +162,30 @@ export function Drawer({
     setSort(value);
     storeRepoSort(value);
   };
+  // Which repositories have their submodule accordion open.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  // Attaching a submodule makes it viewable, then select it.
+  const openSubmodule = async (path: string) => {
+    setError(null);
+    try {
+      await onAdd(path);
+      onSelect(path);
+    } catch (err) {
+      setError(String(err));
+    }
+  };
+  // Context menu for a submodule child row (copy its absolute path).
+  const [subMenu, setSubMenu] = useState<{
+    x: number;
+    y: number;
+    path: string;
+  } | null>(null);
   const [width, setWidth] = useStoredWidth("gitreant-drawer-width", 260, 180, 480);
   const arranged = arrangeRepos(repos, filter, sort);
 
@@ -272,50 +297,92 @@ export function Drawer({
       )}
 
       <ul className="repo-list">
-        {arranged.map((repo) => (
-          <li
-            key={repo.id}
-            className={`repo-item${repo.id === activeId ? " active" : ""}${
-              analyzing?.has(repo.id) ? " repo-pending" : ""
-            }`}
-            data-testid="repo-item"
-            data-repo-name={repo.name}
-            onClick={() => onSelect(repo.id)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              setMenu({ x: e.clientX, y: e.clientY, id: repo.id });
-            }}
-          >
-            <span className="repo-item-name">
-              {repo.name}
-              {analyzing?.has(repo.id) && (
-                <span
-                  className="repo-item-analyzing"
-                  data-testid="repo-analyzing"
-                >
-                  {" "}
-                  {analyzeNote(analyzing.get(repo.id) ?? 0, t)}
+        {arranged.map((repo) => {
+          const subs = repo.submodules ?? [];
+          const isOpen = expanded.has(repo.id);
+          return (
+            <Fragment key={repo.id}>
+              <li
+                className={`repo-item${repo.id === activeId ? " active" : ""}${
+                  analyzing?.has(repo.id) ? " repo-pending" : ""
+                }`}
+                data-testid="repo-item"
+                data-repo-name={repo.name}
+                onClick={() => onSelect(repo.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenu({ x: e.clientX, y: e.clientY, id: repo.id });
+                }}
+              >
+                <span className="repo-item-name">
+                  {subs.length > 0 && (
+                    <button
+                      className="repo-disclosure"
+                      type="button"
+                      title={t("toggleSubmodules")}
+                      aria-expanded={isOpen}
+                      data-testid="repo-disclosure"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleExpanded(repo.id);
+                      }}
+                    >
+                      <DisclosureIcon open={isOpen} />
+                    </button>
+                  )}
+                  {repo.name}
+                  {analyzing?.has(repo.id) && (
+                    <span
+                      className="repo-item-analyzing"
+                      data-testid="repo-analyzing"
+                    >
+                      {" "}
+                      {analyzeNote(analyzing.get(repo.id) ?? 0, t)}
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-            <span className="repo-item-path" title={repo.path}>
-              {repo.path}
-            </span>
-            <RepoStats status={statuses?.get(repo.id) ?? undefined} />
-            <button
-              className="icon-btn repo-remove"
-              title={t("removeFromView")}
-              data-testid="repo-remove"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove(repo.id);
-              }}
-              type="button"
-            >
-              ×
-            </button>
-          </li>
-        ))}
+                <span className="repo-item-path" title={repo.path}>
+                  {repo.path}
+                </span>
+                <RepoStats status={statuses?.get(repo.id) ?? undefined} />
+                <button
+                  className="icon-btn repo-remove"
+                  title={t("removeFromView")}
+                  data-testid="repo-remove"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(repo.id);
+                  }}
+                  type="button"
+                >
+                  ×
+                </button>
+              </li>
+              {isOpen &&
+                subs.map((sub) => (
+                  <li
+                    key={`${repo.id}//${sub.path}`}
+                    className={`repo-item repo-submodule${
+                      sub.path === activeId ? " active" : ""
+                    }`}
+                    data-testid="repo-submodule"
+                    data-repo-name={sub.name}
+                    title={t("openSubmodule")}
+                    onClick={() => openSubmodule(sub.path)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setSubMenu({ x: e.clientX, y: e.clientY, path: sub.path });
+                    }}
+                  >
+                    <span className="repo-item-name">{sub.name}</span>
+                    <span className="repo-item-path" title={sub.path}>
+                      {sub.path}
+                    </span>
+                  </li>
+                ))}
+            </Fragment>
+          );
+        })}
         {pending && (
           <li className="repo-item repo-pending" data-testid="repo-pending">
             <span className="repo-item-name">{t("analyzing")}</span>
@@ -361,6 +428,26 @@ export function Drawer({
             },
           ]}
           onClose={() => setMenu(null)}
+        />
+      )}
+
+      {subMenu && (
+        <ContextMenu
+          x={subMenu.x}
+          y={subMenu.y}
+          items={[
+            {
+              id: "submodule-open",
+              label: t("openSubmodule"),
+              run: () => openSubmodule(subMenu.path),
+            },
+            {
+              id: "submodule-copy-path",
+              label: t("copyAbsolutePath"),
+              run: () => navigator.clipboard?.writeText(subMenu.path),
+            },
+          ]}
+          onClose={() => setSubMenu(null)}
         />
       )}
 

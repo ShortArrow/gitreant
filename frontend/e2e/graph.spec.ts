@@ -20,6 +20,7 @@ const fixtures = JSON.parse(
   repoL: string;
   repoM: string;
   repoN: string;
+  repoO: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -1624,6 +1625,39 @@ test.describe.serial("gitreant UI", () => {
     await repoN.hover();
     await repoN.getByTestId("repo-remove").click();
     await expect(page.locator('[data-repo-name="repoN"]')).toHaveCount(0);
+  });
+
+  test("a superproject groups its submodules in an accordion", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoO);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoO"]')).toBeVisible();
+
+    const repoO = page.locator('[data-repo-name="repoO"]');
+    // Collapsed by default: the submodule child is hidden behind a disclosure.
+    await expect(repoO.getByTestId("repo-disclosure")).toBeVisible();
+    await expect(page.getByTestId("repo-submodule")).toHaveCount(0);
+
+    // Expanding reveals the "sub" submodule; clicking it attaches and views it.
+    await repoO.getByTestId("repo-disclosure").click();
+    const sub = page.locator('[data-testid="repo-submodule"][data-repo-name="sub"]');
+    await expect(sub).toBeVisible();
+    await sub.click();
+    await expect(page.locator('[data-tab-name="sub"]')).toBeVisible();
+    await expect(page.getByTestId("graph").first()).toBeVisible();
+
+    // Collapsing hides the child again.
+    await repoO.getByTestId("repo-disclosure").click();
+    await expect(page.getByTestId("repo-submodule")).toHaveCount(0);
+
+    // Restore the served set (the submodule attached itself when opened).
+    for (const name of ["sub", "repoO"]) {
+      const item = page.locator(`[data-repo-name="${name}"]`).first();
+      await item.hover();
+      await item.getByTestId("repo-remove").click();
+      await expect(page.locator(`[data-repo-name="${name}"]`)).toHaveCount(0);
+    }
   });
 
   test("tags can be created on a commit and deleted from their badge", async ({

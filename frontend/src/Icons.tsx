@@ -142,6 +142,11 @@ export function CopyIcon() {
   return <OcticonCopyIcon size={12} />;
 }
 
+/** Accordion disclosure: right when collapsed, down when expanded. */
+export function DisclosureIcon({ open }: { open: boolean }) {
+  return open ? <ChevronDownIcon size={12} /> : <ChevronRightIcon size={12} />;
+}
+
 /** Marks a tag badge apart from branch badges. */
 export function TagBadgeIcon() {
   return <TagIcon size={12} />;

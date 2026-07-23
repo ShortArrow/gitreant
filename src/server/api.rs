@@ -400,6 +400,18 @@ struct RepoListEntry {
     id: String,
     name: String,
     path: String,
+    /// Submodules declared in the repository's `.gitmodules`, so the drawer
+    /// can group them under their superproject.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    submodules: Vec<SubmoduleEntry>,
+}
+
+/// A submodule of a listed repository, as the drawer consumes it.
+#[derive(Serialize)]
+struct SubmoduleEntry {
+    name: String,
+    /// Absolute path; opening it attaches the submodule as its own view.
+    path: String,
 }
 
 fn light_list(state: &AppState) -> Vec<RepoListEntry> {
@@ -411,6 +423,13 @@ fn light_list(state: &AppState) -> Vec<RepoListEntry> {
                 .file_name()
                 .map(|s| s.to_string_lossy().into_owned())
                 .unwrap_or_else(|| "repo".to_string()),
+            submodules: crate::git::read_submodules(&path)
+                .into_iter()
+                .map(|s| SubmoduleEntry {
+                    name: s.name,
+                    path: s.path.to_string_lossy().into_owned(),
+                })
+                .collect(),
             path: path.to_string_lossy().into_owned(),
             id,
         })

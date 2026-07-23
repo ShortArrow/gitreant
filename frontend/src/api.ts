@@ -330,10 +330,19 @@ export async function fetchCommitDetail(
 }
 
 /** One entry of the instant repository list (ADR 0023). */
+/** A submodule declared by a repository, for drawer grouping. */
+export interface SubmoduleEntry {
+  name: string;
+  /** Absolute path; opening it attaches the submodule as its own view. */
+  path: string;
+}
+
 export interface RepoListEntry {
   id: string;
   name: string;
   path: string;
+  /** Declared submodules, when the repository has a `.gitmodules`. */
+  submodules?: SubmoduleEntry[];
 }
 
 /** The repository list, answered without reading any graph. */

@@ -42,6 +42,40 @@ export const Default: Story = {
   },
 };
 
+/** A superproject with submodules grouped under a disclosure accordion. */
+export const WithSubmodules: Story = {
+  render: () => {
+    const [activeId, setActiveId] = useState<string | null>(null);
+    const withSubs = [
+      {
+        id: "/repos/app",
+        name: "app",
+        path: "/home/user/repos/app",
+        submodules: [
+          { name: "libs/core", path: "/home/user/repos/app/libs/core" },
+          { name: "vendor/ui", path: "/home/user/repos/app/vendor/ui" },
+        ],
+      },
+      linearRepo,
+    ];
+    return (
+      <div style={{ height: "100vh", display: "flex" }}>
+        <Drawer
+          repos={withSubs}
+          activeId={activeId}
+          collapsed={false}
+          onToggle={() => {}}
+          onSelect={setActiveId}
+          onOpenRight={(id) => console.log("open right", id)}
+          onReveal={(id) => console.log("reveal", id)}
+          onRemove={(id) => console.log("remove", id)}
+          onAdd={async (path) => console.log("add", path)}
+        />
+      </div>
+    );
+  },
+};
+
 export const Collapsed: Story = {
   args: {
     repos,
