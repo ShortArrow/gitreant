@@ -109,18 +109,41 @@ export function storeAvatars(on: boolean) {
   }
 }
 
+export const SUBMODULE_LINKS_KEY = "gitreant-submodule-links";
+
+/** Whether a superproject's graph shows its submodules' graphs beside it,
+ * with dashed pointer-correlation links (default on — the regions only
+ * appear when a repository actually declares submodules). */
+export function storedSubmoduleLinks(): boolean {
+  try {
+    return localStorage.getItem(SUBMODULE_LINKS_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function storeSubmoduleLinks(on: boolean) {
+  try {
+    localStorage.setItem(SUBMODULE_LINKS_KEY, on ? "on" : "off");
+  } catch {
+    // localStorage may be unavailable; the state change alone is enough.
+  }
+}
+
 export const SettingsContext = createContext<{
   buttonStyle: ButtonStyle;
   lang: Lang;
   squashLinks: boolean;
   stashInternals: boolean;
   avatars: boolean;
+  submoduleLinks: boolean;
 }>({
   buttonStyle: "icon-label",
   lang: "en",
   squashLinks: true,
   stashInternals: false,
   avatars: true,
+  submoduleLinks: true,
 });
 
 /** Whether squash-merge links should be drawn. */
@@ -136,6 +159,11 @@ export function useStashInternals(): boolean {
 /** Whether GitHub author avatars are shown on commit rows. */
 export function useAvatars(): boolean {
   return useContext(SettingsContext).avatars;
+}
+
+/** Whether submodule graph regions and their dashed links are drawn. */
+export function useSubmoduleLinks(): boolean {
+  return useContext(SettingsContext).submoduleLinks;
 }
 
 export function useButtonStyle(): ButtonStyle {

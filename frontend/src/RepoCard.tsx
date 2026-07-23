@@ -17,6 +17,7 @@ import {
   fetchCommitDiff,
   fetchFileDiff,
   fetchPrs,
+  fetchSubmoduleGraphs,
   mergeRef,
   revealPath,
   type BranchOpResult,
@@ -27,6 +28,7 @@ import {
   type PullRequestView,
   type RefView,
   type RepoView,
+  type SubmoduleGraph,
 } from "./api";
 import { PrLinkIcon, StashBadgeIcon, TagBadgeIcon } from "./Icons";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
@@ -37,6 +39,7 @@ import {
   useAvatars,
   useSquashLinks,
   useStashInternals,
+  useSubmoduleLinks,
   useT,
 } from "./settings";
 import { CommitDetailPanel } from "./CommitDetailPanel";
@@ -56,6 +59,9 @@ import {
   rowTime,
   squashLinks,
   stashView,
+  crossPath,
+  submoduleCrossLinks,
+  submoduleRegions,
 } from "./graph";
 
 /** Group refs by the commit id they point at, so each row can show its badges. */
@@ -111,6 +117,7 @@ export function RepoCard({
   loadDiff = fetchFileDiff,
   loadCommitDiff = fetchCommitDiff,
   loadPrs = fetchPrs,
+  loadSubmodules = fetchSubmoduleGraphs,
 }: {
   repo: RepoView;
   /** Only the focused pane's card feeds the command palette (ADR 0022). */
@@ -126,6 +133,7 @@ export function RepoCard({
   ) => Promise<FileDiff>;
   loadCommitDiff?: (repoId: string, commitId: string) => Promise<FileDiff[]>;
   loadPrs?: (repoId: string) => Promise<PrLookupView>;
+  loadSubmodules?: (repoId: string) => Promise<SubmoduleGraph[]>;
 }) {
   const t = useT();
   // Fold each stash to a single node unless the internals toggle reveals its
@@ -159,6 +167,27 @@ export function RepoCard({
       stale = true;
     };
   }, [repo.id, loadPrs]);
+
+  // Submodule graphs render as their own regions left of the main graph,
+  // with dashed pointer-correlation links across (item 9). Loaded lazily;
+  // a repository without submodules answers an empty list.
+  const showSubmodules = useSubmoduleLinks();
+  const [subGraphs, setSubGraphs] = useState<SubmoduleGraph[]>([]);
+  useEffect(() => {
+    if (!showSubmodules) {
+      setSubGraphs([]);
+      return;
+    }
+    let stale = false;
+    loadSubmodules(repo.id)
+      .then((graphs) => {
+        if (!stale) setSubGraphs(graphs);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [repo.id, showSubmodules, loadSubmodules]);
 
   const [refMenu, setRefMenu] = useState<RefMenuTarget | null>(null);
   // Right-clicking a commit row offers actions on that commit.
@@ -289,9 +318,18 @@ export function RepoCard({
 
   const showSquashLinks = useSquashLinks();
   const links = showSquashLinks ? squashLinks(view, mergedPrs) : [];
+  // Submodule regions sit left of the main graph; everything main-graph
+  // shaped below draws inside a group shifted by mainOffset.
+  const { regions, mainOffset } = submoduleRegions(subGraphs);
+  const subLinks = submoduleCrossLinks(view, mainOffset, regions);
   // Link corridors beyond the real lanes widen the drawing.
-  const width = graphWidth(laneSpan(view.lane_count, links));
-  const height = graphHeight(view.commits.length);
+  const width = mainOffset + graphWidth(laneSpan(view.lane_count, links));
+  const height = graphHeight(
+    Math.max(
+      view.commits.length,
+      ...regions.map((r) => r.graph.view.commits.length),
+    ),
+  );
   const selectedCommit = selected
     ? repo.commits.find((c) => c.id === selected)
     : undefined;
@@ -368,6 +406,65 @@ export function RepoCard({
           height={height}
           viewBox={`0 0 ${width} ${height}`}
         >
+          {regions.map((region) => {
+            // Each submodule graph draws in its own region with local lane
+            // coordinates; a divider marks where the next region begins.
+            const subRowOf = rowIndex(region.graph.view.commits);
+            return (
+              <g
+                key={region.graph.path}
+                data-testid="submodule-region"
+                transform={`translate(${region.offset},0)`}
+              >
+                {region.graph.view.edges.map((edge, i) => (
+                  <path
+                    key={`se${i}`}
+                    d={edgePath(edge, subRowOf)}
+                    fill="none"
+                    stroke={laneColor(edge.color)}
+                    strokeWidth={1.5}
+                    opacity={0.7}
+                  />
+                ))}
+                {region.graph.view.commits.map((commit) => (
+                  <circle
+                    key={commit.id}
+                    className="node node-submodule"
+                    cx={nodeX(commit.lane)}
+                    cy={nodeY(commit.row)}
+                    r={NODE_RADIUS - 1.5}
+                    fill={laneColor(commit.color)}
+                    opacity={0.8}
+                  >
+                    <title>{`${region.graph.name}: ${commit.summary}`}</title>
+                  </circle>
+                ))}
+                <line
+                  className="region-divider"
+                  x1={region.width + 5}
+                  x2={region.width + 5}
+                  y1={0}
+                  y2={height}
+                  stroke="var(--border)"
+                />
+              </g>
+            );
+          })}
+          {subLinks.map((link, i) => (
+            // A superproject commit that moved this submodule's pointer,
+            // linked across the regions to the submodule commit it named.
+            <path
+              key={`x${i}`}
+              data-testid="submodule-edge"
+              d={crossPath(link)}
+              fill="none"
+              stroke={laneColor(link.color)}
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+              opacity={0.7}
+            />
+          ))}
+          <g transform={`translate(${mainOffset},0)`}>
           {view.edges.map((edge, i) => (
             // A stash's helper links are auxiliary structure: dashed, like the
             // squash-merge links below, rather than first-class ancestry.
@@ -422,6 +519,7 @@ export function RepoCard({
               />
             ),
           )}
+          </g>
         </svg>
 
         <ul className="commits">

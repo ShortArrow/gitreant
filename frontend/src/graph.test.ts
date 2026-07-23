@@ -1,14 +1,19 @@
 import { expect, test } from "vitest";
 import type { GraphEdge, RepoView } from "./api";
 import {
+  crossPath,
   edgePath,
+  graphWidth,
   linkPath,
   nodeX,
   nodeY,
+  REGION_GAP,
   ROW_HEIGHT,
   rowTime,
   squashLinks,
   stashView,
+  submoduleCrossLinks,
+  submoduleRegions,
 } from "./graph";
 
 test("rowTime renders a fixed-width local timestamp", () => {
@@ -254,6 +259,63 @@ test("stashView folds stash internals away and compacts the rows", () => {
 
   // Revealed: the repo is returned unchanged so the dashed links can render.
   expect(stashView(repo, true)).toBe(repo);
+});
+
+test("submoduleRegions place each graph left of the main graph", () => {
+  const sub = (id: string, lanes: number) => ({
+    name: id,
+    path: `/p/${id}`,
+    view: repoWith({ id, lane_count: lanes }),
+    updates: [],
+  });
+  const { regions, mainOffset } = submoduleRegions([sub("a", 1), sub("b", 2)]);
+
+  expect(regions[0].offset).toBe(0);
+  expect(regions[0].width).toBe(graphWidth(1));
+  expect(regions[1].offset).toBe(graphWidth(1) + REGION_GAP);
+  expect(mainOffset).toBe(graphWidth(1) + REGION_GAP + graphWidth(2) + REGION_GAP);
+
+  // No submodules: the main graph starts at the left edge.
+  expect(submoduleRegions([]).mainOffset).toBe(0);
+});
+
+test("submoduleCrossLinks connect pointer updates across regions", () => {
+  // Main commit "tip" (row 1, lane 1) moved the pointer to sub commit "s1"
+  // (row 1, lane 0); an update to an unknown commit or sha is dropped.
+  const main = repoWith({});
+  const region = {
+    graph: {
+      name: "lib",
+      path: "/p/lib",
+      view: repoWith({
+        commits: [commit("s0", 0, 0, 0), commit("s1", 1, 0, 0)],
+      }),
+      updates: [
+        { commit: "tip", sha: "s1" },
+        { commit: "gone", sha: "s1" },
+        { commit: "tip", sha: "not-there" },
+      ],
+    },
+    offset: 0,
+    width: graphWidth(1),
+  };
+  const mainOffset = graphWidth(1) + REGION_GAP;
+
+  const links = submoduleCrossLinks(main, mainOffset, [region]);
+  expect(links).toEqual([
+    {
+      x1: mainOffset + nodeX(1),
+      y1: nodeY(1),
+      x2: nodeX(0),
+      y2: nodeY(1),
+      color: 1,
+    },
+  ]);
+
+  // The path is a single curve between the two endpoints.
+  const path = crossPath(links[0]);
+  expect(path.startsWith(`M${links[0].x1},${links[0].y1}`)).toBe(true);
+  expect(path.endsWith(`${links[0].x2},${links[0].y2}`)).toBe(true);
 });
 
 test("linkPath bends into the via lane, runs vertically, and bends back", () => {

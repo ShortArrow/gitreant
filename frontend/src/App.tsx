@@ -42,6 +42,8 @@ import {
   storedStashInternals,
   storeAvatars,
   storedAvatars,
+  storeSubmoduleLinks,
+  storedSubmoduleLinks,
   type ButtonStyle,
 } from "./settings";
 import { ThemeToggle } from "./ThemeToggle";
@@ -352,10 +354,24 @@ export function App() {
     setAvatars(on);
     storeAvatars(on);
   };
+  const [submoduleLinks, setSubmoduleLinks] = useState<boolean>(
+    storedSubmoduleLinks,
+  );
+  const changeSubmoduleLinks = (on: boolean) => {
+    setSubmoduleLinks(on);
+    storeSubmoduleLinks(on);
+  };
   const lang = resolveLang(langSetting, navigator.language);
   const settings = useMemo(
-    () => ({ buttonStyle, lang, squashLinks, stashInternals, avatars }),
-    [buttonStyle, lang, squashLinks, stashInternals, avatars],
+    () => ({
+      buttonStyle,
+      lang,
+      squashLinks,
+      stashInternals,
+      avatars,
+      submoduleLinks,
+    }),
+    [buttonStyle, lang, squashLinks, stashInternals, avatars, submoduleLinks],
   );
   const t = (key: keyof typeof MESSAGES.en, params?: Record<string, string | number>) =>
     format(MESSAGES[lang][key], params);
@@ -426,6 +442,11 @@ export function App() {
           id: "avatars",
           title: m.cmdToggleAvatars,
           run: () => changeAvatars(!storedAvatars()),
+        },
+        {
+          id: "submodule-links",
+          title: m.cmdToggleSubmoduleLinks,
+          run: () => changeSubmoduleLinks(!storedSubmoduleLinks()),
         },
         ...(["icon", "icon-label", "label"] as const).map((style) => ({
           id: `buttons:${style}`,
@@ -605,6 +626,15 @@ export function App() {
                     onChange={(e) => changeAvatars(e.target.checked)}
                   />
                   {t("avatarsSetting")}
+                </label>
+                <label className="settings-option">
+                  <input
+                    type="checkbox"
+                    data-testid="submodule-links-toggle"
+                    checked={submoduleLinks}
+                    onChange={(e) => changeSubmoduleLinks(e.target.checked)}
+                  />
+                  {t("submoduleLinksSetting")}
                 </label>
               </fieldset>
               <fieldset className="settings-group">

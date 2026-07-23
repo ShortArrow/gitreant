@@ -10,6 +10,7 @@ import {
   longMergeRepo,
   mergeRepo,
   stashRepo,
+  submoduleGraphs,
 } from "./mock";
 
 const meta: Meta<typeof RepoCard> = {
@@ -58,6 +59,7 @@ export const StashInternals: Story = {
           squashLinks: true,
           stashInternals: true,
           avatars: true,
+          submoduleLinks: true,
         }}
       >
         <Story />
@@ -69,6 +71,15 @@ export const StashInternals: Story = {
 /** Commit rows with GitHub author avatars resolved by the server. */
 export const Avatars: Story = {
   args: { repo: avatarRepo },
+};
+
+/** A submodule graph in its own region left of the main graph, with dashed
+ * links to the superproject commits that moved its pointer (item 9). */
+export const SubmoduleCorrelation: Story = {
+  args: {
+    repo: mergeRepo,
+    loadSubmodules: async () => submoduleGraphs,
+  },
 };
 
 export const ReadError: Story = {

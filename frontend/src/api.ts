@@ -354,6 +354,38 @@ export async function fetchRepoList(): Promise<RepoListEntry[]> {
   return response.json();
 }
 
+/** One submodule-pointer update: superproject `commit` moved the gitlink to
+ * submodule commit `sha`. */
+export interface GitlinkUpdate {
+  commit: string;
+  sha: string;
+}
+
+/** A submodule's graph beside its superproject, plus its pointer history —
+ * the input for the cross-region dashed correlation links. */
+export interface SubmoduleGraph {
+  name: string;
+  path: string;
+  view: RepoView;
+  updates: GitlinkUpdate[];
+}
+
+/** The graphs and pointer history of a repository's submodules. Empty when
+ * the repository declares none. */
+export async function fetchSubmoduleGraphs(
+  id: string,
+): Promise<SubmoduleGraph[]> {
+  const response = await fetch("/api/submodules", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo: id }),
+  });
+  if (!response.ok) {
+    throw new Error(`failed to load submodules: ${response.status}`);
+  }
+  return response.json();
+}
+
 /** A repository's uncommitted / unpushed summary for the drawer. */
 export interface RepoStatus {
   /** Uncommitted changes (staged, unstaged and untracked). */

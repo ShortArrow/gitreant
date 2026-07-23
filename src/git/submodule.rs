@@ -5,12 +5,18 @@
 //! attached is left to the caller; an uninitialized one simply fails to open.
 
 use std::path::{Path, PathBuf};
+use std::process::Command;
+
+use super::fetch::hide_console;
 
 /// One submodule as declared in `.gitmodules`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Submodule {
     /// The submodule's configured name (`[submodule "<name>"]`).
     pub name: String,
+    /// The declared path, relative to the superproject root — the key the
+    /// superproject's trees index the gitlink under.
+    pub rel: String,
     /// Absolute path to the submodule's working directory.
     pub path: PathBuf,
 }
@@ -61,11 +67,77 @@ fn push(
         let name = name.take().unwrap_or_else(|| rel.clone());
         out.push(Submodule {
             name,
-            path: repo_root.join(rel),
+            path: repo_root.join(&rel),
+            rel,
         });
     } else {
         *name = None;
     }
+}
+
+/// One submodule-pointer update: superproject `commit` moved the gitlink at
+/// some path to name submodule commit `sha`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitlinkUpdate {
+    pub commit: String,
+    pub sha: String,
+}
+
+/// Every commit (from any ref) that changed the gitlink at `rel`, newest
+/// first, with the submodule sha it moved the pointer to. One `git log --raw`
+/// covers the whole history; a failing run contributes nothing.
+pub fn gitlink_updates(repo_root: &Path, rel: &str) -> Vec<GitlinkUpdate> {
+    let mut command = Command::new("git");
+    command.arg("-C").arg(repo_root).args([
+        "log",
+        "--all",
+        "--format=%H",
+        "--raw",
+        "--no-abbrev",
+        "--no-renames",
+        "--",
+        rel,
+    ]);
+    hide_console(&mut command);
+    command
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| parse_gitlink_log(&String::from_utf8_lossy(&o.stdout), rel))
+        .unwrap_or_default()
+}
+
+/// Parse `git log --format=%H --raw` output: bare 40-hex lines name the
+/// current commit; `:oldmode newmode oldsha newsha status<TAB>path` lines are
+/// its raw changes. A change whose new mode is 160000 (a live gitlink) at
+/// `rel` is one pointer update.
+fn parse_gitlink_log(stdout: &str, rel: &str) -> Vec<GitlinkUpdate> {
+    let mut out = Vec::new();
+    let mut commit = "";
+    for line in stdout.lines() {
+        if let Some(rest) = line.strip_prefix(':') {
+            let Some((meta, path)) = rest.split_once('\t') else {
+                continue;
+            };
+            if path != rel || commit.is_empty() {
+                continue;
+            }
+            let fields: Vec<&str> = meta.split_whitespace().collect();
+            if fields.len() < 5 {
+                continue;
+            }
+            let (new_mode, new_sha) = (fields[1], fields[3]);
+            if new_mode == "160000" && new_sha.bytes().any(|b| b != b'0') {
+                out.push(GitlinkUpdate {
+                    commit: commit.to_string(),
+                    sha: new_sha.to_string(),
+                });
+            }
+        } else if !line.trim().is_empty() {
+            commit = line.trim();
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -89,10 +161,12 @@ mod tests {
             vec![
                 Submodule {
                     name: "libs/foo".to_string(),
+                    rel: "libs/foo".to_string(),
                     path: root.join("libs/foo"),
                 },
                 Submodule {
                     name: "vendor-bar".to_string(),
+                    rel: "vendor/bar".to_string(),
                     path: root.join("vendor/bar"),
                 },
             ]
@@ -112,5 +186,41 @@ mod tests {
     fn empty_or_pathless_modules_yield_nothing() {
         assert!(parse_gitmodules("", Path::new("/r")).is_empty());
         assert!(parse_gitmodules("# just a comment\n", Path::new("/r")).is_empty());
+    }
+
+    const A: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const C: &str = "cccccccccccccccccccccccccccccccccccccccc";
+    const D: &str = "dddddddddddddddddddddddddddddddddddddddd";
+    const ZERO: &str = "0000000000000000000000000000000000000000";
+
+    #[test]
+    fn parses_pointer_moves_and_the_adding_commit() {
+        // Newest first: commit A moved sub to C, commit B added it as D.
+        let log = format!(
+            "{A}\n\n:160000 160000 {D} {C} M\tsub\n\n{B}\n\n:000000 160000 {ZERO} {D} A\tsub\n"
+        );
+        assert_eq!(
+            parse_gitlink_log(&log, "sub"),
+            vec![
+                GitlinkUpdate {
+                    commit: A.to_string(),
+                    sha: C.to_string(),
+                },
+                GitlinkUpdate {
+                    commit: B.to_string(),
+                    sha: D.to_string(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn other_paths_deletions_and_non_gitlinks_are_skipped() {
+        let log = format!(
+            "{A}\n\n:160000 000000 {C} {ZERO} D\tsub\n:100644 100644 {C} {D} M\tsub/file\n:000000 160000 {ZERO} {D} A\tother\n"
+        );
+        assert_eq!(parse_gitlink_log(&log, "sub"), vec![]);
+        assert_eq!(parse_gitlink_log("", "sub"), vec![]);
     }
 }

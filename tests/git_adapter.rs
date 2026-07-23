@@ -7,7 +7,8 @@ use std::process::Command;
 
 use gitreant::domain::layout;
 use gitreant::git::{
-    read_commit, read_commit_diff, read_file_diff, read_repo, read_repo_with_progress, read_status,
+    gitlink_updates, read_commit, read_commit_diff, read_file_diff, read_repo,
+    read_repo_with_progress, read_status, read_submodules,
 };
 
 fn git(dir: &Path, args: &[&str]) {
@@ -476,4 +477,61 @@ fn reads_branch_and_merge_repo() {
         "expected >=2 lanes, got {}",
         graph.lane_count
     );
+}
+
+#[test]
+fn submodules_and_their_pointer_history_are_read() {
+    let tmp = tempfile::tempdir().unwrap();
+    let child = tmp.path().join("child");
+    std::fs::create_dir(&child).unwrap();
+    git(&child, &["init", "-q", "-b", "main"]);
+    git(&child, &["config", "commit.gpgsign", "false"]);
+    commit(&child, "c1", 1000);
+
+    let parent = tmp.path().join("parent");
+    std::fs::create_dir(&parent).unwrap();
+    git(&parent, &["init", "-q", "-b", "main"]);
+    git(&parent, &["config", "commit.gpgsign", "false"]);
+    commit(&parent, "p1", 1000);
+    git(
+        &parent,
+        &[
+            "-c",
+            "protocol.file.allow=always",
+            "submodule",
+            "add",
+            "../child",
+            "sub",
+        ],
+    );
+    commit(&parent, "add submodule", 1010);
+
+    // Advance the submodule working copy and record the new pointer.
+    let sub_dir = parent.join("sub");
+    git(&sub_dir, &["config", "commit.gpgsign", "false"]);
+    commit(&sub_dir, "c2", 1020);
+    git(&parent, &["add", "sub"]);
+    commit(&parent, "bump submodule", 1030);
+
+    let subs = read_submodules(&parent);
+    assert_eq!(subs.len(), 1);
+    assert_eq!(subs[0].rel, "sub");
+    assert_eq!(subs[0].path, sub_dir);
+
+    // The submodule opens as a repository of its own (its .git is a gitfile).
+    let sub_repo = read_repo(&sub_dir).expect("read submodule repo");
+    assert_eq!(sub_repo.commits.len(), 2);
+
+    // Newest first: the bump points at the submodule's current HEAD, the
+    // adding commit at its first commit.
+    let updates = gitlink_updates(&parent, "sub");
+    assert_eq!(updates.len(), 2);
+    let head = Command::new("git")
+        .current_dir(&sub_dir)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .expect("rev-parse");
+    let head = String::from_utf8_lossy(&head.stdout).trim().to_string();
+    assert_eq!(updates[0].sha, head);
+    assert_ne!(updates[1].sha, head);
 }

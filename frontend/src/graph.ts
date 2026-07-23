@@ -3,6 +3,7 @@ import type {
   GraphEdge,
   MergedPullRequestView,
   RepoView,
+  SubmoduleGraph,
 } from "./api";
 
 /** Grid geometry shared by the SVG graph and the commit list beside it. */
@@ -119,6 +120,84 @@ export function rowTime(date: Date): string {
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
     ` ${pad(date.getHours())}:${pad(date.getMinutes())}`
   );
+}
+
+/** Horizontal gap between a submodule's graph region and the next one. */
+export const REGION_GAP = 10;
+
+/** One submodule graph placed as its own region left of the main graph. */
+export interface SubmoduleRegion {
+  graph: SubmoduleGraph;
+  /** X offset of the region's own coordinate origin within the shared SVG. */
+  offset: number;
+  width: number;
+}
+
+/**
+ * Split the drawing into one region per submodule, left of the main graph
+ * (each region keeps its own lane coordinates; the offset places it). Returns
+ * the regions and the main graph's X offset after them.
+ */
+export function submoduleRegions(graphs: SubmoduleGraph[]): {
+  regions: SubmoduleRegion[];
+  mainOffset: number;
+} {
+  let x = 0;
+  const regions = graphs.map((graph) => {
+    const width = graphWidth(graph.view.lane_count);
+    const region = { graph, offset: x, width };
+    x += width + REGION_GAP;
+    return region;
+  });
+  return { regions, mainOffset: x };
+}
+
+/** A dashed correlation link from a superproject commit that moved a
+ * submodule pointer to the submodule commit it now names, in absolute SVG
+ * coordinates (the endpoints live in different regions). */
+export interface SubmoduleLink {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color: number;
+}
+
+/**
+ * The cross-region links: for every pointer update whose superproject commit
+ * is on screen and whose submodule sha is in that region's (truncated) view,
+ * one dashed line between the two nodes. Updates pointing at rows outside
+ * either view are dropped silently.
+ */
+export function submoduleCrossLinks(
+  main: RepoView,
+  mainOffset: number,
+  regions: SubmoduleRegion[],
+): SubmoduleLink[] {
+  const mainById = new Map(main.commits.map((c) => [c.id, c]));
+  const links: SubmoduleLink[] = [];
+  for (const region of regions) {
+    const subById = new Map(region.graph.view.commits.map((c) => [c.id, c]));
+    for (const update of region.graph.updates) {
+      const from = mainById.get(update.commit);
+      const to = subById.get(update.sha);
+      if (!from || !to) continue;
+      links.push({
+        x1: mainOffset + nodeX(from.lane),
+        y1: nodeY(from.row),
+        x2: region.offset + nodeX(to.lane),
+        y2: nodeY(to.row),
+        color: from.color,
+      });
+    }
+  }
+  return links;
+}
+
+/** The dashed cross-region path: one horizontal-leaning curve. */
+export function crossPath(link: SubmoduleLink): string {
+  const mx = (link.x1 + link.x2) / 2;
+  return `M${link.x1},${link.y1} C${mx},${link.y1} ${mx},${link.y2} ${link.x2},${link.y2}`;
 }
 
 /** A dashed squash-merge link, routed through its own virtual lane. */

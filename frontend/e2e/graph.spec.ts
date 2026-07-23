@@ -1660,6 +1660,39 @@ test.describe.serial("gitreant UI", () => {
     }
   });
 
+  test("a superproject draws its submodule graph with dashed pointer links", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoO);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoO"]')).toBeVisible();
+    await page.locator('[data-repo-name="repoO"]').click();
+
+    // The submodule renders as its own region left of the main graph, and
+    // the commit that added the pointer links across with a dashed edge.
+    await expect(page.getByTestId("submodule-region")).toHaveCount(1);
+    const cross = page.getByTestId("submodule-edge");
+    await expect(cross).toHaveCount(1);
+    await expect(cross).toHaveAttribute("stroke-dasharray", "4 3");
+
+    // The settings toggle removes the regions and links entirely.
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("submodule-links-toggle").uncheck();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("submodule-region")).toHaveCount(0);
+    await expect(page.getByTestId("submodule-edge")).toHaveCount(0);
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("submodule-links-toggle").check();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("submodule-region")).toHaveCount(1);
+
+    // Restore the served set.
+    const repoO = page.locator('[data-repo-name="repoO"]');
+    await repoO.hover();
+    await repoO.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoO"]')).toHaveCount(0);
+  });
+
   test("tags can be created on a commit and deleted from their badge", async ({
     page,
   }) => {

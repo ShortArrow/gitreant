@@ -29,7 +29,7 @@ pub use repo::{
     RepoData,
 };
 pub use status::{read_status, RepoStatus};
-pub use submodule::{read_submodules, Submodule};
+pub use submodule::{gitlink_updates, read_submodules, GitlinkUpdate, Submodule};
 pub use tag::{create_tag, create_tag_command, delete_tag, delete_tag_command};
 pub use verify::{
     gpg_available, verification_state, verify_command, verify_signatures, SignatureCheck,

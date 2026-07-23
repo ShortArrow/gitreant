@@ -382,6 +382,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/events", get(events))
         .route("/api/pick", post(pick_folder))
         .route("/api/reveal", post(reveal))
+        .route("/api/submodules", post(submodule_graphs))
         .route("/api/shutdown", post(shutdown))
         .fallback(assets::static_handler)
         .with_state(state)
@@ -488,6 +489,74 @@ async fn repo_view(
         StatusCode::NOT_FOUND,
         format!("unknown repository: {}", req.repo),
     ))
+}
+
+#[derive(Deserialize)]
+struct SubmodulesRequest {
+    repo: String,
+}
+
+/// One submodule's graph beside its superproject: its own (truncated) view
+/// plus the superproject commits that moved its pointer (ADR 0022-style
+/// correlation regions; the frontend draws the cross-region dashed links).
+#[derive(Serialize)]
+struct SubmoduleGraphView {
+    name: String,
+    path: String,
+    view: RepoView,
+    updates: Vec<GitlinkUpdateView>,
+}
+
+#[derive(Serialize)]
+struct GitlinkUpdateView {
+    /// The superproject commit that moved the pointer.
+    commit: String,
+    /// The submodule commit the pointer now names.
+    sha: String,
+}
+
+/// Submodule graphs are correlation context, not the main view; cap their
+/// rows so a huge submodule cannot swamp the response.
+const SUBMODULE_VIEW_LIMIT: usize = 300;
+
+/// The graphs and pointer history of a repository's submodules. Reads the
+/// submodule repositories ad hoc — they need not be attached to the session.
+/// An unreadable (e.g. uninitialized) submodule is skipped.
+async fn submodule_graphs(
+    State(state): State<AppState>,
+    Json(req): Json<SubmodulesRequest>,
+) -> Result<Json<Vec<SubmoduleGraphView>>, (StatusCode, String)> {
+    let Some(root) = state.repo_path(&req.repo) else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ));
+    };
+    tokio::task::spawn_blocking(move || {
+        crate::git::read_submodules(&root)
+            .into_iter()
+            .filter_map(|sub| {
+                let data = crate::git::read_repo(&sub.path).ok()?;
+                let view = crate::app::build_view(&sub.path, &data).truncate(SUBMODULE_VIEW_LIMIT);
+                let updates = crate::git::gitlink_updates(&root, &sub.rel)
+                    .into_iter()
+                    .map(|u| GitlinkUpdateView {
+                        commit: u.commit,
+                        sha: u.sha,
+                    })
+                    .collect();
+                Some(SubmoduleGraphView {
+                    name: sub.name,
+                    path: sub.path.to_string_lossy().into_owned(),
+                    view,
+                    updates,
+                })
+            })
+            .collect::<Vec<_>>()
+    })
+    .await
+    .map(Json)
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
 }
 
 /// Drop cached signature verdicts; clients reload and the reads re-verify.

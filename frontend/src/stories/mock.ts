@@ -4,6 +4,7 @@ import type {
   FileDiff,
   GraphEdge,
   RepoView,
+  SubmoduleGraph,
 } from "../api";
 
 let clock = 1_700_000_000;
@@ -124,6 +125,33 @@ export const stashRepo: RepoView = {
   lane_count: 3,
   total: 6,
 };
+
+/** A submodule graph beside `mergeRepo`: two pointer updates correlate its
+ * commits with the superproject's (item 9's cross-region dashed links). */
+export const submoduleGraphs: SubmoduleGraph[] = [
+  {
+    name: "libs/core",
+    path: "/home/user/repos/demo/libs/core",
+    view: {
+      id: "/repos/demo/libs/core",
+      name: "core",
+      path: "/home/user/repos/demo/libs/core",
+      head: null,
+      refs: [],
+      commits: [
+        commit("s2", 0, 0, 0, ["s1"], "core: fix parser"),
+        commit("s1", 1, 0, 0, [], "core: initial"),
+      ],
+      edges: [edge("s2", "s1", 0, 0, 0)],
+      lane_count: 1,
+      total: 2,
+    },
+    updates: [
+      { commit: "m", sha: "s2" },
+      { commit: "a1", sha: "s1" },
+    ],
+  },
+];
 
 /** A linear repo whose commits carry resolved GitHub author avatars. */
 export const avatarRepo: RepoView = {
