@@ -492,4 +492,42 @@ mod tests {
         );
         assert!(pos(index) < pos(base), "children precede the shared base");
     }
+
+    #[test]
+    fn a_newer_commit_stays_above_an_older_stash_trio() {
+        // The real V:\RqmGuiWithMacro shape: c25f91b (17:18:25) is not a tip —
+        // its child chain is newer still — while the stash trio shares
+        // 17:17:30. The newer commit must sort above the whole trio, matching
+        // `git log --date-order`.
+        let t = 1_783_671_450; // the stash trio's shared timestamp
+        let stash = oid("2e67720893b8bf9327d659e55b2aff48952dec02");
+        let index = oid("5911c460000000000000000000000000000000bb");
+        let untracked = oid("6c439db34558180d4a217168c1f0cf7734d1fbf9");
+        let base = oid("8ef96920000000000000000000000000000000aa");
+        let newer = oid("c25f91bf5878fa3b58d04b3a6ecddd12340e8479");
+        let child = oid("6178985000000000000000000000000000000cc0");
+
+        let ordered = topological_order(vec![
+            raw(child, &[newer], t + 230_000), // tip, days later
+            raw(newer, &[base], t + 55),
+            raw(stash, &[base, index, untracked], t),
+            raw(index, &[base], t),
+            raw(untracked, &[], t),
+            raw(base, &[], t - 100),
+        ]);
+
+        let pos = |id: gix::ObjectId| {
+            ordered
+                .iter()
+                .position(|c| c.id == id.to_string())
+                .unwrap_or_else(|| panic!("{id} missing from order"))
+        };
+        assert!(pos(child) < pos(newer));
+        assert!(
+            pos(newer) < pos(stash),
+            "the newer commit must render above the stash"
+        );
+        assert!(pos(newer) < pos(untracked));
+        assert!(pos(stash) < pos(untracked));
+    }
 }
