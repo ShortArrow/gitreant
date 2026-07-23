@@ -35,6 +35,14 @@ pub struct CommitView {
     /// Signing key id, when gpg could attribute one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signature_key: Option<String>,
+    /// A stash's index/untracked helper commit — the frontend folds these
+    /// away unless the stash-internals toggle reveals them.
+    #[serde(skip_serializing_if = "is_false")]
+    pub stash_internal: bool,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
 }
 
 /// A named reference pointing at a commit.
@@ -213,6 +221,7 @@ pub fn build_view(id: &Path, data: &RepoData) -> RepoView {
             signature: meta.signature.clone(),
             verified: meta.verified,
             signature_key: meta.signature_key.clone(),
+            stash_internal: node.stash_internal,
         })
         .collect();
 
@@ -261,6 +270,52 @@ mod tests {
             verified: None,
             signature_key: None,
         }
+    }
+
+    #[test]
+    fn stash_internal_marks_survive_into_the_serialized_view() {
+        // The layout marks a stash's helper parents; the view must carry that
+        // through to the client or the frontend fold never happens.
+        let data = RepoData {
+            name: "wip".to_string(),
+            path: PathBuf::from("/tmp/wip"),
+            commits: vec![
+                meta("S", &["Base", "Idx", "Unt"], "WIP on main", 1010),
+                meta("Idx", &["Base"], "index on main", 1010),
+                meta("Unt", &[], "untracked files on main", 1010),
+                meta("Base", &[], "base", 1000),
+            ],
+            refs: vec![crate::git::RefInfo {
+                name: "stash".to_string(),
+                target: "S".to_string(),
+                remote: None,
+                kind: "stash".to_string(),
+            }],
+            head: None,
+            head_branch: None,
+            github_url: None,
+        };
+
+        let view = build_view(Path::new("/tmp/wip"), &data);
+        let internal = |id: &str| {
+            view.commits
+                .iter()
+                .find(|c| c.id == id)
+                .unwrap()
+                .stash_internal
+        };
+        assert!(internal("Idx"), "index helper must be marked");
+        assert!(internal("Unt"), "untracked helper must be marked");
+        assert!(!internal("S"));
+        assert!(!internal("Base"));
+
+        // And the flag actually serializes (skip_serializing_if must only
+        // drop the false case).
+        let json = serde_json::to_string(&view).unwrap();
+        assert!(
+            json.contains("\"stash_internal\":true"),
+            "flag missing from the wire format: {json}"
+        );
     }
 
     #[test]
