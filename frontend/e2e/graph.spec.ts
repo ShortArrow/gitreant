@@ -1647,17 +1647,22 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-tab-name="sub"]')).toBeVisible();
     await expect(page.getByTestId("graph").first()).toBeVisible();
 
-    // Collapsing hides the child again.
-    await repoO.getByTestId("repo-disclosure").click();
-    await expect(page.getByTestId("repo-submodule")).toHaveCount(0);
+    // The opened submodule stays an accordion child: no duplicate top-level
+    // row appears in the drawer.
+    await expect(
+      page.locator('[data-testid="repo-item"][data-repo-name="sub"]'),
+    ).toHaveCount(0);
 
-    // Restore the served set (the submodule attached itself when opened).
-    for (const name of ["sub", "repoO"]) {
-      const item = page.locator(`[data-repo-name="${name}"]`).first();
-      await item.hover();
-      await item.getByTestId("repo-remove").click();
-      await expect(page.locator(`[data-repo-name="${name}"]`)).toHaveCount(0);
-    }
+    // Removing the superproject first surfaces the still-attached submodule
+    // as a top-level row (nothing declares it anymore); remove that too.
+    await repoO.hover();
+    await repoO.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoO"]')).toHaveCount(0);
+    const subRow = page.locator('[data-testid="repo-item"][data-repo-name="sub"]');
+    await expect(subRow).toBeVisible();
+    await subRow.hover();
+    await subRow.getByTestId("repo-remove").click();
+    await expect(subRow).toHaveCount(0);
   });
 
   test("a superproject draws its submodule graph with dashed pointer links", async ({

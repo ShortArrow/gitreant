@@ -188,7 +188,16 @@ export function Drawer({
     path: string;
   } | null>(null);
   const [width, setWidth] = useStoredWidth("gitreant-drawer-width", 260, 180, 480);
-  const arranged = arrangeRepos(repos, filter, sort);
+  // An attached submodule stays a child of its superproject's accordion: the
+  // duplicate top-level row it would otherwise get is filtered out.
+  const submodulePaths = new Set(
+    repos.flatMap((r) => (r.submodules ?? []).map((s) => s.path)),
+  );
+  const arranged = arrangeRepos(
+    repos.filter((r) => !submodulePaths.has(r.path)),
+    filter,
+    sort,
+  );
 
   const runAdd = async (value: string) => {
     setAdding(true);
@@ -452,6 +461,20 @@ export function Drawer({
               label: t("copyAbsolutePath"),
               run: () => navigator.clipboard?.writeText(subMenu.path),
             },
+            // An opened submodule has no top-level row of its own, so its
+            // detach lives here.
+            ...(() => {
+              const attached = repos.find((r) => r.path === subMenu.path);
+              return attached
+                ? [
+                    {
+                      id: "submodule-remove",
+                      label: t("removeFromView"),
+                      run: () => onRemove(attached.id),
+                    },
+                  ]
+                : [];
+            })(),
           ]}
           onClose={() => setSubMenu(null)}
         />
