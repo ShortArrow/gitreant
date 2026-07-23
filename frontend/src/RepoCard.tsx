@@ -31,7 +31,12 @@ import {
   type SubmoduleGraph,
 } from "./api";
 import { DraggableDashed } from "./DraggableDashed";
-import { PrLinkIcon, StashBadgeIcon, TagBadgeIcon } from "./Icons";
+import {
+  BranchBadgeIcon,
+  PrLinkIcon,
+  StashBadgeIcon,
+  TagBadgeIcon,
+} from "./Icons";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
 import { format, MESSAGES } from "./i18n";
 import { useCommands, type PaletteCommand } from "./palette";
@@ -600,6 +605,7 @@ export function RepoCard({
                         </span>
                       )}
                       <span className="badge-ref-name">
+                        {ref.kind === "branch" && <BranchBadgeIcon />}
                         {ref.kind === "tag" && <TagBadgeIcon />}
                         {ref.kind === "stash" && <StashBadgeIcon />}
                         {ref.name}

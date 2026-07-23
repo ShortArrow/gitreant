@@ -152,6 +152,11 @@ export function TagBadgeIcon() {
   return <TagIcon size={12} />;
 }
 
+/** Marks a branch badge, matching the tag and stash badge icons. */
+export function BranchBadgeIcon() {
+  return <GitBranchIcon size={12} />;
+}
+
 /** Marks the stash badge apart from branch badges. */
 export function StashBadgeIcon() {
   return <StackIcon size={12} />;

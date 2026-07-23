@@ -1543,10 +1543,11 @@ test.describe.serial("gitreant UI", () => {
     await expect(stash).toBeVisible();
     await expect(stash.locator("svg")).toHaveCount(1);
 
-    // The branch keeps its plain badge; the stash has no operations.
-    await expect(
-      page.locator(".badge-kind-branch", { hasText: "main" }),
-    ).toBeVisible();
+    // The branch badge carries its own icon, like tags and the stash.
+    const branch = page.locator(".badge-kind-branch", { hasText: "main" });
+    await expect(branch).toBeVisible();
+    await expect(branch.locator("svg")).toHaveCount(1);
+    // The stash has no operations.
     await stash.click({ button: "right" });
     await expect(page.getByTestId("ref-menu")).toHaveCount(0);
 
