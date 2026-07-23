@@ -1680,6 +1680,20 @@ test.describe.serial("gitreant UI", () => {
     await expect(cross).toHaveCount(1);
     await expect(cross).toHaveAttribute("stroke-dasharray", "4 3");
 
+    // Grabbing the dashed link rubber-bands it toward the cursor (its path
+    // becomes a pulled quadratic); releasing snaps it back.
+    const original = (await cross.getAttribute("d"))!;
+    const hit = page.getByTestId("submodule-edge-hit");
+    const box = (await hit.boundingBox())!;
+    const mx = box.x + box.width / 2;
+    const my = box.y + box.height / 2;
+    await page.mouse.move(mx, my);
+    await page.mouse.down();
+    await page.mouse.move(mx + 12, my + 30);
+    await expect(cross).toHaveAttribute("d", / Q/);
+    await page.mouse.up();
+    await expect(cross).toHaveAttribute("d", original);
+
     // The settings toggle removes the regions and links entirely.
     await page.getByTestId("settings-toggle").click();
     await page.getByTestId("submodule-links-toggle").uncheck();

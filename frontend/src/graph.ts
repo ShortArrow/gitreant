@@ -200,6 +200,26 @@ export function crossPath(link: SubmoduleLink): string {
   return `M${link.x1},${link.y1} C${mx},${link.y1} ${mx},${link.y2} ${link.x2},${link.y2}`;
 }
 
+/**
+ * The rubber-banded shape while a dashed link is dragged: a quadratic curve
+ * whose midpoint sticks to the cursor while both endpoints stay anchored.
+ * Releasing the drag simply falls back to the link's normal path.
+ */
+export function pulledPath(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  cursorX: number,
+  cursorY: number,
+): string {
+  // A quadratic passes through 0.25*start + 0.5*control + 0.25*end at its
+  // midpoint; solving for the control puts that midpoint on the cursor.
+  const qx = 2 * cursorX - (x1 + x2) / 2;
+  const qy = 2 * cursorY - (y1 + y2) / 2;
+  return `M${x1},${y1} Q${qx},${qy} ${x2},${y2}`;
+}
+
 /** A dashed squash-merge link, routed through its own virtual lane. */
 export interface SquashLink {
   fromRow: number;

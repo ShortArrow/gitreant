@@ -7,6 +7,7 @@ import {
   linkPath,
   nodeX,
   nodeY,
+  pulledPath,
   REGION_GAP,
   ROW_HEIGHT,
   rowTime,
@@ -316,6 +317,16 @@ test("submoduleCrossLinks connect pointer updates across regions", () => {
   const path = crossPath(links[0]);
   expect(path.startsWith(`M${links[0].x1},${links[0].y1}`)).toBe(true);
   expect(path.endsWith(`${links[0].x2},${links[0].y2}`)).toBe(true);
+});
+
+test("pulledPath anchors the endpoints and passes through the cursor", () => {
+  const path = pulledPath(10, 20, 110, 40, 70, 90);
+  const match = /^M10,20 Q(-?[\d.]+),(-?[\d.]+) 110,40$/.exec(path);
+  expect(match).not.toBeNull();
+  const [, qx, qy] = match!.map(Number);
+  // Quadratic midpoint = 0.25*start + 0.5*control + 0.25*end == the cursor.
+  expect(0.25 * 10 + 0.5 * qx + 0.25 * 110).toBeCloseTo(70);
+  expect(0.25 * 20 + 0.5 * qy + 0.25 * 40).toBeCloseTo(90);
 });
 
 test("linkPath bends into the via lane, runs vertically, and bends back", () => {

@@ -30,6 +30,7 @@ import {
   type RepoView,
   type SubmoduleGraph,
 } from "./api";
+import { DraggableDashed } from "./DraggableDashed";
 import { PrLinkIcon, StashBadgeIcon, TagBadgeIcon } from "./Icons";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
 import { format, MESSAGES } from "./i18n";
@@ -453,45 +454,64 @@ export function RepoCard({
           {subLinks.map((link, i) => (
             // A superproject commit that moved this submodule's pointer,
             // linked across the regions to the submodule commit it named.
-            <path
+            <DraggableDashed
               key={`x${i}`}
-              data-testid="submodule-edge"
+              testId="submodule-edge"
               d={crossPath(link)}
-              fill="none"
+              x1={link.x1}
+              y1={link.y1}
+              x2={link.x2}
+              y2={link.y2}
               stroke={laneColor(link.color)}
               strokeWidth={1.5}
-              strokeDasharray="4 3"
-              opacity={0.7}
             />
           ))}
           <g transform={`translate(${mainOffset},0)`}>
-          {view.edges.map((edge, i) => (
-            // A stash's helper links are auxiliary structure: dashed, like the
-            // squash-merge links below, rather than first-class ancestry.
-            <path
-              key={`e${i}`}
-              data-testid={edge.dashed ? "stash-edge" : undefined}
-              d={edgePath(edge, rowOf)}
-              fill="none"
-              stroke={laneColor(edge.color)}
-              strokeWidth={2}
-              strokeDasharray={edge.dashed ? "4 3" : undefined}
-              opacity={edge.dashed ? 0.7 : undefined}
-            />
-          ))}
+          {view.edges.map((edge, i) => {
+            // A stash's helper links are auxiliary structure: dashed (and
+            // grabbable), like the squash-merge links below, rather than
+            // first-class ancestry.
+            const childRow = rowOf.get(edge.from);
+            const parentRow = rowOf.get(edge.to);
+            if (edge.dashed && childRow !== undefined && parentRow !== undefined) {
+              return (
+                <DraggableDashed
+                  key={`e${i}`}
+                  testId="stash-edge"
+                  d={edgePath(edge, rowOf)}
+                  x1={nodeX(edge.from_lane)}
+                  y1={nodeY(childRow)}
+                  x2={nodeX(edge.to_lane)}
+                  y2={nodeY(parentRow)}
+                  stroke={laneColor(edge.color)}
+                  strokeWidth={2}
+                />
+              );
+            }
+            return (
+              <path
+                key={`e${i}`}
+                d={edgePath(edge, rowOf)}
+                fill="none"
+                stroke={laneColor(edge.color)}
+                strokeWidth={2}
+              />
+            );
+          })}
           {links.map((link, i) => (
             // A squash-merged PR's branch has no ancestry line to the commit
             // it landed as; the dashed link comes from GitHub's PR data and
             // runs through its own virtual lane so it crosses nothing.
-            <path
+            <DraggableDashed
               key={`q${i}`}
-              data-testid="squash-edge"
+              testId="squash-edge"
               d={linkPath(link)}
-              fill="none"
+              x1={nodeX(link.fromLane)}
+              y1={nodeY(link.fromRow)}
+              x2={nodeX(link.toLane)}
+              y2={nodeY(link.toRow)}
               stroke={laneColor(link.color)}
               strokeWidth={2}
-              strokeDasharray="4 3"
-              opacity={0.7}
             />
           ))}
           {view.commits.map((commit) =>
