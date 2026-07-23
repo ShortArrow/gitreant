@@ -261,9 +261,19 @@ export function squashLinks(
     const fromRow = rowOf.get(e.from);
     const toRow = rowOf.get(e.to);
     if (fromRow === undefined || toRow === undefined) continue;
-    // Real edges run vertically in the child's lane (forks) or the
-    // parent's (merges); blocking the whole span is conservative and safe.
-    block(e.fork ? e.from_lane : e.to_lane, fromRow, toRow);
+    // Real edges run vertically in the child's lane (forks) or the parent's
+    // (merges), and their bends leave that lane one row before the far
+    // endpoint. Blocking the exact run — not the full span — keeps corridors
+    // from being pushed a lane further right than the drawing requires.
+    if (e.from_lane === e.to_lane) {
+      block(e.from_lane, fromRow, toRow);
+    } else if (e.fork) {
+      // Vertical in the child's lane, bending at the parent.
+      block(e.from_lane, fromRow, toRow - 1);
+    } else {
+      // Vertical in the parent's lane, bending at the merge commit.
+      block(e.to_lane, fromRow + 1, toRow);
+    }
   }
   const isFree = (lane: number, a: number, b: number) =>
     !(blocked.get(lane) ?? []).some(([s, e]) => s <= b && a <= e);

@@ -206,6 +206,49 @@ test("squashLinks stack overlapping corridors on separate lanes", () => {
   expect(links[0].via).not.toBe(links[1].via);
 });
 
+test("squashLinks block only an edge's vertical run, not its bend rows", () => {
+  // A fork edge (child in lane 1, parent at row 3 lane 0) runs vertically in
+  // lane 1 over rows 0..2 and BENDS AWAY at row 3. A corridor needing only
+  // row 3 fits in lane 1 — over-blocking the bend row used to push it off
+  // by one lane.
+  const forked = repoWith({
+    lane_count: 2,
+    commits: [
+      commit("forker", 0, 1, 1),
+      commit("squash", 2, 0, 0),
+      commit("parent", 3, 0, 0),
+      commit("tip", 4, 0, 0),
+    ],
+    edges: [
+      { from: "forker", to: "parent", from_lane: 1, to_lane: 0, color: 1, fork: true },
+    ],
+  });
+  const forkLinks = squashLinks(forked, [
+    { number: 1, url: "u", branch: "feature", merge_commit: "squash" },
+  ]);
+  expect(forkLinks[0].via).toBe(1);
+
+  // Symmetrically, a merge edge's parent-lane run starts one row BELOW the
+  // merge commit (row 1 here holds no run yet), so a corridor for row 1
+  // fits in lane 1.
+  const merged = repoWith({
+    lane_count: 2,
+    commits: [
+      commit("squash", 0, 0, 0),
+      commit("merger", 1, 0, 0),
+      commit("tip", 2, 0, 0),
+      commit("parent2", 4, 1, 1),
+    ],
+    edges: [
+      { from: "merger", to: "parent2", from_lane: 0, to_lane: 1, color: 1, fork: false },
+    ],
+  });
+  const mergeLinks = squashLinks(merged, [
+    { number: 2, url: "u", branch: "feature", merge_commit: "squash" },
+  ]);
+  expect(mergeLinks[0].via).toBe(1);
+});
+
 test("squashLinks skips PRs whose branch or commit left the graph", () => {
   const merged = [
     { number: 1, url: "u", branch: "gone-branch", merge_commit: "squash" },
