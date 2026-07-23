@@ -18,6 +18,7 @@ const fixtures = JSON.parse(
   repoJ: string;
   repoK: string;
   repoL: string;
+  repoM: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -34,6 +35,31 @@ test.describe.serial("gitreant UI", () => {
   test("pane is empty until a repository is selected", async ({ page }) => {
     await expect(page.getByTestId("pane-empty")).toBeVisible();
     await expect(page.getByTestId("graph")).toHaveCount(0);
+  });
+
+  test("the drawer filters and sorts the repository list", async ({ page }) => {
+    await expect(page.getByTestId("repo-item")).toHaveCount(2);
+
+    // Filtering by a substring narrows the list; a miss shows the empty note.
+    await page.getByTestId("repo-filter").fill("repoB");
+    await expect(page.getByTestId("repo-item")).toHaveCount(1);
+    await expect(page.locator('[data-repo-name="repoB"]')).toBeVisible();
+    await page.getByTestId("repo-filter").fill("nothing-matches");
+    await expect(page.getByTestId("repo-no-match")).toBeVisible();
+    await page.getByTestId("repo-filter").fill("");
+    await expect(page.getByTestId("repo-item")).toHaveCount(2);
+
+    // Sorting by name orders the two served repositories alphabetically, and
+    // the choice survives a reload.
+    await page.getByTestId("repo-sort").selectOption("name");
+    const names = () =>
+      page.getByTestId("repo-item").evaluateAll((els) =>
+        els.map((el) => el.getAttribute("data-repo-name")),
+      );
+    await expect.poll(names).toEqual(["repoA", "repoB"]);
+    await page.reload();
+    await expect(page.getByTestId("repo-sort")).toHaveValue("name");
+    await page.getByTestId("repo-sort").selectOption("added");
   });
 
   test("the drawer shows a repository's uncommitted and unpushed counts", async ({
@@ -1493,6 +1519,42 @@ test.describe.serial("gitreant UI", () => {
     await repoL.hover();
     await repoL.getByTestId("repo-remove").click();
     await expect(page.locator('[data-repo-name="repoL"]')).toHaveCount(0);
+  });
+
+  test("a stash folds to one node until its internals toggle on", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoM);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoM"]')).toBeVisible();
+
+    // Folded by default: no dashed helper links, the stash reads as one node.
+    await expect(page.getByTestId("stash-edge")).toHaveCount(0);
+    const foldedRows = await page.getByTestId("commit-row").count();
+
+    // Reveal: the index and untracked helpers appear, linked by dashed edges.
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("stash-internals-toggle").check();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("stash-edge").first()).toHaveAttribute(
+      "stroke-dasharray",
+      "4 3",
+    );
+    expect(await page.getByTestId("commit-row").count()).toBeGreaterThan(
+      foldedRows,
+    );
+
+    // Hiding folds them back to the single node.
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("stash-internals-toggle").uncheck();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("stash-edge")).toHaveCount(0);
+
+    // Restore the served set.
+    const repoM = page.locator('[data-repo-name="repoM"]');
+    await repoM.hover();
+    await repoM.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoM"]')).toHaveCount(0);
   });
 
   test("tags can be created on a commit and deleted from their badge", async ({

@@ -193,6 +193,45 @@ body {
   word-break: break-word;
 }
 
+.drawer-arrange {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.drawer-filter {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.drawer-filter:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.drawer-sort {
+  flex: none;
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.drawer-sort:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .repo-list {
   list-style: none;
   margin: 0;

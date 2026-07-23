@@ -286,6 +286,23 @@ function makeRepoL(): string {
   return dir;
 }
 
+/** repoM: a stash created with `-u`, so the stash commit fans out to both an
+ * index and an untracked-files helper parent (three parents) — the internal
+ * structure the stash-internals toggle folds away or reveals with dashed
+ * links. */
+function makeRepoM(): string {
+  const dir = initRepo("repoM");
+  const t = 1_700_000_000;
+  writeFileSync(path.join(dir, "note.txt"), "one\n");
+  git(dir, ["add", "."]);
+  commit(dir, "m-1", t);
+  // A tracked change plus an untracked file, stashed together.
+  writeFileSync(path.join(dir, "note.txt"), "two\n");
+  writeFileSync(path.join(dir, "scratch.txt"), "wip\n");
+  git(dir, ["stash", "push", "-u", "-q"], atTime(t + 10));
+  return dir;
+}
+
 /** Set by makeRepoI; the teardown must talk to the same gpg installation. */
 let gpgconfBin = "gpgconf";
 
@@ -308,6 +325,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoJ = makeRepoJ();
   const repoK = makeRepoK();
   const repoL = makeRepoL();
+  const repoM = makeRepoM();
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
@@ -328,6 +346,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoJ,
         repoK,
         repoL,
+        repoM,
       },
       null,
       2,

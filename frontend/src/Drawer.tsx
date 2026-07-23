@@ -15,6 +15,51 @@ import { ResizeHandle, useStoredWidth } from "./Resizer";
 import { useT } from "./settings";
 import type { MsgKey } from "./i18n";
 
+/** How the repository list is ordered: as added, or alphabetically by name
+ * or path. */
+export type RepoSort = "added" | "name" | "path";
+
+const SORT_KEY = "gitreant-repo-sort";
+
+export function storedRepoSort(): RepoSort {
+  try {
+    const value = localStorage.getItem(SORT_KEY);
+    return value === "name" || value === "path" ? value : "added";
+  } catch {
+    return "added";
+  }
+}
+
+export function storeRepoSort(sort: RepoSort) {
+  try {
+    localStorage.setItem(SORT_KEY, sort);
+  } catch {
+    // localStorage may be unavailable; the state change alone is enough.
+  }
+}
+
+/** Filter by a case-insensitive substring of the name or path, then order.
+ * "added" keeps the server's order; the alphabetical sorts are locale-aware
+ * and case-insensitive. Pure, so the ordering is unit-testable. */
+export function arrangeRepos(
+  repos: RepoListEntry[],
+  filter: string,
+  sort: RepoSort,
+): RepoListEntry[] {
+  const needle = filter.trim().toLowerCase();
+  const filtered = needle
+    ? repos.filter(
+        (r) =>
+          r.name.toLowerCase().includes(needle) ||
+          r.path.toLowerCase().includes(needle),
+      )
+    : repos;
+  if (sort === "added") return filtered;
+  return [...filtered].sort((a, b) =>
+    a[sort].localeCompare(b[sort], undefined, { sensitivity: "base" }),
+  );
+}
+
 /** The analyzing note next to a repository name: the running commit
  * counter of its in-flight read (ADR 0023 — no percentage, a stuck or
  * unbounded walk must not fake completion). */
@@ -110,7 +155,14 @@ export function Drawer({
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(
     null,
   );
+  const [filter, setFilter] = useState("");
+  const [sort, setSort] = useState<RepoSort>(storedRepoSort);
+  const changeSort = (value: RepoSort) => {
+    setSort(value);
+    storeRepoSort(value);
+  };
   const [width, setWidth] = useStoredWidth("gitreant-drawer-width", 260, 180, 480);
+  const arranged = arrangeRepos(repos, filter, sort);
 
   const runAdd = async (value: string) => {
     setAdding(true);
@@ -194,8 +246,33 @@ export function Drawer({
       </form>
       {error && <p className="drawer-error">{error}</p>}
 
+      {repos.length > 0 && (
+        <div className="drawer-arrange">
+          <input
+            type="search"
+            className="drawer-filter"
+            placeholder={t("filterRepos")}
+            data-testid="repo-filter"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+          <select
+            className="drawer-sort"
+            aria-label={t("sortBy")}
+            title={t("sortBy")}
+            data-testid="repo-sort"
+            value={sort}
+            onChange={(e) => changeSort(e.target.value as RepoSort)}
+          >
+            <option value="added">{t("sortAdded")}</option>
+            <option value="name">{t("sortName")}</option>
+            <option value="path">{t("sortPath")}</option>
+          </select>
+        </div>
+      )}
+
       <ul className="repo-list">
-        {repos.map((repo) => (
+        {arranged.map((repo) => (
           <li
             key={repo.id}
             className={`repo-item${repo.id === activeId ? " active" : ""}${
@@ -252,6 +329,11 @@ export function Drawer({
             {loaded ? t("noRepositories") : t("loadingRepos")}
           </li>
         )}
+        {repos.length > 0 && arranged.length === 0 && (
+          <li className="repo-empty" data-testid="repo-no-match">
+            {t("noReposMatch")}
+          </li>
+        )}
       </ul>
 
       {menu && (
@@ -268,6 +350,14 @@ export function Drawer({
               id: "drawer-reveal",
               label: t("revealInExplorer"),
               run: () => onReveal(menu.id),
+            },
+            {
+              id: "drawer-copy-path",
+              label: t("copyAbsolutePath"),
+              run: () => {
+                const repo = repos.find((r) => r.id === menu.id);
+                if (repo) navigator.clipboard?.writeText(repo.path);
+              },
             },
           ]}
           onClose={() => setMenu(null)}
