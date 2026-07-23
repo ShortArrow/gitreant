@@ -415,6 +415,14 @@ struct SubmoduleEntry {
     path: String,
 }
 
+/// A declared submodule is only usable once initialized (its directory holds
+/// a `.git`). An uninitialized one is an empty directory: opening it would
+/// make `gix::discover` walk up and find the superproject itself, silently
+/// presenting the parent's graph as the submodule's.
+fn initialized(sub: &crate::git::Submodule) -> bool {
+    sub.path.join(".git").exists()
+}
+
 fn light_list(state: &AppState) -> Vec<RepoListEntry> {
     state
         .repo_paths()
@@ -426,9 +434,14 @@ fn light_list(state: &AppState) -> Vec<RepoListEntry> {
                 .unwrap_or_else(|| "repo".to_string()),
             submodules: crate::git::read_submodules(&path)
                 .into_iter()
+                .filter(initialized)
                 .map(|s| SubmoduleEntry {
                     name: s.name,
-                    path: s.path.to_string_lossy().into_owned(),
+                    // Canonical, so the drawer can match it against attached
+                    // repository ids (which are canonical paths).
+                    path: crate::app::canonical(&s.path)
+                        .to_string_lossy()
+                        .into_owned(),
                 })
                 .collect(),
             path: path.to_string_lossy().into_owned(),
@@ -535,6 +548,9 @@ async fn submodule_graphs(
     tokio::task::spawn_blocking(move || {
         crate::git::read_submodules(&root)
             .into_iter()
+            // An uninitialized submodule would resolve to the superproject
+            // itself (see `initialized`) — its region must simply not exist.
+            .filter(initialized)
             .filter_map(|sub| {
                 let data = crate::git::read_repo(&sub.path).ok()?;
                 let view = crate::app::build_view(&sub.path, &data).truncate(SUBMODULE_VIEW_LIMIT);
