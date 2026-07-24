@@ -33,6 +33,19 @@ for (const theme of ["dark", "light"] as const) {
       );
     expect(curved).toBeGreaterThan(0);
 
+    // The features the README advertises must be in frame: the submodule
+    // correlation region with both pointer links, the pushed-ref chips, the
+    // author avatars, and the drawer's dirty indicator. Waiting on them also
+    // lets the async loads land before the capture.
+    await expect(page.getByTestId("submodule-edge")).toHaveCount(2);
+    expect(
+      await page.getByTestId("badge-remote").count(),
+    ).toBeGreaterThanOrEqual(2);
+    await expect(page.getByTestId("commit-avatar").first()).toBeAttached();
+    await expect(page.getByTestId("stat-dirty")).toBeVisible();
+    // Let the avatar images finish painting.
+    await page.waitForTimeout(800);
+
     await page.screenshot({
       path: path.join(outDir, `screenshot-${theme}.png`),
     });

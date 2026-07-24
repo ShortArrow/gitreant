@@ -17,8 +17,15 @@ export default async function globalSetup(_config: FullConfig) {
   rmSync(tmpDir, { recursive: true, force: true });
   mkdirSync(tmpDir, { recursive: true });
 
-  const repos = scenarios.map((s) => buildScenario(tmpDir, s, START_EPOCH));
-  server = await buildAndServe(PORT, repos);
+  // Build everything (submodule upstreams first), but only serve the
+  // scenarios meant for the drawer.
+  const repos = scenarios.map(
+    (s) => [s, buildScenario(tmpDir, s, START_EPOCH)] as const,
+  );
+  server = await buildAndServe(
+    PORT,
+    repos.filter(([s]) => s.serve !== false).map(([, dir]) => dir),
+  );
 
   return async () => {
     server?.kill();
