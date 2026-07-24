@@ -11,9 +11,16 @@ export type Step =
   | { branch: string; from?: string }
   /** Switch to an existing branch. */
   | { switch: string }
-  /** Add an empty commit to the current branch, optionally as another author
-   *  (a GitHub noreply email resolves to an avatar without any API call). */
-  | { commit: string; author?: string; email?: string }
+  /** Add a commit to the current branch, optionally as another author (a
+   *  GitHub noreply email resolves to an avatar without any API call) and
+   *  optionally writing files first — real changes make the detail pane's
+   *  file list worth showing. */
+  | {
+      commit: string;
+      author?: string;
+      email?: string;
+      write?: Record<string, string>;
+    }
   /** Merge a branch (--no-ff) into the current branch. */
   | { merge: string; message?: string }
   /** Point a remote-tracking ref (default remote "origin") at a branch tip. */
@@ -63,13 +70,21 @@ const OCTOCAT = {
   email: "583231+octocat@users.noreply.github.com",
 };
 
-/** The submodule's upstream: vendored by `featured`, not shown in the drawer. */
+/** The submodule's upstream: vendored by `featured`, not shown in the drawer.
+ * Enough history (and a merge) that its correlation region reads as a real
+ * graph beside the superproject. */
 export const engine: Scenario = {
   name: "engine",
   author: "Sora",
   serve: false,
   steps: [
     { commit: "feat: renderer core with a fixed timestep", ...OCTOCAT },
+    { commit: "feat: sprite batching" },
+    { branch: "feature/culling" },
+    { commit: "feat: frustum culling", ...OCTOCAT },
+    { switch: "main" },
+    { commit: "fix: clamp delta time on resume" },
+    { merge: "feature/culling", message: "merge feature/culling" },
     { commit: "perf: batch draw calls per material" },
   ],
 };
@@ -82,11 +97,26 @@ export const featured: Scenario = {
   steps: [
     { commit: "chore: scaffold project", ...OCTOCAT },
     { commit: "feat: initial CLI entry point" },
-    { submodule: "libs/engine", of: "engine", behind: 1 },
+    { submodule: "libs/engine", of: "engine", behind: 3 },
     { commit: "feat: vendor the engine as a submodule", ...OCTOCAT },
     { branch: "feature/graph" },
-    { commit: "feat(graph): topological lane layout", ...OCTOCAT },
-    { commit: "feat(graph): stable colors per branch", ...OCTOCAT },
+    {
+      commit:
+        "feat(graph): topological lane layout\n\n" +
+        "Assign each commit a column so children sit above their parents.\n" +
+        "Freed columns are reused to keep the graph compact.",
+      ...OCTOCAT,
+      write: {
+        "src/graph.rs": "pub fn layout() {}\n",
+        "src/lanes.rs": "pub struct Lane;\n",
+        "docs/graph.md": "# Lane layout\n",
+      },
+    },
+    {
+      commit: "feat(graph): stable colors per branch",
+      ...OCTOCAT,
+      write: { "src/graph.rs": "pub fn layout() {}\npub fn color() {}\n" },
+    },
     { switch: "main" },
     { commit: "docs: add README" },
     { branch: "fix/config" },
@@ -112,7 +142,7 @@ export const featured: Scenario = {
   ],
 };
 
-/** A second, smaller repository so the drawer shows more than one entry. */
+/** Smaller repositories so the drawer and tab strip look inhabited. */
 export const sidekick: Scenario = {
   name: "notes",
   author: "Sora",
@@ -125,5 +155,43 @@ export const sidekick: Scenario = {
   ],
 };
 
+export const toolkit: Scenario = {
+  name: "toolkit",
+  author: "Sora",
+  steps: [
+    { commit: "feat: bootstrap the asset pipeline", ...OCTOCAT },
+    { branch: "fix/paths" },
+    { commit: "fix: normalise asset paths on Windows" },
+    { switch: "main" },
+    { commit: "chore: pin the toolchain" },
+    { tag: "v0.1.0" },
+  ],
+};
+
+export const site: Scenario = {
+  name: "site",
+  author: "Sora",
+  steps: [
+    { commit: "feat: landing page" },
+    { commit: "docs: changelog", ...OCTOCAT },
+  ],
+};
+
+export const infra: Scenario = {
+  name: "infra",
+  author: "Sora",
+  steps: [
+    { commit: "ci: build matrix" },
+    { commit: "ci: cache cargo registry" },
+  ],
+};
+
 /** Build order matters: submodule upstreams come before their consumers. */
-export const scenarios: Scenario[] = [engine, featured, sidekick];
+export const scenarios: Scenario[] = [
+  engine,
+  featured,
+  sidekick,
+  toolkit,
+  site,
+  infra,
+];

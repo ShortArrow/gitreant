@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { atTime, commit, git, initRepo } from "../e2e/git";
 import type { Scenario } from "./scenario";
@@ -85,6 +85,12 @@ export function buildScenario(
     } else if ("dirty" in step) {
       writeFileSync(path.join(dir, step.dirty), "todo\n");
     } else if ("commit" in step) {
+      for (const [file, content] of Object.entries(step.write ?? {})) {
+        const target = path.join(dir, file);
+        mkdirSync(path.dirname(target), { recursive: true });
+        writeFileSync(target, content);
+        git(dir, ["add", file]);
+      }
       commit(dir, step.commit, epoch, authorEnv(step.author, step.email));
       epoch += STEP_SECONDS;
     } else {

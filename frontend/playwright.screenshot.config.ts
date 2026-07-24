@@ -10,7 +10,7 @@ export default defineConfig({
   globalSetup: "./screenshot/global-setup.ts",
   use: {
     baseURL: "http://127.0.0.1:4600",
-    viewport: { width: 1280, height: 560 },
+    viewport: { width: 1480, height: 640 },
     deviceScaleFactor: 2,
   },
   projects: [
@@ -18,7 +18,7 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        viewport: { width: 1280, height: 560 },
+        viewport: { width: 1480, height: 640 },
         deviceScaleFactor: 2,
       },
     },

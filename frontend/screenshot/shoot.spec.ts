@@ -1,15 +1,38 @@
 import { test, expect, type Page } from "@playwright/test";
 import path from "node:path";
-import { commitCount, featured, sidekick } from "./scenario";
+import {
+  commitCount,
+  featured,
+  infra,
+  sidekick,
+  site,
+  toolkit,
+} from "./scenario";
 
 const outDir = path.resolve(process.cwd(), "..", "docs", "images");
 
-/** Open both scenario repos as tabs, leaving the featured one active. */
+/** Open every scenario repo as a tab, leaving the featured one active. */
 async function openRepos(page: Page) {
   await page.goto("/");
-  await page.locator(`[data-repo-name="${sidekick.name}"]`).click();
-  await page.locator(`[data-repo-name="${featured.name}"]`).click();
+  for (const s of [sidekick, toolkit, site, infra, featured]) {
+    await page.locator(`[data-repo-name="${s.name}"]`).click();
+  }
   await expect(page.getByTestId("commit-row")).toHaveCount(commitCount(featured));
+
+  // Show the drawer's submodule accordion expanded under the superproject.
+  await page
+    .locator(`[data-repo-name="${featured.name}"]`)
+    .getByTestId("repo-disclosure")
+    .click();
+  await expect(page.getByTestId("repo-submodule")).toBeVisible();
+
+  // Open the detail pane on a commit with real file changes.
+  await page
+    .getByTestId("commit-row")
+    .filter({ hasText: "feat(graph): topological lane layout" })
+    .click();
+  await expect(page.getByTestId("commit-detail")).toBeVisible();
+  await expect(page.getByTestId("detail-file")).toHaveCount(3);
 }
 
 for (const theme of ["dark", "light"] as const) {
