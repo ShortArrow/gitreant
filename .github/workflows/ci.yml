@@ -82,3 +82,17 @@ jobs:
       - name: Run E2E
         working-directory: frontend
         run: pnpm test:e2e
+
+  docs-tandem:
+    name: Bilingual docs updated together
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The tandem check diffs against the push base / PR base.
+          fetch-depth: 0
+      - name: Check .jp.md / .md pairs change together
+        run: >
+          bash .github/scripts/check-docs-tandem.sh
+          "${{ github.event.pull_request.base.sha || github.event.before }}"
+          "${{ github.sha }}"

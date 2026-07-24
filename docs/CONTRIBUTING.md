@@ -71,6 +71,12 @@ responsibility for — is defined in [QUALITY.jp.md](QUALITY.jp.md)
 - **rust**: `cargo build` + `cargo test` on Linux / macOS / Windows
 - **web**: frontend `pnpm build` (includes type check) and `pnpm build-storybook`
 - **e2e**: Playwright E2E on Ubuntu
+- **docs-tandem**: bilingual documents update together — when both `X.jp.md`
+  and `X.md` exist, a change to one side must change the other in the same
+  push (`.github/scripts/check-docs-tandem.sh`). Structural consistency of
+  the ADR indexes (same ADR set, matching slugs, honest links) is a regular
+  `cargo test` (`tests/docs.rs`); Japanese is canonical and English bodies
+  may be pre-linked before they exist.
 
 The Linux build installs `libwayland-dev` because `rfd` links against the
 system libwayland.
