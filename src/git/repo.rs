@@ -460,7 +460,7 @@ mod tests {
         // points at it — so with identical times a naive time sort could float
         // it above the stash. Topological order must keep every child (here the
         // stash) strictly before its parents regardless of the tie.
-        // These are the real ids from V:\RqmGuiWithMacro that read reversed.
+        // Real-world ids from the repository where the ordering was reported.
         let t = 1_752_134_250; // the shared stash timestamp
         let stash = oid("2e67720893b8bf9327d659e55b2aff48952dec02");
         let untracked = oid("6c439db34558180d4a217168c1f0cf7734d1fbf9");
@@ -495,7 +495,7 @@ mod tests {
 
     #[test]
     fn a_newer_commit_stays_above_an_older_stash_trio() {
-        // The real V:\RqmGuiWithMacro shape: c25f91b (17:18:25) is not a tip —
+        // The reported real-world shape: c25f91b (17:18:25) is not a tip —
         // its child chain is newer still — while the stash trio shares
         // 17:17:30. The newer commit must sort above the whole trio, matching
         // `git log --date-order`.
