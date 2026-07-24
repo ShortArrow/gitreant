@@ -60,6 +60,10 @@ $ cd frontend && pnpm test:e2e  # Playwright E2E (generates fixtures, starts ser
   repository add/remove in a real browser. Fixture repository generation and
   server startup are handled by `frontend/e2e/global-setup.ts`.
 
+When each layer must be green — and what gitreant does and does not take
+responsibility for — is defined in [QUALITY.jp.md](QUALITY.jp.md)
+(decided by [ADR 0024](adr/0024-quality-and-responsibility.jp.md)).
+
 ## CI
 
 `.github/workflows/ci.yml` runs:

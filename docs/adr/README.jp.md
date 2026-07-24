@@ -28,3 +28,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0021](0021-tag-operations.jp.md) | タグ操作もgit CLI委譲でコミット行とバッジのメニューに載せる | Accepted |
 | [0022](0022-pane-split.jp.md) | ペイン分割はリポジトリ比較用途に絞り2ペイン横並びから始める | Accepted |
 | [0023](0023-progressive-loading.jp.md) | 読み込みは一覧先行・リポジトリ並列・行ページングで段階化する | Accepted |
+| [0024](0024-quality-and-responsibility.jp.md) | 品質ゲートを3段階に定め、提供責任を4本柱で明文化する | Accepted |
