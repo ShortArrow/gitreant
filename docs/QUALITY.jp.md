@@ -1,5 +1,7 @@
 # 品質保証と提供責任
 
+[English](QUALITY.md) | [日本語](QUALITY.jp.md)
+
 gitreant の品質ゲートと、提供するサービスの責任範囲の単一ソース。
 決定の経緯は [ADR 0024](adr/0024-quality-and-responsibility.jp.md)。
 
