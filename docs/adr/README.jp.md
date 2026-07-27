@@ -1,7 +1,8 @@
 # Architecture Decision Records
 
 gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変更する場合は
-新しい ADR で supersede する。
+新しい ADR で supersede する。日本語版（本索引）が正で、英語版
+（`NNNN-slug.md`、[README.md](README.md) 索引）はその翻訳。
 
 | ADR | タイトル | Status |
 | --- | -------- | ------ |

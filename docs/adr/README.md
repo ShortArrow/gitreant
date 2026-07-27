@@ -3,10 +3,8 @@
 Design decisions of gitreant. Each ADR is frozen at decision time; a
 change supersedes it with a new ADR.
 
-English editions have not been written yet. The rows below already
-link to their future `NNNN-slug.md` names, so each link comes alive as
-its English edition lands. Until then the records exist only in
-Japanese (`NNNN-slug.jp.md`, indexed in `README.jp.md`).
+The Japanese editions (`NNNN-slug.jp.md`, indexed in `README.jp.md`)
+are canonical; the files below are their English translations.
 
 | ADR | Title | Status |
 | --- | ----- | ------ |
