@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Fail when one side of a bilingual doc pair (X.jp.md / X.md, both tracked)
-# changed without the other. Pairs where only one language exists — e.g. a
-# Japanese-canonical ADR whose English body is still a pre-link — are exempt.
+# was MODIFIED without the other changing too. Additions are exempt: the
+# convention is Japanese-first with English editions landing later, so a new
+# translation (or a brand-new pair) must not require touching its
+# counterpart. Pairs where only one language exists stay exempt as well.
 set -euo pipefail
 
 base="${1:?base ref}"
@@ -15,6 +17,7 @@ if [ "$base" = "0000000000000000000000000000000000000000" ] \
 fi
 
 changed="$(git diff --name-only "$base" "$head")"
+modified="$(git diff --name-only --diff-filter=M "$base" "$head")"
 fail=0
 while IFS= read -r file; do
   case "$file" in
@@ -24,9 +27,9 @@ while IFS= read -r file; do
   esac
   [ -f "$other" ] || continue
   if ! grep -qxF "$other" <<<"$changed"; then
-    echo "::error file=$file::$file changed but its counterpart $other did not — bilingual docs update together"
+    echo "::error file=$file::$file was modified but its counterpart $other did not change — bilingual docs update together"
     fail=1
   fi
-done <<<"$changed"
+done <<<"$modified"
 
 exit "$fail"
