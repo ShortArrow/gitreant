@@ -61,8 +61,7 @@ $ cd frontend && pnpm test:e2e  # Playwright E2E (generates fixtures, starts ser
   server startup are handled by `frontend/e2e/global-setup.ts`.
 
 When each layer must be green — and what gitreant does and does not take
-responsibility for — is defined in [QUALITY.md](QUALITY.md)
-(decided by [ADR 0024](adr/0024-quality-and-responsibility.jp.md)).
+responsibility for — is defined in [QUALITY.md](QUALITY.md).
 
 ## CI
 

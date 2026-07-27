@@ -3,8 +3,7 @@
 [English](QUALITY.md) | [日本語](QUALITY.jp.md)
 
 The single source for gitreant's quality gates and the scope of the service
-it provides. The reasoning behind these is recorded in
-[ADR 0024](adr/0024-quality-and-responsibility.jp.md).
+it provides.
 
 ## Quality gates
 
