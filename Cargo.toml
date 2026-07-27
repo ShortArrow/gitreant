@@ -35,13 +35,17 @@ axum = "0.8.9"
 clap = { version = "4.6.1", features = ["derive"] }
 gix = "0.85.0"
 mime_guess = "2.0.5"
-open = "5.3.6"
-rfd = "0.17.2"
 rust-embed = "8.11.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "net", "signal", "sync", "time"] }
 tokio-stream = { version = "0.1.18", features = ["sync"] }
+
+# Desktop conveniences with no Android backend (Termux): the browser/file
+# opener and the native folder picker degrade gracefully there instead.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+open = "5.3.6"
+rfd = "0.17.2"
 
 [profile.release]
 strip = true

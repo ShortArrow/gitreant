@@ -303,8 +303,22 @@ fn run_server(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
     })
 }
 
+#[cfg(not(target_os = "android"))]
 fn open_browser(cli: &Cli) {
     if !cli.no_open {
         let _ = open::that(format!("http://127.0.0.1:{}", cli.port));
     }
+}
+
+/// Termux has no desktop opener; try its own URL handler and always print
+/// the address so the user can tap or paste it.
+#[cfg(target_os = "android")]
+fn open_browser(cli: &Cli) {
+    let url = format!("http://127.0.0.1:{}", cli.port);
+    if !cli.no_open {
+        let _ = std::process::Command::new("termux-open-url")
+            .arg(&url)
+            .spawn();
+    }
+    println!("gitreant is serving on {url}");
 }

@@ -673,11 +673,25 @@ async fn reveal(
     ))?;
     let target = resolve_reveal_target(&root, req.path.as_deref())
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    tokio::task::spawn_blocking(move || open::that(target))
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("open failed: {e}")))?;
-    Ok(StatusCode::OK)
+    #[cfg(not(target_os = "android"))]
+    {
+        tokio::task::spawn_blocking(move || open::that(target))
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .map_err(|e| {
+                (StatusCode::INTERNAL_SERVER_ERROR, format!("open failed: {e}"))
+            })?;
+        Ok(StatusCode::OK)
+    }
+    #[cfg(target_os = "android")]
+    {
+        // Termux has no file manager to hand the path to.
+        let _ = target;
+        Err((
+            StatusCode::NOT_IMPLEMENTED,
+            "revealing files is not available on Android".to_string(),
+        ))
+    }
 }
 
 #[derive(Deserialize)]
@@ -1153,6 +1167,7 @@ struct PickResponse {
 
 /// Open a native folder-picker on the machine running the server (the user's own
 /// machine, since gitreant is a local tool) and return the chosen path.
+#[cfg(not(target_os = "android"))]
 async fn pick_folder() -> Json<PickResponse> {
     let picked = tokio::task::spawn_blocking(|| {
         rfd::FileDialog::new()
@@ -1164,6 +1179,13 @@ async fn pick_folder() -> Json<PickResponse> {
     .flatten()
     .map(|p| p.to_string_lossy().into_owned());
     Json(PickResponse { path: picked })
+}
+
+/// Android (Termux) has no native folder-picker; answer "cancelled" so the
+/// SPA's Browse button quietly does nothing and paths are typed instead.
+#[cfg(target_os = "android")]
+async fn pick_folder() -> Json<PickResponse> {
+    Json(PickResponse { path: None })
 }
 
 async fn shutdown(State(state): State<AppState>) -> &'static str {

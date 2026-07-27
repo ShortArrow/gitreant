@@ -19,7 +19,16 @@ jobs:
       matrix:
         # macos pinned explicitly: the macos-latest label is mid-migration to
         # macOS 26 (actions/runner-images#14167); opt in instead of drifting.
-        os: [ubuntu-latest, macos-26, windows-latest]
+        # The arm entries are GitHub's native arm64 runners (free on public
+        # repositories): Windows-on-ARM and Raspberry-Pi-class Linux.
+        os:
+          [
+            ubuntu-latest,
+            ubuntu-24.04-arm,
+            macos-26,
+            windows-latest,
+            windows-11-arm,
+          ]
     steps:
       - uses: actions/checkout@v7
       # rfd links system libwayland on Linux (wayland-backend `client_system`).
@@ -32,6 +41,29 @@ jobs:
       # without a frontend build.
       - run: cargo build --verbose
       - run: cargo test --verbose
+
+  android:
+    # Termux ships from a cross build (rfd/open are cfg'd out on Android);
+    # keep it compiling on every push so a tag never discovers the breakage.
+    name: Android (cargo check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+      - name: Configure the Android NDK toolchain
+        run: |
+          NDK_HOME="${ANDROID_NDK_LATEST_HOME:-}"
+          if [ -z "$NDK_HOME" ]; then
+            NDK_HOME="$(ls -d "$ANDROID_HOME"/ndk/*/ 2>/dev/null | sort -V | tail -1)"
+          fi
+          TOOLCHAIN="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
+          echo "CC_aarch64_linux_android=${TOOLCHAIN}/bin/aarch64-linux-android24-clang" >> "$GITHUB_ENV"
+          echo "AR_aarch64_linux_android=${TOOLCHAIN}/bin/llvm-ar" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${TOOLCHAIN}/bin/aarch64-linux-android24-clang" >> "$GITHUB_ENV"
+      - run: cargo check --target aarch64-linux-android
 
   web:
     name: Frontend + Storybook
