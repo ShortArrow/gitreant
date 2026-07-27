@@ -187,7 +187,7 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          status=$(curl -fsS -o /dev/null -w '%{http_code}' \
+          status=$(curl -fsS -A "gitreant-release (github.com/ShortArrow/gitreant)" -o /dev/null -w '%{http_code}' \
             "https://crates.io/api/v1/crates/gitreant/$version" || echo "000")
           if [ "$status" = "200" ]; then
             echo "gitreant $version already on crates.io — skipping dry-run"
@@ -204,7 +204,7 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          status=$(curl -fsS -o /dev/null -w '%{http_code}' \
+          status=$(curl -fsS -A "gitreant-release (github.com/ShortArrow/gitreant)" -o /dev/null -w '%{http_code}' \
             "https://crates.io/api/v1/crates/gitreant/$version" || echo "000")
           if [ "$status" = "200" ]; then
             echo "gitreant $version already on crates.io — skipping publish"
