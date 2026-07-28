@@ -259,22 +259,27 @@ function DetailBody({
   const author = githubAuthorUrl(detail.email);
   return (
     <>
-      {/* One line, always: a wrapping title would shift everything below it
-       * every time the selection moves. The full text stays in the tooltip. */}
-      <h3 className="detail-summary" title={summary}>
-        {summary}
-      </h3>
-      {body && (
-        <button
-          className="body-toggle"
-          data-testid="body-toggle"
-          type="button"
-          onClick={onToggleBody}
-        >
-          <BodyToggleIcon open={bodyOpen} />
-          {bodyOpen ? t("collapseBody") : t("expandBody")}
-        </button>
-      )}
+      {/* The title is one line and the expander rides on it: neither a long
+       * summary nor a commit without a body may move what follows. The full
+       * summary and the expander's action live in their tooltips. */}
+      <div className="detail-title">
+        <h3 className="detail-summary" title={summary}>
+          {summary}
+        </h3>
+        {body && (
+          <button
+            className="body-toggle"
+            data-testid="body-toggle"
+            type="button"
+            title={bodyOpen ? t("collapseBody") : t("expandBody")}
+            aria-label={bodyOpen ? t("collapseBody") : t("expandBody")}
+            aria-expanded={bodyOpen}
+            onClick={onToggleBody}
+          >
+            <BodyToggleIcon open={bodyOpen} />
+          </button>
+        )}
+      </div>
       {body &&
         bodyOpen &&
         messageBlocks(body).map((block, i) =>

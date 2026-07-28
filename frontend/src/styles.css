@@ -1155,27 +1155,34 @@ body {
 
 /* One line whatever the title's length: the panel must not resize under the
  * reader as the selection moves. The `title` attribute carries the rest. */
-.detail-summary {
-  font-size: 14px;
+/* The summary and its expander share one row of fixed height, so neither a
+ * long title nor a commit without a body moves the metadata below. */
+.detail-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
   margin: 8px 0 0;
+}
+
+.detail-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  margin: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-/* Full-width expand bar for the message body: always right under the
- * summary, so it cannot hide at the end of a long title. */
 .body-toggle {
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: 100%;
-  margin: 8px 0 0;
-  padding: 4px 8px;
-  font-size: 12px;
+  padding: 2px;
   color: var(--muted);
-  background: color-mix(in srgb, var(--border) 40%, transparent);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: none;
+  border: none;
   border-radius: 6px;
   cursor: pointer;
 }

@@ -138,12 +138,13 @@ test.describe.serial("gitreant UI", () => {
     await expect(summary).toHaveAttribute("title", "main-1");
     await expect(summary).toHaveCSS("text-overflow", "ellipsis");
     await expect(summary).toHaveCSS("white-space", "nowrap");
-    // The body hides behind a labeled expand bar under the summary.
+    // The body hides behind the expander riding on the summary line, which
+    // names its action in the tooltip.
     await expect(panel).not.toContainText("Second line of the description");
     const bodyToggle = panel.getByTestId("body-toggle");
-    await expect(bodyToggle).toContainText("Show full message");
+    await expect(bodyToggle).toHaveAttribute("title", "Show full message");
     await bodyToggle.click();
-    await expect(bodyToggle).toContainText("Collapse the message");
+    await expect(bodyToggle).toHaveAttribute("title", "Collapse the message");
     // A hard-wrapped paragraph rejoins into one flowing line of prose.
     await expect(panel.locator(".detail-message").first()).toHaveText(
       "Second line of the description wraps in the source.",
@@ -181,6 +182,27 @@ test.describe.serial("gitreant UI", () => {
 
     await page.getByTestId("detail-close").click();
     await expect(panel).toHaveCount(0);
+  });
+
+  test("the detail pane holds still when the selection changes", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const panel = page.getByTestId("commit-detail");
+    const meta = panel.locator(".detail-meta");
+
+    // main-1 carries a body, so it offers the expander; main-2 does not.
+    await page.getByTestId("commit-row").filter({ hasText: "main-1" }).click();
+    await expect(panel.getByTestId("body-toggle")).toBeVisible();
+    const withBody = (await meta.boundingBox())!;
+
+    await page.getByTestId("commit-row").filter({ hasText: "main-2" }).click();
+    await expect(panel).toContainText("main-2");
+    await expect(panel.getByTestId("body-toggle")).toHaveCount(0);
+    const withoutBody = (await meta.boundingBox())!;
+
+    // Whether the expander is offered must not move anything under it.
+    expect(withoutBody.y).toBe(withBody.y);
   });
 
   test("commit details copy the parent, the email and both file paths", async ({
