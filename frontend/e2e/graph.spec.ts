@@ -133,6 +133,11 @@ test.describe.serial("gitreant UI", () => {
     const panel = page.getByTestId("commit-detail");
     await expect(panel).toBeVisible();
     await expect(panel).toContainText("main-1");
+    // The summary stays one line; the tooltip carries it in full.
+    const summary = panel.locator(".detail-summary");
+    await expect(summary).toHaveAttribute("title", "main-1");
+    await expect(summary).toHaveCSS("text-overflow", "ellipsis");
+    await expect(summary).toHaveCSS("white-space", "nowrap");
     // The body hides behind a labeled expand bar under the summary.
     await expect(panel).not.toContainText("Second line of the description");
     const bodyToggle = panel.getByTestId("body-toggle");
@@ -176,6 +181,47 @@ test.describe.serial("gitreant UI", () => {
 
     await page.getByTestId("detail-close").click();
     await expect(panel).toHaveCount(0);
+  });
+
+  test("commit details copy the parent, the email and both file paths", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page.getByTestId("commit-row").filter({ hasText: "main-1" }).click();
+    const panel = page.getByTestId("commit-detail");
+
+    // A plain address names no account, so the author links to a user search.
+    await expect(panel.getByTestId("detail-author")).toHaveAttribute(
+      "href",
+      "https://github.com/search?q=tester%40example.com&type=users",
+    );
+    await panel.getByTestId("detail-email").click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      "tester@example.com",
+    );
+
+    // Each parent chip copies the full id it abbreviates.
+    const parent = panel.getByTestId("detail-parent").first();
+    const shown = (await parent.textContent()) ?? "";
+    expect(shown).toMatch(/^[0-9a-f]{7}$/);
+    await parent.click();
+    const parentId = await page.evaluate(() => navigator.clipboard.readText());
+    expect(parentId).toMatch(/^[0-9a-f]{40}$/);
+    expect(parentId.startsWith(shown)).toBe(true);
+
+    const file = panel.getByTestId("detail-file").filter({ hasText: "README.md" });
+    await file.click({ button: "right" });
+    await page.getByTestId("file-copy-relative-path").click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      "README.md",
+    );
+
+    await file.click({ button: "right" });
+    await page.getByTestId("file-copy-absolute-path").click();
+    const absolute = await page.evaluate(() => navigator.clipboard.readText());
+    expect(absolute).toMatch(/repoA[\\/]README\.md$/);
   });
 
   test("clicking a changed file opens its diff pane", async ({ page }) => {
@@ -1344,6 +1390,36 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("language-en").click();
     await expect(page.getByTestId("add-submit")).toContainText("Add");
     await page.keyboard.press("Escape");
+  });
+
+  test("the date format setting restyles every timestamp", async ({ page }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const time = page.getByTestId("commit-time").first();
+    // ISO is the default: fixed width, unambiguous, locale-independent.
+    await expect(time).toHaveText(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("date-format-relative").click();
+    await page.keyboard.press("Escape");
+    await expect(time).toHaveText(/ago$/);
+    // No format hides the exact moment: the tooltip stays absolute.
+    await expect(time).toHaveAttribute(
+      "title",
+      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
+    );
+
+    // The choice survives a reload and reaches the commit details too.
+    await page.reload();
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page.getByTestId("commit-row").first().click();
+    await expect(page.getByTestId("commit-detail")).toContainText("ago");
+
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("date-format-iso").click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("commit-time").first()).toHaveText(
+      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/,
+    );
   });
 
   test("the settings dialog re-verifies signatures on demand", async ({

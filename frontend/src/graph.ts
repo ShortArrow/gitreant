@@ -113,15 +113,6 @@ export function shortId(id: string): string {
   return id.slice(0, 7);
 }
 
-/** Fixed-width local timestamp for the graph rows' right edge. */
-export function rowTime(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    ` ${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
-}
-
 /** Horizontal gap between a submodule's graph region and the next one. */
 export const REGION_GAP = 10;
 

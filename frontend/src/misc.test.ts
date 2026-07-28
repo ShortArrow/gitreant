@@ -1,5 +1,10 @@
 import { expect, test } from "vitest";
-import { signatureLabel, splitMessage } from "./CommitDetailPanel";
+import {
+  absolutePath,
+  githubAuthorUrl,
+  signatureLabel,
+  splitMessage,
+} from "./CommitDetailPanel";
 import { analyzeNote } from "./Drawer";
 import { format, MESSAGES, type MsgKey } from "./i18n";
 import { signatureBadge } from "./RepoCard";
@@ -48,6 +53,43 @@ test("signatureLabel covers every kind the server reports", () => {
   expect(signatureLabel("ssh")).toBe("Signed (SSH)");
   expect(signatureLabel("x509")).toBe("Signed (X.509)");
   expect(signatureLabel("unknown")).toBe("Signed");
+});
+
+test("absolutePath joins in the separator its root is written in", () => {
+  expect(absolutePath("/home/dev/repo", "src/main.rs")).toBe(
+    "/home/dev/repo/src/main.rs",
+  );
+  expect(absolutePath("V:\\gitreant", "src/main.rs")).toBe(
+    "V:\\gitreant\\src\\main.rs",
+  );
+  expect(absolutePath("\\\\host\\share\\repo", "a/b.txt")).toBe(
+    "\\\\host\\share\\repo\\a\\b.txt",
+  );
+  // A trailing separator on the root must not double up.
+  expect(absolutePath("/home/dev/repo/", "a.txt")).toBe("/home/dev/repo/a.txt");
+  expect(absolutePath("C:\\repo\\", "a.txt")).toBe("C:\\repo\\a.txt");
+});
+
+test("githubAuthorUrl reads the account out of a noreply commit email", () => {
+  expect(githubAuthorUrl("49699333+octocat@users.noreply.github.com")).toEqual({
+    url: "https://github.com/octocat",
+    profile: true,
+  });
+  expect(githubAuthorUrl("  Octocat@Users.NoReply.GitHub.com ")).toEqual({
+    url: "https://github.com/octocat",
+    profile: true,
+  });
+});
+
+test("githubAuthorUrl falls back to a user search for other addresses", () => {
+  expect(githubAuthorUrl("dev@example.com")).toEqual({
+    url: "https://github.com/search?q=dev%40example.com&type=users",
+    profile: false,
+  });
+  // Accountless and malformed noreply addresses name no user either.
+  expect(githubAuthorUrl("noreply@github.com").profile).toBe(false);
+  expect(githubAuthorUrl("49699333+dependabot[bot]@users.noreply.github.com")
+    .profile).toBe(false);
 });
 
 test("clampWidth stays within the allowed range", () => {

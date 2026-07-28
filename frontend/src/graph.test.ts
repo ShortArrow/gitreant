@@ -11,17 +11,11 @@ import {
   pulledPath,
   REGION_GAP,
   ROW_HEIGHT,
-  rowTime,
   squashLinks,
   stashView,
   submoduleCrossLinks,
   submoduleRegions,
 } from "./graph";
-
-test("rowTime renders a fixed-width local timestamp", () => {
-  expect(rowTime(new Date(2026, 6, 15, 9, 5))).toBe("2026-07-15 09:05");
-  expect(rowTime(new Date(2023, 11, 1, 23, 59))).toBe("2023-12-01 23:59");
-});
 
 function edge(fromLane: number, toLane: number, fork = false): GraphEdge {
   return {

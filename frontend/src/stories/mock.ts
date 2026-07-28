@@ -245,6 +245,20 @@ export const summaryOnlyDetail: CommitDetail = {
   message: "chore: bump dependencies",
 };
 
+/** A merge whose author signs with a GitHub noreply address: two parent
+ * chips side by side and an author that links to a real profile. */
+export const mergeCommitDetail: CommitDetail = {
+  ...commitDetail,
+  message:
+    "Merge pull request #128 from octocat/feature/very-long-branch-name-that-overflows",
+  author: "Octocat",
+  email: "583231+octocat@users.noreply.github.com",
+  parents: [
+    "abcdef1234567890abcdef1234567890abcdef12",
+    "1234567890abcdef1234567890abcdef12345678",
+  ],
+};
+
 /** One file's unified diff, as returned by POST /api/diff. */
 export const fileDiff: FileDiff = {
   path: "src/domain/graph.rs",

@@ -32,3 +32,4 @@ are canonical; the files below are their English translations.
 | [0022](0022-pane-split.md) | Pane splitting targets repository comparison, two side-by-side panes first | Accepted |
 | [0023](0023-progressive-loading.md) | Stage loading: instant list, parallel repositories, paged rows | Accepted |
 | [0024](0024-quality-and-responsibility.md) | Three-stage quality gates and a four-pillar responsibility scope | Accepted |
+| [0025](0025-timestamp-rendering.md) | One client setting governs every timestamp, absolute time stays in the tooltip | Accepted |

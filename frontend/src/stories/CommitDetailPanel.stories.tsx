@@ -1,12 +1,18 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { CommitDetailPanel } from "../CommitDetailPanel";
-import { commitDetail, richMessageDetail, summaryOnlyDetail } from "./mock";
+import {
+  commitDetail,
+  mergeCommitDetail,
+  richMessageDetail,
+  summaryOnlyDetail,
+} from "./mock";
 
 const meta: Meta<typeof CommitDetailPanel> = {
   title: "Pane/CommitDetailPanel",
   component: CommitDetailPanel,
   parameters: { layout: "padded" },
   args: {
+    repoPath: "/home/dev/repoA",
     onClose: () => {},
     onSelectFile: () => {},
     onOpenFile: () => {},
@@ -37,6 +43,12 @@ export const RichMessage: Story = {
 /** No body: the expand bar must not render at all. */
 export const SummaryOnly: Story = {
   args: { detail: summaryOnlyDetail, error: null },
+};
+
+/** A long summary must truncate to one line, and both parents must sit on
+ * the Parents row as separate copy chips. */
+export const MergeCommit: Story = {
+  args: { detail: mergeCommitDetail, error: null },
 };
 
 export const Loading: Story = {

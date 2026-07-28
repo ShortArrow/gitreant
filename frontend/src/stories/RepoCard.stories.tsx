@@ -56,6 +56,7 @@ export const StashInternals: Story = {
         value={{
           buttonStyle: "icon-label",
           lang: "en",
+          dateFormat: "iso",
           squashLinks: true,
           stashInternals: true,
           avatars: true,

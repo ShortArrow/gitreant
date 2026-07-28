@@ -51,8 +51,11 @@ import {
   storedAvatars,
   storeSubmoduleLinks,
   storedSubmoduleLinks,
+  storeDateFormat,
+  storedDateFormat,
   type ButtonStyle,
 } from "./settings";
+import type { DateFormat } from "./time";
 import { ThemeToggle } from "./ThemeToggle";
 
 const PAGE_SIZE_KEY = "gitreant-page-size";
@@ -369,17 +372,31 @@ export function App() {
     setSubmoduleLinks(on);
     storeSubmoduleLinks(on);
   };
+  const [dateFormat, setDateFormat] = useState<DateFormat>(storedDateFormat);
+  const changeDateFormat = (next: DateFormat) => {
+    setDateFormat(next);
+    storeDateFormat(next);
+  };
   const lang = resolveLang(langSetting, navigator.language);
   const settings = useMemo(
     () => ({
       buttonStyle,
       lang,
+      dateFormat,
       squashLinks,
       stashInternals,
       avatars,
       submoduleLinks,
     }),
-    [buttonStyle, lang, squashLinks, stashInternals, avatars, submoduleLinks],
+    [
+      buttonStyle,
+      lang,
+      dateFormat,
+      squashLinks,
+      stashInternals,
+      avatars,
+      submoduleLinks,
+    ],
   );
   const t = (key: keyof typeof MESSAGES.en, params?: Record<string, string | number>) =>
     format(MESSAGES[lang][key], params);
@@ -481,6 +498,17 @@ export function App() {
           id: `language:${value}`,
           title: `${m.settingsLanguage}: ${label}`,
           run: () => changeLangSetting(value),
+        })),
+        ...(
+          [
+            ["iso", m.dateIso],
+            ["locale", m.dateLocale],
+            ["relative", m.dateRelative],
+          ] as const
+        ).map(([value, label]) => ({
+          id: `date-format:${value}`,
+          title: `${m.settingsDateFormat}: ${label}`,
+          run: () => changeDateFormat(value),
         })),
         ...repos.map((repo) => ({
           id: `open:${repo.id}`,
@@ -673,6 +701,27 @@ export function App() {
                       data-testid={`language-${value}`}
                       checked={langSetting === value}
                       onChange={() => changeLangSetting(value)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </fieldset>
+              <fieldset className="settings-group">
+                <legend>{t("settingsDateFormat")}</legend>
+                {(
+                  [
+                    ["iso", t("dateIso")],
+                    ["locale", t("dateLocale")],
+                    ["relative", t("dateRelative")],
+                  ] as const
+                ).map(([value, label]) => (
+                  <label key={value} className="settings-option">
+                    <input
+                      type="radio"
+                      name="date-format"
+                      data-testid={`date-format-${value}`}
+                      checked={dateFormat === value}
+                      onChange={() => changeDateFormat(value)}
                     />
                     {label}
                   </label>

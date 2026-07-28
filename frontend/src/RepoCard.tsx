@@ -47,7 +47,9 @@ import {
   useStashInternals,
   useSubmoduleLinks,
   useT,
+  useTime,
 } from "./settings";
+import { absoluteTime } from "./time";
 import { CommitDetailPanel } from "./CommitDetailPanel";
 import { FileDiffPane } from "./FileDiffPane";
 import {
@@ -62,7 +64,6 @@ import {
   NODE_RADIUS,
   laneSpan,
   linkPath,
-  rowTime,
   squashLinks,
   stashView,
   crossPath,
@@ -142,6 +143,7 @@ export function RepoCard({
   loadSubmodules?: (repoId: string) => Promise<SubmoduleGraph[]>;
 }) {
   const t = useT();
+  const time = useTime();
   // Fold each stash to a single node unless the internals toggle reveals its
   // dashed helper structure; everything the graph renders reads off `view`.
   const showStashInternals = useStashInternals();
@@ -669,9 +671,9 @@ export function RepoCard({
                   <span
                     className="commit-time"
                     data-testid="commit-time"
-                    title={new Date(commit.time * 1000).toLocaleString()}
+                    title={absoluteTime(new Date(commit.time * 1000))}
                   >
-                    {rowTime(new Date(commit.time * 1000))}
+                    {time(commit.time)}
                   </span>{" "}
                   · <CommitHash id={commit.id} />
                 </span>
@@ -686,6 +688,7 @@ export function RepoCard({
         <CommitDetailPanel
           detail={detail}
           error={detailError}
+          repoPath={repo.path}
           verified={selectedCommit?.verified}
           signatureKey={selectedCommit?.signature_key}
           onSelectFile={(path) => setDiffTarget({ kind: "file", path })}

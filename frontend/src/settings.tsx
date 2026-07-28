@@ -8,6 +8,12 @@ import {
   type LangSetting,
   type MsgKey,
 } from "./i18n";
+import {
+  DATE_FORMAT_KEY,
+  formatTime,
+  parseDateFormat,
+  type DateFormat,
+} from "./time";
 
 /** How action buttons render: an icon, an icon with its label, or text only. */
 export type ButtonStyle = "icon" | "icon-label" | "label";
@@ -46,6 +52,22 @@ export function storedLangSetting(): LangSetting {
 export function storeLangSetting(setting: LangSetting) {
   try {
     localStorage.setItem(LANG_KEY, setting);
+  } catch {
+    // localStorage may be unavailable; the state change alone is enough.
+  }
+}
+
+export function storedDateFormat(): DateFormat {
+  try {
+    return parseDateFormat(localStorage.getItem(DATE_FORMAT_KEY));
+  } catch {
+    return "iso";
+  }
+}
+
+export function storeDateFormat(format: DateFormat) {
+  try {
+    localStorage.setItem(DATE_FORMAT_KEY, format);
   } catch {
     // localStorage may be unavailable; the state change alone is enough.
   }
@@ -133,6 +155,7 @@ export function storeSubmoduleLinks(on: boolean) {
 export const SettingsContext = createContext<{
   buttonStyle: ButtonStyle;
   lang: Lang;
+  dateFormat: DateFormat;
   squashLinks: boolean;
   stashInternals: boolean;
   avatars: boolean;
@@ -140,11 +163,20 @@ export const SettingsContext = createContext<{
 }>({
   buttonStyle: "icon-label",
   lang: "en",
+  dateFormat: "iso",
   squashLinks: true,
   stashInternals: false,
   avatars: true,
   submoduleLinks: true,
 });
+
+/** Renders a Unix-second timestamp in the chosen format. Callers pair it
+ * with `absoluteTime` as the tooltip so no format hides the exact moment. */
+export function useTime(): (seconds: number) => string {
+  const { dateFormat, lang } = useContext(SettingsContext);
+  return (seconds) =>
+    formatTime(new Date(seconds * 1000), dateFormat, lang, new Date());
+}
 
 /** Whether squash-merge links should be drawn. */
 export function useSquashLinks(): boolean {

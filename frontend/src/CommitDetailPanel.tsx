@@ -5,15 +5,56 @@ import { CopyText } from "./CopyText";
 import { BodyToggleIcon, DiffAllIcon, FlatIcon, TreeIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { inlineSpans, messageBlocks } from "./message";
-import { useT } from "./settings";
+import { useT, useTime } from "./settings";
 import { buildFileTree, type FileTreeNode } from "./fileTree";
 import { shortId } from "./graph";
+import { absoluteTime } from "./time";
 import { ResizeHandle, useStoredWidth } from "./Resizer";
 
 /** Split a full commit message into its summary line and body. */
 export function splitMessage(message: string): { summary: string; body: string } {
   const [summary = "", ...rest] = message.split("\n");
   return { summary, body: rest.join("\n").trim() };
+}
+
+/** Join a repository root with a repository-relative path, in whichever
+ * separator the root itself is written in — the server may run on Windows
+ * while the paths git reports always use forward slashes. */
+export function absolutePath(root: string, relative: string): string {
+  const windows = /^[A-Za-z]:[\\/]/.test(root) || root.startsWith("\\\\");
+  const base = root.replace(/[\\/]+$/, "");
+  const separator = windows ? "\\" : "/";
+  const tail = windows ? relative.replace(/\//g, "\\") : relative;
+  return `${base}${separator}${tail}`;
+}
+
+const NOREPLY_SUFFIX = "@users.noreply.github.com";
+
+/** The GitHub login a commit email names, if it encodes one. Mirrors the
+ * server's avatar resolution: `<id>+<login>@` and the older bare `<login>@`
+ * noreply forms, with logins limited to ASCII alphanumerics and hyphens. */
+function noreplyLogin(email: string): string | null {
+  const local = email.trim().toLowerCase();
+  if (!local.endsWith(NOREPLY_SUFFIX)) return null;
+  const account = local.slice(0, -NOREPLY_SUFFIX.length);
+  const login = account.includes("+") ? account.split("+")[1] : account;
+  if (!login || login === "noreply") return null;
+  return /^[a-z0-9-]+$/.test(login) ? login : null;
+}
+
+/** Where clicking an author goes: their GitHub profile when the commit email
+ * names an account, otherwise a GitHub user search for the address. */
+export function githubAuthorUrl(email: string): {
+  url: string;
+  profile: boolean;
+} {
+  const login = noreplyLogin(email);
+  return login
+    ? { url: `https://github.com/${login}`, profile: true }
+    : {
+        url: `https://github.com/search?q=${encodeURIComponent(email.trim())}&type=users`,
+        profile: false,
+      };
 }
 
 /** Human label for the embedded-signature kind reported by the server. */
@@ -59,6 +100,7 @@ function storedBodyOpen(): boolean {
 export function CommitDetailPanel({
   detail,
   error,
+  repoPath,
   verified,
   signatureKey,
   onSelectFile,
@@ -69,6 +111,8 @@ export function CommitDetailPanel({
   /** null while loading. */
   detail: CommitDetail | null;
   error: string | null;
+  /** Absolute repository root, for the file menu's absolute-path copy. */
+  repoPath: string;
   /** Verification verdict from the graph view, when gpg checked it. */
   verified?: boolean;
   /** Signing key id from the graph view, when gpg attributed one. */
@@ -165,6 +209,19 @@ export function CommitDetailPanel({
               label: t("openInEditor"),
               run: () => onOpenFile(fileMenu.path),
             },
+            {
+              id: "file-copy-relative-path",
+              label: t("copyRelativePath"),
+              run: () => navigator.clipboard?.writeText(fileMenu.path),
+            },
+            {
+              id: "file-copy-absolute-path",
+              label: t("copyAbsolutePath"),
+              run: () =>
+                navigator.clipboard?.writeText(
+                  absolutePath(repoPath, fileMenu.path),
+                ),
+            },
           ]}
           onClose={() => setFileMenu(null)}
         />
@@ -197,10 +254,16 @@ function DetailBody({
   onShowAllDiffs: () => void;
 }) {
   const t = useT();
+  const time = useTime();
   const { summary, body } = splitMessage(detail.message);
+  const author = githubAuthorUrl(detail.email);
   return (
     <>
-      <h3 className="detail-summary">{summary}</h3>
+      {/* One line, always: a wrapping title would shift everything below it
+       * every time the selection moves. The full text stays in the tooltip. */}
+      <h3 className="detail-summary" title={summary}>
+        {summary}
+      </h3>
       {body && (
         <button
           className="body-toggle"
@@ -240,11 +303,29 @@ function DetailBody({
 
       <dl className="detail-meta">
         <dt>{t("author")}</dt>
-        <dd>
-          {detail.author} &lt;{detail.email}&gt;
+        <dd className="detail-author-line">
+          <a
+            className="detail-author"
+            data-testid="detail-author"
+            href={author.url}
+            target="_blank"
+            rel="noreferrer"
+            title={t(author.profile ? "openGithubProfile" : "searchGithubUser")}
+          >
+            {detail.author}
+          </a>
+          <CopyText
+            value={detail.email}
+            display={`<${detail.email}>`}
+            className="detail-email"
+            testId="detail-email"
+            title={t("copyEmail")}
+          />
         </dd>
         <dt>{t("date")}</dt>
-        <dd>{new Date(detail.time * 1000).toLocaleString()}</dd>
+        <dd title={absoluteTime(new Date(detail.time * 1000))}>
+          {time(detail.time)}
+        </dd>
         <dt>{t("signature")}</dt>
         <dd data-testid="detail-signature">
           {signatureLabel(detail.signature)}
@@ -266,7 +347,18 @@ function DetailBody({
         {detail.parents.length > 0 && (
           <>
             <dt>{t("parents")}</dt>
-            <dd>{detail.parents.map(shortId).join(", ")}</dd>
+            <dd className="detail-parents">
+              {detail.parents.map((parent) => (
+                <CopyText
+                  key={parent}
+                  value={parent}
+                  display={shortId(parent)}
+                  className="detail-parent"
+                  testId="detail-parent"
+                  title={t("copyParentId")}
+                />
+              ))}
+            </dd>
           </>
         )}
       </dl>

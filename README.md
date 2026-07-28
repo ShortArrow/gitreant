@@ -41,7 +41,9 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
 - Click a commit to see its full message, signature state (with the signing
   key id, click to copy), and changed files (flat or tree view) with line
   counts; click a file (or "Diff all") to see diffs inline or side-by-side,
-  with intra-line changes highlighted
+  with intra-line changes highlighted. The author links to their GitHub
+  profile and their address copies; so do the parent ids, and a file's
+  right-click menu copies its relative or absolute path
 - Select diff lines via the line-number gutter (shift-click for ranges) to
   copy them or a GitHub permalink
 - Fetch button runs `git fetch` for every shown repository (requires git);
@@ -59,8 +61,9 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
 - A command palette (Ctrl+K / Cmd+K) for switching repositories and
   running fetch, reload, theme and other actions from the keyboard
 - Dark/light theme toggle, and a settings dialog for the UI language
-  (auto / English / Japanese) and for rendering action buttons as icons,
-  icons with labels, or labels only
+  (auto / English / Japanese), the timestamp format (ISO / locale /
+  relative), and for rendering action buttons as icons, icons with labels,
+  or labels only
 - Single self-contained binary — no runtime dependencies
 
 ## Install / Build
