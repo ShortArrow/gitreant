@@ -957,7 +957,7 @@ body {
 .commit-hash:hover,
 .detail-key:hover {
   text-decoration: underline;
-  color: var(--fg);
+  color: var(--text);
 }
 
 .detail-key {
