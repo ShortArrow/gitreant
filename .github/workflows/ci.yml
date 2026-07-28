@@ -73,9 +73,15 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - name: Read the declared pnpm version
+        id: pnpm
+        run: >
+          echo "version=$(jq -r .packageManager
+          "$GITHUB_WORKSPACE/frontend/package.json" | cut -d@ -f2)"
+          >> "$GITHUB_OUTPUT"
+      - uses: pnpm/action-setup@v6.0.9
         with:
-          version: 10
+          version: ${{ steps.pnpm.outputs.version }}
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -95,9 +101,15 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwayland-dev
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: pnpm/action-setup@v6
+      - name: Read the declared pnpm version
+        id: pnpm
+        run: >
+          echo "version=$(jq -r .packageManager
+          "$GITHUB_WORKSPACE/frontend/package.json" | cut -d@ -f2)"
+          >> "$GITHUB_OUTPUT"
+      - uses: pnpm/action-setup@v6.0.9
         with:
-          version: 10
+          version: ${{ steps.pnpm.outputs.version }}
       - uses: actions/setup-node@v6
         with:
           node-version: 22

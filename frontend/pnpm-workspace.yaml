@@ -1,0 +1,11 @@
+# esbuild's postinstall links the platform binary vite compiles with; pnpm 11
+# treats an unapproved build script as a hard error, not a warning.
+allowBuilds:
+  esbuild: true
+
+# The declared pnpm version is a statement for the tools that provision pnpm
+# (mise locally, pnpm/action-setup in CI). On the default `download`, pnpm
+# also installs itself from it and records its own per-platform binaries as a
+# second YAML document in the lockfile, which several ecosystem tools cannot
+# parse.
+pmOnFail: ignore

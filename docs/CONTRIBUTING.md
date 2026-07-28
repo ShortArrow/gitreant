@@ -9,6 +9,12 @@ $ cargo run -- .            # backend (:4000)
 $ cd frontend && pnpm dev   # frontend (Vite, proxies /api to :4000)
 ```
 
+The pnpm version this project runs is declared once, in
+`frontend/package.json` — `packageManager` for CI, and `devEngines` for the
+version managers that read it. Whatever provisions your pnpm (mise, Corepack,
+a manual install), take the version from there; CI reads the same field
+rather than carrying its own copy.
+
 ## Architecture
 
 Single binary. Backend in Rust (`axum`), frontend in TypeScript (React + Vite).
