@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { pulledPath } from "./graph";
+import { grabParameter, pulledPath } from "./graph";
 
 /**
  * A dashed auxiliary link (squash merge, stash internals, submodule pointer)
- * that can be grabbed and rubber-banded aside — its midpoint follows the
- * cursor while both endpoints stay anchored — to peek at whatever it crosses.
- * Releasing snaps it back to its normal path.
+ * that can be grabbed and rubber-banded aside — the point it was grabbed by
+ * follows the cursor while both endpoints stay anchored — to peek at whatever
+ * it crosses. Releasing snaps it back to its normal path.
  *
  * A transparent 12px stroke on top makes the thin dashed line grabbable.
  */
@@ -29,7 +29,11 @@ export function DraggableDashed({
   strokeWidth: number;
   testId: string;
 }) {
-  const [pull, setPull] = useState<{ x: number; y: number } | null>(null);
+  // `t` is fixed when the drag starts: letting it follow the cursor would
+  // change which part of the line is being held mid-gesture.
+  const [pull, setPull] = useState<{ t: number; x: number; y: number } | null>(
+    null,
+  );
 
   // Cursor position in the path's own coordinate space: getScreenCTM folds in
   // every ancestor transform (region/main-graph group offsets included).
@@ -40,7 +44,9 @@ export function DraggableDashed({
     return { x: p.x, y: p.y };
   };
 
-  const shown = pull ? pulledPath(x1, y1, x2, y2, pull.x, pull.y) : d;
+  const shown = pull
+    ? pulledPath(x1, y1, x2, y2, pull.t, pull.x, pull.y)
+    : d;
   return (
     <>
       <path
@@ -63,12 +69,12 @@ export function DraggableDashed({
           e.preventDefault();
           e.currentTarget.setPointerCapture(e.pointerId);
           const p = localPoint(e);
-          if (p) setPull(p);
+          if (p) setPull({ t: grabParameter(x1, y1, x2, y2, p.x, p.y), ...p });
         }}
         onPointerMove={(e) => {
           if (!pull) return;
           const p = localPoint(e);
-          if (p) setPull(p);
+          if (p) setPull({ t: pull.t, ...p });
         }}
         onPointerUp={() => setPull(null)}
         onPointerCancel={() => setPull(null)}

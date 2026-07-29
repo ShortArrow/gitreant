@@ -192,23 +192,61 @@ export function crossPath(link: SubmoduleLink): string {
 }
 
 /**
- * The rubber-banded shape while a dashed link is dragged: a quadratic curve
- * whose midpoint sticks to the cursor while both endpoints stay anchored.
- * Releasing the drag simply falls back to the link's normal path.
+ * Where along the chord between a dashed link's anchors a drag started —
+ * the point of the line `pulledPath` pulls on. Grabs beside the chord
+ * project onto it; grabs past either anchor hold that anchor.
+ */
+export function grabParameter(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  grabX: number,
+  grabY: number,
+): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const span = dx * dx + dy * dy;
+  if (span === 0) return 0.5;
+  const t = ((grabX - x1) * dx + (grabY - y1) * dy) / span;
+  return Math.min(1, Math.max(0, t));
+}
+
+/**
+ * How far the control reaches back along the chord from the held point, as a
+ * fraction of the chord. Scaled by the distance to the nearer anchor, so a
+ * grab beside an anchor bends tightly rather than throwing a long handle.
+ */
+const TAUTNESS = 0.8;
+
+/**
+ * The rubber-banded shape while a dashed link is dragged: the held point
+ * (`t`, from `grabParameter`) sits on the cursor and the line runs to each
+ * anchor from there, like a plucked string. Releasing the drag simply falls
+ * back to the link's normal path.
+ *
+ * Two quadratics joined at the cursor rather than one across the whole span:
+ * a single quadratic has one control point, too little freedom to both hold
+ * an off-centre point on the cursor and keep its handle short — near an
+ * anchor it must either fold or let the line slip out from under the cursor.
+ * The `T` command mirrors the first control, so the join stays smooth.
  */
 export function pulledPath(
   x1: number,
   y1: number,
   x2: number,
   y2: number,
+  t: number,
   cursorX: number,
   cursorY: number,
 ): string {
-  // A quadratic passes through 0.25*start + 0.5*control + 0.25*end at its
-  // midpoint; solving for the control puts that midpoint on the cursor.
-  const qx = 2 * cursorX - (x1 + x2) / 2;
-  const qy = 2 * cursorY - (y1 + y2) / 2;
-  return `M${x1},${y1} Q${qx},${qy} ${x2},${y2}`;
+  const round = (n: number) => Math.round(n * 100) / 100;
+  const reach = TAUTNESS * Math.min(t, 1 - t);
+  const qx = round(cursorX - reach * (x2 - x1));
+  const qy = round(cursorY - reach * (y2 - y1));
+  const hx = round(cursorX);
+  const hy = round(cursorY);
+  return `M${x1},${y1} Q${qx},${qy} ${hx},${hy} T${x2},${y2}`;
 }
 
 /** A dashed squash-merge link, routed through its own virtual lane. */

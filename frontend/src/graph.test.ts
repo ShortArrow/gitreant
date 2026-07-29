@@ -3,6 +3,7 @@ import type { GraphEdge, RepoView } from "./api";
 import {
   crossPath,
   edgePath,
+  grabParameter,
   graphWidth,
   laneSpan,
   linkPath,
@@ -389,14 +390,63 @@ test("submoduleCrossLinks connect pointer updates across regions", () => {
   expect(path.endsWith(`${links[0].x2},${links[0].y2}`)).toBe(true);
 });
 
-test("pulledPath anchors the endpoints and passes through the cursor", () => {
-  const path = pulledPath(10, 20, 110, 40, 70, 90);
-  const match = /^M10,20 Q(-?[\d.]+),(-?[\d.]+) 110,40$/.exec(path);
+test("grabParameter measures how far along the chord a drag started", () => {
+  expect(grabParameter(0, 0, 100, 0, 25, 0)).toBeCloseTo(0.25);
+  expect(grabParameter(0, 0, 100, 0, 60, 0)).toBeCloseTo(0.6);
+  // A grab beside the chord projects onto it.
+  expect(grabParameter(0, 0, 100, 0, 40, 25)).toBeCloseTo(0.4);
+  // A grab past an anchor holds that anchor.
+  expect(grabParameter(0, 0, 100, 0, 0, 0)).toBeCloseTo(0);
+  expect(grabParameter(0, 0, 100, 0, 100, 0)).toBeCloseTo(1);
+  expect(grabParameter(0, 0, 100, 0, -40, 0)).toBeCloseTo(0);
+  expect(grabParameter(0, 0, 100, 0, 180, 0)).toBeCloseTo(1);
+  // A zero-length chord offers no direction to measure along.
+  expect(grabParameter(5, 5, 5, 5, 5, 5)).toBeCloseTo(0.5);
+});
+
+/** The anchors, the first control and the held point of a pulled path. */
+function parsePulled(path: string) {
+  const match =
+    /^M(-?[\d.]+),(-?[\d.]+) Q(-?[\d.]+),(-?[\d.]+) (-?[\d.]+),(-?[\d.]+) T(-?[\d.]+),(-?[\d.]+)$/.exec(
+      path,
+    );
   expect(match).not.toBeNull();
-  const [, qx, qy] = match!.map(Number);
-  // Quadratic midpoint = 0.25*start + 0.5*control + 0.25*end == the cursor.
-  expect(0.25 * 10 + 0.5 * qx + 0.25 * 110).toBeCloseTo(70);
-  expect(0.25 * 20 + 0.5 * qy + 0.25 * 40).toBeCloseTo(90);
+  const [, x1, y1, qx, qy, hx, hy, x2, y2] = match!.map(Number);
+  return {
+    start: { x: x1, y: y1 },
+    control: { x: qx, y: qy },
+    held: { x: hx, y: hy },
+    end: { x: x2, y: y2 },
+  };
+}
+
+test("pulledPath holds the cursor wherever the line was grabbed", () => {
+  // The join of the two quadratics is the held point, so it is on the cursor
+  // by construction — at the midpoint and hard by an anchor alike.
+  for (const t of [0.5, 0.25, 0.05, 0.95]) {
+    const pulled = parsePulled(pulledPath(10, 20, 110, 40, t, 70, 90));
+    expect(pulled.held).toEqual({ x: 70, y: 90 });
+    expect(pulled.start).toEqual({ x: 10, y: 20 });
+    expect(pulled.end).toEqual({ x: 110, y: 40 });
+  }
+});
+
+test("pulledPath tightens the bend as the grab nears an anchor", () => {
+  // How far the control reaches from the held point is the length of the
+  // handle; near an anchor it shortens into a tight kink instead of swinging
+  // the line around.
+  const reach = (t: number) => {
+    const pulled = parsePulled(pulledPath(10, 20, 110, 40, t, 70, 90));
+    return Math.hypot(
+      pulled.held.x - pulled.control.x,
+      pulled.held.y - pulled.control.y,
+    );
+  };
+  expect(reach(0.5)).toBeGreaterThan(reach(0.25));
+  expect(reach(0.25)).toBeGreaterThan(reach(0.1));
+  expect(reach(0.02)).toBeLessThan(5);
+  // Symmetric: a grab the same distance from either anchor bends alike.
+  expect(reach(0.2)).toBeCloseTo(reach(0.8));
 });
 
 test("linkPath bends into the via lane, runs vertically, and bends back", () => {

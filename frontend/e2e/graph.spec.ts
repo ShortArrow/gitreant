@@ -1325,6 +1325,41 @@ test.describe.serial("gitreant UI", () => {
     await expect(squash).toHaveCount(1);
     await expect(squash).toHaveAttribute("stroke-dasharray", "4 3");
 
+    // Dragging the link aside is how you see what it crosses. This one runs
+    // through its own corridor over several rows, so it is long enough to
+    // measure the gesture on.
+    const squashHit = page.getByTestId("squash-edge-hit");
+    /** The drawn line, sampled in screen coordinates. */
+    const samples = () =>
+      squashHit.evaluate((el: SVGPathElement) => {
+        const ctm = el.getScreenCTM()!;
+        const length = el.getTotalLength();
+        return Array.from({ length: 61 }, (_, i) => {
+          const point = el.getPointAtLength((length * i) / 60);
+          const screen = new DOMPoint(point.x, point.y).matrixTransform(ctm);
+          return { x: screen.x, y: screen.y };
+        });
+      });
+    const near = (
+      line: { x: number; y: number }[],
+      at: { x: number; y: number },
+    ) => Math.min(...line.map((p) => Math.hypot(p.x - at.x, p.y - at.y)));
+
+    // A fifth of the way along — as near the anchor as the cursor can get
+    // before the commit node covers the line.
+    const grab = (await samples())[12];
+    await page.mouse.move(grab.x, grab.y);
+    await page.mouse.down();
+
+    // The line must come with the cursor. Held this near an anchor, a single
+    // quadratic could only reach the cursor by flinging its control point
+    // out; here the two halves meet at the cursor instead.
+    const to = { x: grab.x + 45, y: grab.y + 20 };
+    await page.mouse.move(to.x, to.y);
+    expect(near(await samples(), to)).toBeLessThan(4);
+    await page.mouse.up();
+    await expect(squash).toHaveCount(1);
+
     // The settings toggle hides the dashed links.
     await page.getByTestId("settings-toggle").click();
     await page.getByTestId("squash-links-toggle").uncheck();
@@ -1811,6 +1846,7 @@ test.describe.serial("gitreant UI", () => {
     // Grabbing the dashed link rubber-bands it toward the cursor (its path
     // becomes a pulled quadratic); releasing snaps it back.
     const original = (await cross.getAttribute("d"))!;
+    const shape = (await cross.boundingBox())!;
     const hit = page.getByTestId("submodule-edge-hit");
     const box = (await hit.boundingBox())!;
     const mx = box.x + box.width / 2;
@@ -1821,6 +1857,8 @@ test.describe.serial("gitreant UI", () => {
     await expect(cross).toHaveAttribute("d", / Q/);
     await page.mouse.up();
     await expect(cross).toHaveAttribute("d", original);
+
+    expect((await cross.boundingBox())!.height).toBeCloseTo(shape.height, 0);
 
     // The settings toggle removes the regions and links entirely.
     await page.getByTestId("settings-toggle").click();
