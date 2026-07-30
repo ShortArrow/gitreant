@@ -79,6 +79,8 @@ $ ./target/release/gitreant
 gitreant [PATH...]
   -p, --port <PORT>   待受/接続ポート（既定 4000）
       --no-open       ブラウザを自動で開かない
+      --app           タブではなく枠なしウィンドウで開く（Chromium系が
+                      必要。無ければ通常のブラウザで開く。--no-open が優先）
       --foreground    detachせず現在のターミナルでサーバを実行
       --shutdown      稼働中の gitreant サーバを停止して終了
 ```

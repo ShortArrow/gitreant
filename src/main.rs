@@ -3,7 +3,8 @@
 //! Running `gitreant [PATH...]` spawns a detached server and opens a browser,
 //! returning control to the shell. If a gitreant server is already running on
 //! the port, the given repositories are handed to it instead (mirroring `mo`'s
-//! single-instance behaviour). `--foreground` keeps the server in the current
+//! single-instance behaviour). `--app` opens a chromeless window instead of a
+//! tab; `--foreground` keeps the server in the current
 //! terminal; `--shutdown` stops the running server. `restart` brings the same
 //! repositories back up in a fresh process; `refresh` re-verifies signatures
 //! in place.
@@ -15,6 +16,8 @@ use clap::{Parser, Subcommand};
 
 use gitreant::app::{canonical, Session};
 use gitreant::doctor;
+#[cfg(not(target_os = "android"))]
+use gitreant::launch;
 use gitreant::server::{
     bind, get_repo_paths, ping, post_refresh, post_repo, post_shutdown, serve, AppState,
 };
@@ -39,6 +42,10 @@ struct Cli {
     /// Do not open a browser window.
     #[arg(long)]
     no_open: bool,
+
+    /// Open in a chromeless app window instead of a browser tab.
+    #[arg(long)]
+    app: bool,
 
     /// Run the server in the current terminal instead of detaching.
     #[arg(long)]
@@ -305,9 +312,32 @@ fn run_server(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
 
 #[cfg(not(target_os = "android"))]
 fn open_browser(cli: &Cli) {
-    if !cli.no_open {
-        let _ = open::that(format!("http://127.0.0.1:{}", cli.port));
+    if cli.no_open {
+        return;
     }
+    let url = format!("http://127.0.0.1:{}", cli.port);
+    if cli.app && open_app_window(&url) {
+        return;
+    }
+    let _ = open::that(&url);
+}
+
+/// Try to open `url` as a chromeless window, reporting whether it worked so
+/// the caller can fall back to the ordinary browser. The window is detached:
+/// it must outlive the launcher process, which exits immediately.
+#[cfg(not(target_os = "android"))]
+fn open_app_window(url: &str) -> bool {
+    let Some((browser, args)) = launch::app_window_command(url) else {
+        return false;
+    };
+    let mut command = std::process::Command::new(browser);
+    command
+        .args(args)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    detach(&mut command);
+    command.spawn().is_ok()
 }
 
 /// Termux has no desktop opener; try its own URL handler and always print

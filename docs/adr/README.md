@@ -33,3 +33,4 @@ are canonical; the files below are their English translations.
 | [0023](0023-progressive-loading.md) | Stage loading: instant list, parallel repositories, paged rows | Accepted |
 | [0024](0024-quality-and-responsibility.md) | Three-stage quality gates and a four-pillar responsibility scope | Accepted |
 | [0025](0025-timestamp-rendering.md) | One client setting governs every timestamp, absolute time stays in the tooltip | Accepted |
+| [0026](0026-app-mode-window.md) | Open a dedicated window via the browser's app mode, not a native GUI | Accepted |

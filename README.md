@@ -81,6 +81,9 @@ $ ./target/release/gitreant
 gitreant [PATH...]
   -p, --port <PORT>   port to listen on / connect to (default 4000)
       --no-open       do not open the browser automatically
+      --app           open in a chromeless window instead of a tab (needs a
+                      Chromium-based browser; falls back to the ordinary
+                      browser without one, and --no-open outranks it)
       --foreground    run the server in the current terminal instead of detaching
       --shutdown      stop the running gitreant server and exit
 

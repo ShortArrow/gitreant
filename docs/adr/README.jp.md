@@ -31,3 +31,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0023](0023-progressive-loading.jp.md) | 読み込みは一覧先行・リポジトリ並列・行ページングで段階化する | Accepted |
 | [0024](0024-quality-and-responsibility.jp.md) | 品質ゲートを3段階に定め、提供責任を4本柱で明文化する | Accepted |
 | [0025](0025-timestamp-rendering.jp.md) | 日時形式は単一のクライアント設定で全表示を統べ絶対時刻を残す | Accepted |
+| [0026](0026-app-mode-window.jp.md) | 専用ウィンドウはブラウザのapp modeで開きネイティブGUIは採らない | Accepted |

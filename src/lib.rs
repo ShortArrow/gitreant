@@ -4,4 +4,5 @@ pub mod app;
 pub mod doctor;
 pub mod domain;
 pub mod git;
+pub mod launch;
 pub mod server;
