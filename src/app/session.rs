@@ -210,9 +210,9 @@ mod tests {
         init_repo(tmp.path());
 
         let mut session = Session::new();
-        assert_eq!(session.add(tmp.path()).unwrap().1, true);
+        assert!(session.add(tmp.path()).unwrap().1);
         // Adding a subpath resolves to the same repository root.
-        assert_eq!(session.add(tmp.path()).unwrap().1, false);
+        assert!(!session.add(tmp.path()).unwrap().1);
         assert_eq!(session.paths().len(), 1);
     }
 
@@ -225,10 +225,10 @@ mod tests {
         session.add(tmp.path()).unwrap();
         let id = session.paths()[0].to_string_lossy().into_owned();
 
-        assert_eq!(session.remove(&id), true);
+        assert!(session.remove(&id));
         assert!(session.is_empty());
         // Removing again is a no-op.
-        assert_eq!(session.remove(&id), false);
+        assert!(!session.remove(&id));
     }
 
     #[test]

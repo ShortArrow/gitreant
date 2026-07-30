@@ -604,8 +604,12 @@ mod tests {
         assert!(!node("S").stash_internal);
         assert!(!node("Base").stash_internal);
 
-        let edge =
-            |from: &str, to: &str| g.edges.iter().find(|e| e.from == from && e.to == to).unwrap();
+        let edge = |from: &str, to: &str| {
+            g.edges
+                .iter()
+                .find(|e| e.from == from && e.to == to)
+                .unwrap()
+        };
         assert!(!edge("S", "Base").dashed, "ancestry to base stays solid");
         assert!(edge("S", "Idx").dashed, "index helper link is dashed");
         assert!(edge("S", "Unt").dashed, "untracked helper link is dashed");

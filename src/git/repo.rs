@@ -469,7 +469,7 @@ mod tests {
         let tip = oid("aaaaaaaa0000000000000000000000000000ffff");
 
         let ordered = topological_order(vec![
-            raw(tip, &[base], t + 100),          // main tip, newer than the stash
+            raw(tip, &[base], t + 100), // main tip, newer than the stash
             raw(stash, &[base, index, untracked], t),
             raw(index, &[base], t),
             raw(untracked, &[], t),

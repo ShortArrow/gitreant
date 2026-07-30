@@ -679,7 +679,10 @@ async fn reveal(
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
             .map_err(|e| {
-                (StatusCode::INTERNAL_SERVER_ERROR, format!("open failed: {e}"))
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("open failed: {e}"),
+                )
             })?;
         Ok(StatusCode::OK)
     }
@@ -862,7 +865,9 @@ async fn fetch_remotes(State(state): State<AppState>) -> Json<FetchResponse> {
                     });
                     if let Ok(tags) = listing.result {
                         for tag in tags {
-                            let entry = tag_remotes.entry(tag).or_insert_with(|| listing.remote.clone());
+                            let entry = tag_remotes
+                                .entry(tag)
+                                .or_insert_with(|| listing.remote.clone());
                             if listing.remote == "origin" {
                                 *entry = "origin".to_string();
                             }

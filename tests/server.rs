@@ -367,7 +367,9 @@ async fn listing_auto_learns_pushed_tags() {
         // tag is marked as on origin (never having called /api/fetch).
         let list = http_get(port, "/api/list");
         let entries: serde_json::Value = serde_json::from_str(
-            list.lines().find(|l| l.starts_with('[')).expect("list body"),
+            list.lines()
+                .find(|l| l.starts_with('['))
+                .expect("list body"),
         )
         .unwrap();
         let id = entries[0]["id"].as_str().unwrap().to_string();
@@ -385,7 +387,10 @@ async fn listing_auto_learns_pushed_tags() {
     })
     .await
     .unwrap();
-    assert!(annotated, "the pushed tag was never auto-marked as on origin");
+    assert!(
+        annotated,
+        "the pushed tag was never auto-marked as on origin"
+    );
 }
 
 /// The instant repository list answers without reading any graph, and a

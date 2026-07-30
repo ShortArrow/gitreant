@@ -89,10 +89,7 @@ fn every_english_adr_body_has_its_japanese_canonical() {
     for entry in fs::read_dir(&dir).expect("read docs/adr") {
         let name = entry.expect("dir entry").file_name();
         let name = name.to_string_lossy().into_owned();
-        if !name.ends_with(".md")
-            || name.ends_with(".jp.md")
-            || name == "README.md"
-        {
+        if !name.ends_with(".md") || name.ends_with(".jp.md") || name == "README.md" {
             continue;
         }
         let jp = format!("{}.jp.md", name.strip_suffix(".md").unwrap());
