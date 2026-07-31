@@ -34,6 +34,20 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-repo-name="repoB"]')).toBeVisible();
   });
 
+  test("repository rows are focusable buttons, not bare list items", async ({
+    page,
+  }) => {
+    // A React onClick emits no onclick attribute, so a row carrying only a
+    // handler is invisible to keyboard users and to hint extensions such as
+    // Vimium — which would then offer the remove and disclosure buttons as
+    // the only targets on the row. The role and tabindex are what expose it.
+    const row = page.getByTestId("repo-item").first();
+    await expect(row).toHaveAttribute("role", "button");
+    await expect(row).toHaveAttribute("tabindex", "0");
+    await row.focus();
+    await expect(row).toBeFocused();
+  });
+
   test("pane is empty until a repository is selected", async ({ page }) => {
     await expect(page.getByTestId("pane-empty")).toBeVisible();
     await expect(page.getByTestId("graph")).toHaveCount(0);
@@ -1806,6 +1820,9 @@ test.describe.serial("gitreant UI", () => {
     await repoO.getByTestId("repo-disclosure").click();
     const sub = page.locator('[data-testid="repo-submodule"][data-repo-name="sub"]');
     await expect(sub).toBeVisible();
+    // The child row carries the same button affordance as a top-level one.
+    await expect(sub).toHaveAttribute("role", "button");
+    await expect(sub).toHaveAttribute("tabindex", "0");
     await sub.click();
     await expect(page.locator('[data-tab-name="sub"]')).toBeVisible();
     await expect(page.getByTestId("graph").first()).toBeVisible();

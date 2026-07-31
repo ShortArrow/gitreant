@@ -61,6 +61,16 @@ export function arrangeRepos(
   );
 }
 
+/** Keyboard activation for a row that acts as a button: Enter and Space run
+ * the action, as a real button would, and Space is stopped from scrolling. */
+export function activateOnKey(run: () => void) {
+  return (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    run();
+  };
+}
+
 /** The analyzing note next to a repository name: the running commit
  * counter of its in-flight read (ADR 0023 — no percentage, a stuck or
  * unbounded walk must not fake completion). */
@@ -318,7 +328,11 @@ export function Drawer({
                 }`}
                 data-testid="repo-item"
                 data-repo-name={repo.name}
+                role="button"
+                tabIndex={0}
+                aria-current={repo.id === activeId ? true : undefined}
                 onClick={() => onSelect(repo.id)}
+                onKeyDown={activateOnKey(() => onSelect(repo.id))}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   setMenu({ x: e.clientX, y: e.clientY, id: repo.id });
@@ -378,7 +392,11 @@ export function Drawer({
                     data-testid="repo-submodule"
                     data-repo-name={sub.name}
                     title={t("openSubmodule")}
+                    role="button"
+                    tabIndex={0}
+                    aria-current={sub.path === activeId ? true : undefined}
                     onClick={() => openSubmodule(sub.path)}
+                    onKeyDown={activateOnKey(() => openSubmodule(sub.path))}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       setSubMenu({ x: e.clientX, y: e.clientY, path: sub.path });

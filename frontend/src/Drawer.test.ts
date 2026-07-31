@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { RepoListEntry } from "./api";
-import { arrangeRepos } from "./Drawer";
+import { activateOnKey, arrangeRepos } from "./Drawer";
 
 const repos: RepoListEntry[] = [
   { id: "/w/Zeta", name: "Zeta", path: "/work/zeta" },
@@ -58,4 +58,42 @@ test("arrangeRepos filters then sorts", () => {
     "web-api",
     "web-ui",
   ]);
+});
+
+/** A key press with just enough of React's event surface to drive the handler. */
+function press(key: string) {
+  let defaultPrevented = false;
+  const event = {
+    key,
+    preventDefault: () => {
+      defaultPrevented = true;
+    },
+  } as React.KeyboardEvent;
+  return { event, prevented: () => defaultPrevented };
+}
+
+test("activateOnKey runs the action on Enter and Space", () => {
+  let runs = 0;
+  const handler = activateOnKey(() => runs++);
+
+  const enter = press("Enter");
+  handler(enter.event);
+  expect(runs).toBe(1);
+
+  const space = press(" ");
+  handler(space.event);
+  expect(runs).toBe(2);
+  // Space would scroll the drawer if the default were left alone.
+  expect(space.prevented()).toBe(true);
+});
+
+test("activateOnKey ignores every other key", () => {
+  let runs = 0;
+  const handler = activateOnKey(() => runs++);
+  for (const key of ["a", "Tab", "Escape", "ArrowDown", "Shift"]) {
+    const { event, prevented } = press(key);
+    handler(event);
+    expect(prevented()).toBe(false);
+  }
+  expect(runs).toBe(0);
 });

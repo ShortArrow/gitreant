@@ -255,6 +255,12 @@ body {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
+/* Inset so the ring stays inside the row's rounded corners. */
+.repo-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .repo-item.active {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
