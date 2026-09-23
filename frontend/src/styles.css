@@ -887,10 +887,26 @@ body {
 .graph .node {
   stroke: var(--bg-elev);
   stroke-width: 1.5;
+  cursor: pointer;
 }
 
 .graph .node-head {
   stroke-width: 2.5;
+}
+
+/* The hash of the graph node under the pointer, beside the cursor. */
+.node-tip {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  padding: 2px 6px;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.2);
 }
 
 .commits {

@@ -22,6 +22,7 @@ import {
   revealPath,
   type BranchOpResult,
   type CommitDetail,
+  type CommitView,
   type FileDiff,
   type MergedPullRequestView,
   type PrLookupView,
@@ -64,6 +65,7 @@ import {
   NODE_RADIUS,
   laneSpan,
   linkPath,
+  shortId,
   squashLinks,
   stashView,
   crossPath,
@@ -260,6 +262,30 @@ export function RepoCard({
   useEffect(maybeLoadMore);
 
   const [selected, setSelected] = useState<string | null>(null);
+  // Clicking a row or its graph node toggles the detail panel for it.
+  const toggleSelected = (id: string) => {
+    setSelected((s) => (s === id ? null : id));
+    setDiffTarget(null);
+  };
+  // The graph node under the pointer, whose hash shows in a tooltip.
+  const [hoverNode, setHoverNode] = useState<{
+    x: number;
+    y: number;
+    commit: string;
+  } | null>(null);
+  // Graph nodes carry the same interactions as their rows: click selects,
+  // right-click opens the commit menu, and hovering names the commit.
+  const nodeProps = (commit: CommitView) => ({
+    "data-testid": "graph-node",
+    onClick: () => toggleSelected(commit.id),
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault();
+      setCommitMenu({ x: e.clientX, y: e.clientY, commit: commit.id });
+    },
+    onMouseEnter: (e: React.MouseEvent) =>
+      setHoverNode({ x: e.clientX, y: e.clientY, commit: commit.id }),
+    onMouseLeave: () => setHoverNode(null),
+  });
   const [detail, setDetail] = useState<CommitDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [diffTarget, setDiffTarget] = useState<DiffTarget | null>(null);
@@ -534,6 +560,7 @@ export function RepoCard({
                 cy={nodeY(commit.row)}
                 r={NODE_RADIUS}
                 style={{ stroke: laneColor(commit.color), fill: "var(--bg-elev)" }}
+                {...nodeProps(commit)}
               />
             ) : (
               <circle
@@ -543,11 +570,21 @@ export function RepoCard({
                 cy={nodeY(commit.row)}
                 r={NODE_RADIUS}
                 fill={laneColor(commit.color)}
+                {...nodeProps(commit)}
               />
             ),
           )}
           </g>
         </svg>
+        {hoverNode && (
+          <span
+            className="node-tip"
+            data-testid="node-tip"
+            style={{ left: hoverNode.x + 12, top: hoverNode.y + 12 }}
+          >
+            {shortId(hoverNode.commit)}
+          </span>
+        )}
 
         <ul className="commits">
           {view.commits.map((commit) => {
@@ -559,10 +596,7 @@ export function RepoCard({
                 className={`commit${commit.id === selected ? " selected" : ""}`}
                 data-testid="commit-row"
                 style={{ height: ROW_HEIGHT }}
-                onClick={() => {
-                  setSelected((s) => (s === commit.id ? null : commit.id));
-                  setDiffTarget(null);
-                }}
+                onClick={() => toggleSelected(commit.id)}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   setCommitMenu({

@@ -1983,6 +1983,38 @@ test.describe.serial("gitreant UI", () => {
     await expect(hash).toHaveText(shown, { timeout: 3000 });
   });
 
+  test("graph nodes show their hash on hover and open the commit menu", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const rows = page.getByTestId("commit-row");
+    await expect(rows).toHaveCount(5);
+    const nodes = page.getByTestId("graph-node");
+    await expect(nodes).toHaveCount(5);
+
+    // Hovering a node reveals the abbreviated hash of the commit in its row.
+    const shown =
+      (await rows.nth(2).getByTestId("commit-hash").textContent()) ?? "";
+    expect(shown).toMatch(/^[0-9a-f]{7}$/);
+    await nodes.nth(2).hover();
+    await expect(page.getByTestId("node-tip")).toHaveText(shown);
+    await page.mouse.move(0, 0);
+    await expect(page.getByTestId("node-tip")).toHaveCount(0);
+
+    // Right-clicking a node offers the same actions as its row.
+    await nodes.nth(2).click({ button: "right" });
+    const menu = page.getByTestId("commit-menu");
+    await expect(menu).toBeVisible();
+    await expect(menu.locator(".ctx-menu-note")).toHaveText(shown);
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+
+    // A left click selects the commit, like clicking its row.
+    await nodes.nth(2).click();
+    await expect(rows.nth(2)).toHaveClass(/selected/);
+    await expect(page.getByTestId("commit-detail")).toBeVisible();
+  });
+
   test("browse button adds the folder returned by the picker", async ({
     page,
   }) => {
