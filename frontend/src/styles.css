@@ -949,6 +949,12 @@ body {
   color: var(--muted);
 }
 
+/* The working tree's row: not a commit yet, so it reads as a note. */
+.commit-uncommitted .commit-summary {
+  font-style: italic;
+  color: var(--warning, #d29922);
+}
+
 .commit-meta {
   margin-left: auto;
   color: var(--muted);

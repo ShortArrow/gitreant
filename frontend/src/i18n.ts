@@ -108,6 +108,9 @@ const en = {
   // Graph rows
   commitsCount: "{n} commits",
   copyFullId: "Copy the full commit id",
+  uncommittedChanges: "Uncommitted changes",
+  uncommittedShort: "Uncommitted",
+  comparedWith: "Compared with",
   // Ref context menu
   refCopyName: "Copy branch name",
   refCheckout: "Checkout {reference}",
@@ -256,6 +259,9 @@ const ja: Record<MsgKey, string> = {
   expand: "ひらく",
   commitsCount: "{n} コミット",
   copyFullId: "コミットIDをコピー",
+  uncommittedChanges: "未コミットの変更",
+  uncommittedShort: "未コミット",
+  comparedWith: "比較対象",
   refCopyName: "ブランチ名をコピー",
   refCheckout: "{reference} をチェックアウト",
   refMergeInto: "{branch} へマージ",

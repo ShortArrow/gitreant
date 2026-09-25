@@ -196,11 +196,13 @@ fn blob_at(
     Ok(Some(blob.data.clone()))
 }
 
-fn looks_binary(data: &[u8]) -> bool {
+/// Shared with the uncommitted-changes reader: same rule for both sides.
+pub(super) fn looks_binary(data: &[u8]) -> bool {
     data.iter().take(8000).any(|&b| b == 0)
 }
 
-fn unified(old: &[u8], new: &[u8]) -> String {
+/// The unified hunks between two blobs, in the `git diff -u` text form.
+pub(super) fn unified(old: &[u8], new: &[u8]) -> String {
     use gix::diff::blob::{
         unified_diff::{ConsumeHunk, ContextSize, DiffLineKind, HunkHeader},
         Algorithm, Diff, InternedInput, UnifiedDiff,

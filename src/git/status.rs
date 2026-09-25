@@ -8,11 +8,13 @@ use std::path::Path;
 use std::process::Command;
 
 use super::fetch::hide_console;
+use super::uncommitted::uncommitted_paths;
 
 /// What a repository is holding that is not committed or not on a remote.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct RepoStatus {
-    /// Uncommitted changes: staged, unstaged and untracked paths.
+    /// Uncommitted changes: staged, unstaged and untracked paths — the same
+    /// count the graph's uncommitted-changes row shows.
     pub dirty: usize,
     /// Commits on a local branch that are on no remote.
     pub unpushed: usize,
@@ -25,7 +27,7 @@ pub struct RepoStatus {
 /// blank the whole drawer.
 pub fn read_status(path: &Path) -> RepoStatus {
     RepoStatus {
-        dirty: count_lines(&run(path, &["status", "--porcelain"])),
+        dirty: uncommitted_paths(path).len(),
         unpushed: parse_count(&run(
             path,
             &["rev-list", "--count", "--branches", "--not", "--remotes"],
@@ -53,11 +55,6 @@ fn run(path: &Path, args: &[&str]) -> String {
         .unwrap_or_default()
 }
 
-/// Each porcelain line is one changed or untracked path.
-fn count_lines(stdout: &str) -> usize {
-    stdout.lines().filter(|l| !l.trim().is_empty()).count()
-}
-
 fn parse_count(stdout: &str) -> usize {
     stdout.trim().parse().unwrap_or(0)
 }
@@ -70,12 +67,6 @@ fn count_untracked_branches(stdout: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn counts_porcelain_change_lines() {
-        assert_eq!(count_lines(" M src/a.rs\n?? new.txt\nA  staged\n"), 3);
-        assert_eq!(count_lines(""), 0);
-    }
 
     #[test]
     fn parses_the_rev_list_count() {

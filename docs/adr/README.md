@@ -34,3 +34,4 @@ are canonical; the files below are their English translations.
 | [0024](0024-quality-and-responsibility.md) | Three-stage quality gates and a four-pillar responsibility scope | Accepted |
 | [0025](0025-timestamp-rendering.md) | One client setting governs every timestamp, absolute time stays in the tooltip | Accepted |
 | [0026](0026-app-mode-window.md) | Open a dedicated window via the browser's app mode, not a native GUI | Accepted |
+| [0027](0027-uncommitted-changes-row.md) | Show uncommitted changes as a synthetic row above HEAD | Accepted |

@@ -57,10 +57,11 @@ export type Scenario = {
   steps: Step[];
 };
 
-/** Number of rows the scenario shows (commits, merges, and folded stashes). */
+/** Number of rows the scenario shows: commits, merges, folded stashes, and
+ * the uncommitted-changes row a `dirty` step leaves above HEAD. */
 export function commitCount(scenario: Scenario): number {
   return scenario.steps.filter(
-    (s) => "commit" in s || "merge" in s || "stash" in s,
+    (s) => "commit" in s || "merge" in s || "stash" in s || "dirty" in s,
   ).length;
 }
 

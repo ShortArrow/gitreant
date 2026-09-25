@@ -19,7 +19,14 @@ export interface CommitView {
   stash_internal?: boolean;
   /** The author's GitHub avatar URL, when the server could resolve one. */
   avatar?: string;
+  /** The synthetic uncommitted-changes row above HEAD: how many paths the
+   *  working tree changed. Absent on every real commit. */
+  uncommitted?: number;
 }
+
+/** The id the uncommitted-changes row carries; detail and diff requests
+ *  with it read the working tree against HEAD. */
+export const UNCOMMITTED_ID = "uncommitted";
 
 export interface GraphEdge {
   from: string;

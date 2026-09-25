@@ -4,8 +4,16 @@ use std::path::Path;
 
 use serde::Serialize;
 
-use crate::domain::{layout, GraphEdge};
-use crate::git::{CommitDetail, FileDiff, RepoData};
+use crate::domain::{layout, CommitInput, GraphEdge};
+use crate::git::{CommitDetail, FileDiff, RepoData, UNCOMMITTED_ID};
+
+/// Seconds since the Unix epoch: the "as of" time of a changes row.
+fn epoch_now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
 
 /// A commit positioned on the grid, with the metadata needed to render it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -39,6 +47,10 @@ pub struct CommitView {
     /// away unless the stash-internals toggle reveals them.
     #[serde(skip_serializing_if = "is_false")]
     pub stash_internal: bool,
+    /// The synthetic uncommitted-changes row above HEAD: how many paths the
+    /// working tree changed. Absent on every real commit.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uncommitted: Option<usize>,
 }
 
 fn is_false(b: &bool) -> bool {
@@ -108,6 +120,9 @@ impl RepoView {
     /// Keep only the first `limit` rows (and the edges fully inside them):
     /// the paged prefix the SPA renders until the user scrolls further.
     pub fn truncate(mut self, limit: usize) -> Self {
+        // The changes row is not a commit: a page of `limit` commits keeps
+        // it on top rather than trading the last real row for it.
+        let limit = limit + usize::from(self.has_changes_row());
         if self.commits.len() <= limit {
             return self;
         }
@@ -119,6 +134,13 @@ impl RepoView {
         self.edges
             .retain(|e| kept.contains(&e.from) && kept.contains(&e.to));
         self
+    }
+
+    /// Whether row 0 is the synthetic uncommitted-changes row.
+    fn has_changes_row(&self) -> bool {
+        self.commits
+            .first()
+            .is_some_and(|c| c.uncommitted.is_some())
     }
 }
 
@@ -197,33 +219,71 @@ impl From<FileDiff> for FileDiffView {
 }
 
 /// Build the view for `data`, keyed by `id` (its canonical path).
-pub fn build_view(id: &Path, data: &RepoData) -> RepoView {
-    let graph = layout(&data.commit_inputs(), data.head.as_deref());
+///
+/// `uncommitted` is how many paths the working tree changed against HEAD;
+/// when non-zero (and HEAD exists) a synthetic changes row is laid out as a
+/// child of HEAD, so it sits above HEAD in HEAD's lane and the checked-out
+/// line runs straight through it.
+pub fn build_view(id: &Path, data: &RepoData, uncommitted: usize) -> RepoView {
+    let mut inputs = data.commit_inputs();
+    let mut spine_head = data.head.as_deref();
+    let changes_row = uncommitted > 0 && spine_head.is_some();
+    if let (true, Some(head)) = (changes_row, spine_head) {
+        inputs.insert(
+            0,
+            CommitInput {
+                id: UNCOMMITTED_ID.to_string(),
+                parents: vec![head.to_string()],
+                stash: false,
+            },
+        );
+        spine_head = Some(UNCOMMITTED_ID);
+    }
+    let graph = layout(&inputs, spine_head);
 
-    // `layout` preserves input order, so node[i] aligns with commits[i].
-    let commits = graph
-        .nodes
-        .iter()
-        .zip(&data.commits)
-        .map(|(node, meta)| CommitView {
+    // `layout` preserves input order, so after the optional changes row
+    // node[i] aligns with commits[i].
+    let mut nodes = graph.nodes.iter();
+    let mut commits = Vec::with_capacity(graph.nodes.len());
+    if changes_row {
+        let node = nodes.next().expect("the changes row was laid out first");
+        commits.push(CommitView {
             id: node.id.clone(),
             row: node.row,
             lane: node.lane,
             color: node.color,
             parents: node.parents.clone(),
-            summary: meta.summary.clone(),
-            author: meta.author.clone(),
-            // Resolve the free (no-network) avatar now; the gh fallback fills
-            // the rest later from the server's cache (see `read_one`).
-            avatar: crate::git::noreply_avatar_url(&meta.email),
-            email: meta.email.clone(),
-            time: meta.time,
-            signature: meta.signature.clone(),
-            verified: meta.verified,
-            signature_key: meta.signature_key.clone(),
-            stash_internal: node.stash_internal,
-        })
-        .collect();
+            summary: String::new(),
+            author: String::new(),
+            email: String::new(),
+            avatar: None,
+            time: epoch_now(),
+            signature: None,
+            verified: None,
+            signature_key: None,
+            stash_internal: false,
+            uncommitted: Some(uncommitted),
+        });
+    }
+    commits.extend(nodes.zip(&data.commits).map(|(node, meta)| CommitView {
+        id: node.id.clone(),
+        row: node.row,
+        lane: node.lane,
+        color: node.color,
+        parents: node.parents.clone(),
+        summary: meta.summary.clone(),
+        author: meta.author.clone(),
+        // Resolve the free (no-network) avatar now; the gh fallback fills
+        // the rest later from the server's cache (see `read_one`).
+        avatar: crate::git::noreply_avatar_url(&meta.email),
+        email: meta.email.clone(),
+        time: meta.time,
+        signature: meta.signature.clone(),
+        verified: meta.verified,
+        signature_key: meta.signature_key.clone(),
+        stash_internal: node.stash_internal,
+        uncommitted: None,
+    }));
 
     let refs = data
         .refs
@@ -255,7 +315,7 @@ pub fn build_view(id: &Path, data: &RepoData) -> RepoView {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::git::{CommitMeta, RepoData};
+    use crate::git::{CommitMeta, RepoData, UNCOMMITTED_ID};
     use std::path::PathBuf;
 
     fn meta(id: &str, parents: &[&str], summary: &str, time: i64) -> CommitMeta {
@@ -296,7 +356,7 @@ mod tests {
             github_url: None,
         };
 
-        let view = build_view(Path::new("/tmp/wip"), &data);
+        let view = build_view(Path::new("/tmp/wip"), &data, 0);
         let internal = |id: &str| {
             view.commits
                 .iter()
@@ -318,6 +378,74 @@ mod tests {
         );
     }
 
+    fn linear(head: Option<&str>) -> RepoData {
+        RepoData {
+            name: "demo".to_string(),
+            path: PathBuf::from("/tmp/demo"),
+            commits: vec![
+                meta("A", &["B"], "second", 1001),
+                meta("B", &[], "first", 1000),
+            ],
+            refs: vec![],
+            head: head.map(str::to_string),
+            head_branch: head.map(|_| "main".to_string()),
+            github_url: None,
+        }
+    }
+
+    #[test]
+    fn uncommitted_changes_become_a_row_above_head() {
+        let view = build_view(Path::new("/tmp/demo"), &linear(Some("A")), 2);
+
+        let wip = &view.commits[0];
+        assert_eq!(wip.id, UNCOMMITTED_ID);
+        assert_eq!(wip.uncommitted, Some(2));
+        assert_eq!((wip.row, wip.lane), (0, 0));
+        assert_eq!(wip.parents, vec!["A".to_string()]);
+        // The real history follows, shifted down one row; HEAD keeps its lane.
+        assert_eq!(view.commits[1].id, "A");
+        assert_eq!((view.commits[1].row, view.commits[1].lane), (1, 0));
+        assert_eq!(view.commits[1].uncommitted, None);
+        assert_eq!(view.head.as_deref(), Some("A"));
+        // The synthetic row is not a commit: the count and the edge say so.
+        assert_eq!(view.total, 2);
+        let edge = view
+            .edges
+            .iter()
+            .find(|e| e.from == UNCOMMITTED_ID)
+            .expect("an edge from the changes to HEAD");
+        assert_eq!(edge.to, "A");
+        assert_eq!((edge.from_lane, edge.to_lane), (0, 0));
+
+        let json = serde_json::to_string(&view).unwrap();
+        assert!(json.contains("\"uncommitted\":2"), "count missing: {json}");
+        assert_eq!(
+            json.matches("\"uncommitted\":").count(),
+            1,
+            "real commits must not carry the key: {json}"
+        );
+    }
+
+    #[test]
+    fn no_changes_row_without_changes_or_without_head() {
+        let clean = build_view(Path::new("/tmp/demo"), &linear(Some("A")), 0);
+        assert_eq!(clean.commits[0].id, "A");
+        assert!(clean.commits.iter().all(|c| c.uncommitted.is_none()));
+
+        let detached_nowhere = build_view(Path::new("/tmp/demo"), &linear(None), 3);
+        assert_eq!(detached_nowhere.commits[0].id, "A");
+        assert_eq!(detached_nowhere.commits.len(), 2);
+    }
+
+    #[test]
+    fn truncate_keeps_the_changes_row_on_top_of_a_full_page() {
+        let view = build_view(Path::new("/tmp/demo"), &linear(Some("A")), 1);
+        let page = view.truncate(1);
+        let ids: Vec<&str> = page.commits.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(ids, vec![UNCOMMITTED_ID, "A"]);
+        assert_eq!(page.edges.len(), 1);
+    }
+
     #[test]
     fn merges_layout_with_metadata_in_order() {
         let data = RepoData {
@@ -333,7 +461,7 @@ mod tests {
             github_url: None,
         };
 
-        let view = build_view(Path::new("/tmp/demo"), &data);
+        let view = build_view(Path::new("/tmp/demo"), &data, 0);
 
         assert_eq!(view.commits.len(), 2);
         assert_eq!(view.commits[0].id, "A");

@@ -100,6 +100,12 @@ export function stashView(repo: RepoView, showInternals: boolean): RepoView {
   return { ...repo, commits, edges };
 }
 
+/** How many real commits the view holds: the uncommitted-changes row is
+ * not one, so paging compares this against `total`, never the row count. */
+export function loadedCommitCount(repo: RepoView): number {
+  return repo.commits.filter((c) => c.uncommitted === undefined).length;
+}
+
 /** Map every commit id to its row for quick edge/parent lookups. */
 export function rowIndex(commits: CommitView[]): Map<string, number> {
   const map = new Map<string, number>();

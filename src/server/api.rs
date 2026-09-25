@@ -17,6 +17,7 @@ use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::{Stream, StreamExt};
 
 use crate::app::{CommitDetailView, FileDiffView, RepoView, Session};
+use crate::git::UNCOMMITTED_ID;
 
 use super::{assets, PING_MARKER};
 
@@ -569,7 +570,7 @@ async fn submodule_graphs(
             .filter(initialized)
             .filter_map(|sub| {
                 let data = crate::git::read_repo(&sub.path).ok()?;
-                let view = crate::app::build_view(&sub.path, &data).truncate(SUBMODULE_VIEW_LIMIT);
+                let view = crate::app::build_view(&sub.path, &data, 0).truncate(SUBMODULE_VIEW_LIMIT);
                 let updates = crate::git::gitlink_updates(&root, &sub.rel)
                     .into_iter()
                     .map(|u| GitlinkUpdateView {
@@ -764,8 +765,14 @@ async fn commit_detail(
             format!("unknown repository: {}", req.repo),
         ));
     };
-    let detail = tokio::task::spawn_blocking(move || crate::git::read_commit(&path, &req.id))
-        .await
+    let detail = tokio::task::spawn_blocking(move || {
+        if req.id == UNCOMMITTED_ID {
+            crate::git::read_uncommitted(&path)
+        } else {
+            crate::git::read_commit(&path, &req.id)
+        }
+    })
+    .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .map_err(|message| (StatusCode::NOT_FOUND, message))?;
     Ok(Json(detail.into()))
@@ -793,11 +800,16 @@ async fn file_diff(
             format!("unknown repository: {}", req.repo),
         ));
     };
-    let diff =
-        tokio::task::spawn_blocking(move || crate::git::read_file_diff(&repo, &req.id, &req.path))
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-            .map_err(|message| (StatusCode::NOT_FOUND, message))?;
+    let diff = tokio::task::spawn_blocking(move || {
+        if req.id == UNCOMMITTED_ID {
+            crate::git::read_uncommitted_diff(&repo, &req.path)
+        } else {
+            crate::git::read_file_diff(&repo, &req.id, &req.path)
+        }
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(|message| (StatusCode::NOT_FOUND, message))?;
     Ok(Json(diff.into()))
 }
 
@@ -813,8 +825,14 @@ async fn commit_diff(
             format!("unknown repository: {}", req.repo),
         ));
     };
-    let diffs = tokio::task::spawn_blocking(move || crate::git::read_commit_diff(&repo, &req.id))
-        .await
+    let diffs = tokio::task::spawn_blocking(move || {
+        if req.id == UNCOMMITTED_ID {
+            crate::git::read_uncommitted_diffs(&repo)
+        } else {
+            crate::git::read_commit_diff(&repo, &req.id)
+        }
+    })
+    .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .map_err(|message| (StatusCode::NOT_FOUND, message))?;
     Ok(Json(diffs.into_iter().map(Into::into).collect()))

@@ -53,6 +53,9 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
   right-click menu copies its relative or absolute path
 - Select diff lines via the line-number gutter (shift-click for ranges) to
   copy them or a GitHub permalink
+- Uncommitted changes appear as a dashed row above HEAD; open it to list
+  the changed files and diff them against HEAD (server-side `git status` /
+  `git diff`)
 - Fetch button runs `git fetch` for every shown repository (requires git);
   a toggleable bottom pane logs the executed commands and your UI actions
 - Signed commits carry a badge in the graph: Verified / Unverified when a

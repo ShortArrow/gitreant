@@ -191,6 +191,20 @@ export const linearRepo: RepoView = {
   total: 2,
 };
 
+/** `linearRepo` with two uncommitted paths: the working tree rides above
+ * HEAD as a synthetic row (hollow dashed node, dashed edge), and is not
+ * counted in `total`. */
+export const uncommittedRepo: RepoView = {
+  ...linearRepo,
+  id: "/repos/notes-wip",
+  commits: [
+    { ...commit("uncommitted", 0, 0, 0, ["n2"], ""), uncommitted: 2 },
+    commit("n2", 1, 0, 0, ["n1"], "add second note"),
+    commit("n1", 2, 0, 0, [], "add first note"),
+  ],
+  edges: [edge("uncommitted", "n2", 0, 0, 0), edge("n2", "n1", 0, 0, 0)],
+};
+
 /** Details of one commit, as returned by POST /api/commit. */
 export const commitDetail: CommitDetail = {
   id: "1234567890abcdef1234567890abcdef12345678",

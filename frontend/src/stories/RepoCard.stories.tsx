@@ -11,6 +11,7 @@ import {
   mergeRepo,
   stashRepo,
   submoduleGraphs,
+  uncommittedRepo,
 } from "./mock";
 
 const meta: Meta<typeof RepoCard> = {
@@ -39,6 +40,12 @@ export const LongSpanMerge: Story = {
 
 export const Linear: Story = {
   args: { repo: linearRepo },
+};
+
+/** A dirty working tree: the uncommitted changes sit above HEAD as a row
+ * of their own, hollow-dashed in the graph. */
+export const UncommittedChanges: Story = {
+  args: { repo: uncommittedRepo },
 };
 
 /** A stash with the internals toggle off: it folds down to a single node. */

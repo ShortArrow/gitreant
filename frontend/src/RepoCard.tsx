@@ -30,6 +30,7 @@ import {
   type RefView,
   type RepoView,
   type SubmoduleGraph,
+  UNCOMMITTED_ID,
 } from "./api";
 import { DraggableDashed } from "./DraggableDashed";
 import {
@@ -65,6 +66,7 @@ import {
   NODE_RADIUS,
   laneSpan,
   linkPath,
+  loadedCommitCount,
   shortId,
   squashLinks,
   stashView,
@@ -252,10 +254,11 @@ export function RepoCard({
   const maybeLoadMore = () => {
     const el = scrollRef.current;
     if (!el || !onLoadMore) return;
-    if (repo.commits.length >= repo.total) return;
-    if (requestedAt.current === repo.commits.length) return;
+    const loaded = loadedCommitCount(repo);
+    if (loaded >= repo.total) return;
+    if (requestedAt.current === loaded) return;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 300) {
-      requestedAt.current = repo.commits.length;
+      requestedAt.current = loaded;
       onLoadMore();
     }
   };
@@ -271,19 +274,27 @@ export function RepoCard({
   const [hoverNode, setHoverNode] = useState<{
     x: number;
     y: number;
-    commit: string;
+    label: string;
   } | null>(null);
+  // The uncommitted-changes row is not a commit: nothing can be tagged or
+  // branched at it, so its menu stays closed and it names itself, not a hash.
+  const openCommitMenu = (e: React.MouseEvent, commit: CommitView) => {
+    e.preventDefault();
+    if (commit.uncommitted !== undefined) return;
+    setCommitMenu({ x: e.clientX, y: e.clientY, commit: commit.id });
+  };
+  const nodeLabel = (commit: CommitView) =>
+    commit.uncommitted !== undefined
+      ? t("uncommittedChanges")
+      : shortId(commit.id);
   // Graph nodes carry the same interactions as their rows: click selects,
   // right-click opens the commit menu, and hovering names the commit.
   const nodeProps = (commit: CommitView) => ({
     "data-testid": "graph-node",
     onClick: () => toggleSelected(commit.id),
-    onContextMenu: (e: React.MouseEvent) => {
-      e.preventDefault();
-      setCommitMenu({ x: e.clientX, y: e.clientY, commit: commit.id });
-    },
+    onContextMenu: (e: React.MouseEvent) => openCommitMenu(e, commit),
     onMouseEnter: (e: React.MouseEvent) =>
-      setHoverNode({ x: e.clientX, y: e.clientY, commit: commit.id }),
+      setHoverNode({ x: e.clientX, y: e.clientY, label: nodeLabel(commit) }),
     onMouseLeave: () => setHoverNode(null),
   });
   const [detail, setDetail] = useState<CommitDetail | null>(null);
@@ -421,7 +432,9 @@ export function RepoCard({
         <FileDiffPane
           files={diffFiles}
           error={diffError}
-          commitId={selected}
+          commitId={
+            selectedCommit?.uncommitted === undefined ? selected : undefined
+          }
           parentId={selectedCommit?.parents[0]}
           githubUrl={repo.github_url}
           onClose={() => setDiffTarget(null)}
@@ -506,6 +519,21 @@ export function RepoCard({
             // first-class ancestry.
             const childRow = rowOf.get(edge.from);
             const parentRow = rowOf.get(edge.to);
+            if (edge.from === UNCOMMITTED_ID) {
+              // The working tree is not history yet: its link down to HEAD
+              // is dashed, like every other auxiliary line.
+              return (
+                <path
+                  key={`e${i}`}
+                  className="edge-uncommitted"
+                  d={edgePath(edge, rowOf)}
+                  fill="none"
+                  stroke={laneColor(edge.color)}
+                  strokeWidth={2}
+                  strokeDasharray="4 3"
+                />
+              );
+            }
             if (edge.dashed && childRow !== undefined && parentRow !== undefined) {
               return (
                 <DraggableDashed
@@ -548,7 +576,20 @@ export function RepoCard({
             />
           ))}
           {view.commits.map((commit) =>
-            commit.id === repo.head ? (
+            commit.uncommitted !== undefined ? (
+              // The working tree: a dashed hollow ring in HEAD's color, a
+              // commit-to-be rather than a commit.
+              <circle
+                key={commit.id}
+                className="node node-uncommitted"
+                cx={nodeX(commit.lane)}
+                cy={nodeY(commit.row)}
+                r={NODE_RADIUS}
+                strokeDasharray="2 2"
+                style={{ stroke: laneColor(commit.color), fill: "var(--bg-elev)" }}
+                {...nodeProps(commit)}
+              />
+            ) : commit.id === repo.head ? (
               // HEAD: a ring in the branch color with the center punched out
               // to the card background, like vscode-git-graph. Both colors go
               // through `style` — inline styles resolve var() and win over the
@@ -582,7 +623,7 @@ export function RepoCard({
             data-testid="node-tip"
             style={{ left: hoverNode.x + 12, top: hoverNode.y + 12 }}
           >
-            {shortId(hoverNode.commit)}
+            {hoverNode.label}
           </span>
         )}
 
@@ -590,21 +631,17 @@ export function RepoCard({
           {view.commits.map((commit) => {
             const refs = refMap.get(commit.id) ?? [];
             const isHead = repo.head === commit.id;
+            const uncommitted = commit.uncommitted;
             return (
               <li
                 key={commit.id}
-                className={`commit${commit.id === selected ? " selected" : ""}`}
+                className={`commit${commit.id === selected ? " selected" : ""}${
+                  uncommitted !== undefined ? " commit-uncommitted" : ""
+                }`}
                 data-testid="commit-row"
                 style={{ height: ROW_HEIGHT }}
                 onClick={() => toggleSelected(commit.id)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setCommitMenu({
-                    x: e.clientX,
-                    y: e.clientY,
-                    commit: commit.id,
-                  });
-                }}
+                onContextMenu={(e) => openCommitMenu(e, commit)}
               >
                 {isHead && <span className="badge badge-head">HEAD</span>}
                 {refs.map((ref) => {
@@ -665,6 +702,21 @@ export function RepoCard({
                     </span>
                   );
                 })}
+                {uncommitted !== undefined ? (
+                  // The working tree has no author, time or hash: the row
+                  // names itself and counts what it holds.
+                  <>
+                    <span className="commit-summary">
+                      {t("uncommittedChanges")}
+                    </span>
+                    <span className="commit-meta">
+                      {t(uncommitted === 1 ? "fileCount" : "filesCount", {
+                        n: uncommitted,
+                      })}
+                    </span>
+                  </>
+                ) : (
+                <>
                 <span
                   className={`commit-summary${
                     commit.parents.length > 1 ? " commit-summary-merge" : ""
@@ -711,6 +763,8 @@ export function RepoCard({
                   </span>{" "}
                   · <CommitHash id={commit.id} />
                 </span>
+                </>
+                )}
               </li>
             );
           })}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { CommitDetail, FileChange } from "./api";
+import { UNCOMMITTED_ID, type CommitDetail, type FileChange } from "./api";
 import { ContextMenu } from "./ContextMenu";
 import { CopyText } from "./CopyText";
 import { BodyToggleIcon, DiffAllIcon, FlatIcon, TreeIcon } from "./Icons";
@@ -165,7 +165,11 @@ export function CommitDetailPanel({
       <div className="detail-scroll">
         <header className="detail-head">
           <span className="detail-id">
-            {detail ? shortId(detail.id) : "…"}
+            {!detail
+              ? "…"
+              : detail.id === UNCOMMITTED_ID
+                ? t("uncommittedShort")
+                : shortId(detail.id)}
           </span>
           <button
             className="icon-btn"
@@ -257,14 +261,18 @@ function DetailBody({
   const time = useTime();
   const { summary, body } = splitMessage(detail.message);
   const author = githubAuthorUrl(detail.email);
+  // The working tree against HEAD: no message, author or signature to show,
+  // only what it is compared with and the files it changed.
+  const uncommitted = detail.id === UNCOMMITTED_ID;
+  const title = uncommitted ? t("uncommittedChanges") : summary;
   return (
     <>
       {/* The title is one line and the expander rides on it: neither a long
        * summary nor a commit without a body may move what follows. The full
        * summary and the expander's action live in their tooltips. */}
       <div className="detail-title">
-        <h3 className="detail-summary" title={summary}>
-          {summary}
+        <h3 className="detail-summary" title={title}>
+          {title}
         </h3>
         {body && (
           <button
@@ -306,6 +314,14 @@ function DetailBody({
           ),
         )}
 
+      {uncommitted ? (
+        <dl className="detail-meta">
+          <dt>{t("comparedWith")}</dt>
+          <dd data-testid="detail-compared">
+            HEAD ({detail.parents.map(shortId).join(", ")})
+          </dd>
+        </dl>
+      ) : (
       <dl className="detail-meta">
         <dt>{t("author")}</dt>
         <dd className="detail-author-line">
@@ -367,6 +383,7 @@ function DetailBody({
           </>
         )}
       </dl>
+      )}
 
       <div className="files-head">
         <span className="files-count">

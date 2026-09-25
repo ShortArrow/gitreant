@@ -334,6 +334,21 @@ function makeRepoO(): string {
   return parent;
 }
 
+/** repoP: a tracked edit and an untracked file left uncommitted, so the
+ * graph shows the working tree as a row above HEAD. No test may commit
+ * or clean it. */
+function makeRepoP(): string {
+  const dir = initRepo("repoP");
+  const t = 1_700_000_000;
+  writeFileSync(path.join(dir, "note.txt"), "one\n");
+  git(dir, ["add", "."]);
+  commit(dir, "p-1", t);
+  commit(dir, "p-2", t + 10);
+  writeFileSync(path.join(dir, "note.txt"), "one\ntwo\n");
+  writeFileSync(path.join(dir, "scratch.txt"), "wip\n");
+  return dir; // 2 commits
+}
+
 /** Set by makeRepoI; the teardown must talk to the same gpg installation. */
 let gpgconfBin = "gpgconf";
 
@@ -359,6 +374,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoM = makeRepoM();
   const repoN = makeRepoN();
   const repoO = makeRepoO();
+  const repoP = makeRepoP();
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
@@ -382,6 +398,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoM,
         repoN,
         repoO,
+        repoP,
       },
       null,
       2,

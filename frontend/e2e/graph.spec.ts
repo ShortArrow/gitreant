@@ -21,6 +21,9 @@ const fixtures = JSON.parse(
   repoM: string;
   repoN: string;
   repoO: string;
+  repoP: string;
+  repoQ: string;
+  repoQWorktree: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -2013,6 +2016,128 @@ test.describe.serial("gitreant UI", () => {
     await nodes.nth(2).click();
     await expect(rows.nth(2)).toHaveClass(/selected/);
     await expect(page.getByTestId("commit-detail")).toBeVisible();
+  });
+
+  test("uncommitted changes show as a row above HEAD with their diffs", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoP);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoP"]')).toBeVisible();
+
+    // The working tree sits above HEAD as its own row, drawn apart from
+    // history (hollow dashed node, dashed edge), and is not a commit.
+    const rows = page.getByTestId("commit-row");
+    await expect(rows).toHaveCount(3);
+    const wip = rows.first();
+    await expect(wip).toHaveClass(/commit-uncommitted/);
+    await expect(wip).toContainText("Uncommitted changes");
+    await expect(wip).toContainText("2 files");
+    await expect(wip.getByTestId("commit-hash")).toHaveCount(0);
+    await expect(rows.nth(1).locator(".badge-head")).toHaveCount(1);
+    await expect(page.locator(".repo-count")).toHaveText("2 commits");
+    await expect(page.locator(".node-uncommitted")).toHaveCount(1);
+    await expect(page.locator(".edge-uncommitted")).toHaveCount(1);
+    // Not a commit: no tag/branch menu on the row or its node, and the node
+    // names itself rather than showing a hash.
+    await wip.click({ button: "right" });
+    await expect(page.getByTestId("commit-menu")).toHaveCount(0);
+    await page.locator(".node-uncommitted").click({ button: "right" });
+    await expect(page.getByTestId("commit-menu")).toHaveCount(0);
+    await page.locator(".node-uncommitted").hover();
+    await expect(page.getByTestId("node-tip")).toHaveText("Uncommitted changes");
+    await page.mouse.move(0, 0);
+
+    // Opening it lists the changed files against HEAD with their counts.
+    await wip.click();
+    const detail = page.getByTestId("commit-detail");
+    await expect(detail).toBeVisible();
+    await expect(detail.getByTestId("detail-compared")).toContainText("HEAD");
+    const files = detail.getByTestId("detail-file");
+    await expect(files).toHaveCount(2);
+    const note = files.filter({ hasText: "note.txt" });
+    await expect(note.locator(".file-status")).toHaveText("M");
+    await expect(note.locator(".file-additions")).toHaveText("+1");
+    const scratch = files.filter({ hasText: "scratch.txt" });
+    await expect(scratch.locator(".file-status")).toHaveText("A");
+
+    // A tracked file diffs against HEAD; the untracked one against nothing.
+    await note.click();
+    const pane = page.getByTestId("diff-pane");
+    await expect(pane).toBeVisible();
+    await expect(pane.locator(".diff-line-add")).toContainText("+two");
+    await expect(pane.locator(".diff-line-context")).toContainText(" one");
+    await page.getByTestId("diff-close").click();
+    await detail.getByTestId("diff-all").click();
+    const sections = pane.getByTestId("diff-file-section");
+    await expect(sections).toHaveCount(2);
+    await expect(
+      sections.filter({ hasText: "scratch.txt" }).locator(".diff-line-add"),
+    ).toContainText("+wip");
+    await page.getByTestId("diff-close").click();
+
+    // Restore the served set.
+    const repoP = page.locator('[data-repo-name="repoP"]');
+    await repoP.hover();
+    await repoP.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoP"]')).toHaveCount(0);
+  });
+
+  test("a repository lists its linked worktrees and marks their branches", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoQ);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoQ"]')).toBeVisible();
+
+    // The branch checked out in the linked worktree carries a marker, and
+    // its menu refuses a checkout git would refuse too.
+    const topic = page.locator(".badge-kind-branch", { hasText: "topic" });
+    await expect(topic.getByTestId("badge-worktree")).toHaveCount(1);
+    await expect(
+      page.locator(".badge-kind-branch", { hasText: "main" }).getByTestId(
+        "badge-worktree",
+      ),
+    ).toHaveCount(0);
+    await topic.click({ button: "right" });
+    await expect(page.getByTestId("ref-menu-checkout")).toBeDisabled();
+    await page.keyboard.press("Escape");
+
+    // The drawer nests the worktree under its repository, naming its branch;
+    // opening it attaches it as a view of its own, on that branch.
+    const repoQ = page.locator('[data-repo-name="repoQ"]');
+    await repoQ.getByTestId("repo-disclosure").click();
+    const worktree = page.getByTestId("repo-worktree");
+    await expect(worktree).toHaveCount(1);
+    await expect(worktree).toContainText("repoQ-wt");
+    await expect(worktree.getByTestId("repo-worktree-branch")).toHaveText(
+      "topic",
+    );
+    await worktree.click();
+    await expect(page.locator('[data-tab-name="repoQ-wt"]')).toBeVisible();
+    await expect(
+      page
+        .getByTestId("commit-row")
+        .filter({ has: page.locator(".badge-head") }),
+    ).toContainText("t-1");
+    // Seen from the linked worktree, main is the one checked out elsewhere.
+    await expect(
+      page.locator(".badge-kind-branch", { hasText: "main" }).getByTestId(
+        "badge-worktree",
+      ),
+    ).toHaveCount(1);
+    // The attached worktree stays nested: no top-level row of its own.
+    await expect(
+      page.locator('[data-testid="repo-item"][data-repo-name="repoQ-wt"]'),
+    ).toHaveCount(0);
+
+    // Restore the served set: the nested row's menu detaches the worktree.
+    await worktree.click({ button: "right" });
+    await page.getByTestId("worktree-remove").click();
+    await expect(page.locator('[data-tab-name="repoQ-wt"]')).toHaveCount(0);
+    await repoQ.hover();
+    await repoQ.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoQ"]')).toHaveCount(0);
   });
 
   test("browse button adds the folder returned by the picker", async ({

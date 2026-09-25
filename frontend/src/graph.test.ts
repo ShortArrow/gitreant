@@ -7,6 +7,7 @@ import {
   graphWidth,
   laneSpan,
   linkPath,
+  loadedCommitCount,
   nodeX,
   nodeY,
   pulledPath,
@@ -476,4 +477,16 @@ test("linkPath degenerates to one curve for adjacent rows", () => {
     color: 1,
   });
   expect(path).not.toContain(" L");
+});
+
+test("loadedCommitCount leaves the uncommitted-changes row out", () => {
+  const repo = {
+    commits: [
+      { id: "uncommitted", uncommitted: 2 },
+      { id: "a" },
+      { id: "b" },
+    ],
+  } as unknown as RepoView;
+  expect(loadedCommitCount(repo)).toBe(2);
+  expect(loadedCommitCount({ commits: [] } as unknown as RepoView)).toBe(0);
 });

@@ -47,8 +47,9 @@ export function FileDiffPane({
   /** null while loading; one entry per shown file. */
   files: FileDiff[] | null;
   error: string | null;
-  /** The commit the diffs belong to; new-side permalinks address it. */
-  commitId: string;
+  /** The commit the diffs belong to; new-side permalinks address it.
+   * Absent for the working tree, which no permalink can name. */
+  commitId?: string;
   /** Its first parent; old-side permalinks address it. */
   parentId?: string;
   /** Web URL of the repository on GitHub, when it has such a remote. */
@@ -161,7 +162,7 @@ function FileSection({
   diff: FileDiff;
   view: DiffView;
   selection: Selection | null;
-  commitId: string;
+  commitId?: string;
   parentId?: string;
   githubUrl?: string;
   onSelectLine: (

@@ -8,7 +8,9 @@ use std::process::Command;
 use gitreant::domain::layout;
 use gitreant::git::{
     gitlink_updates, read_commit, read_commit_diff, read_file_diff, read_repo,
-    read_repo_with_progress, read_status, read_submodules,
+    read_repo_with_progress, read_status, read_submodules, read_uncommitted,
+    read_uncommitted_diff, read_uncommitted_diffs, uncommitted_paths, FileChange,
+    UNCOMMITTED_ID,
 };
 
 fn git(dir: &Path, args: &[&str]) {
@@ -111,6 +113,13 @@ fn read_status_counts_uncommitted_unpushed_and_local_branches() {
 
     let status = read_status(dir);
     assert_eq!(status.dirty, 1, "one untracked file");
+    // The drawer counts exactly what the graph's changes row counts: every
+    // file of an untracked directory, not the directory as one line.
+    std::fs::create_dir(dir.join("scratch")).unwrap();
+    std::fs::write(dir.join("scratch/a.txt"), "a\n").unwrap();
+    std::fs::write(dir.join("scratch/b.txt"), "b\n").unwrap();
+    assert_eq!(read_status(dir).dirty, uncommitted_paths(dir).len());
+    assert_eq!(read_status(dir).dirty, 3);
     assert_eq!(status.local_branches, 2, "main and feature track nothing");
     // With no remote, every commit is unpushed.
     assert!(status.unpushed >= 1, "the root commit is unpushed");
@@ -534,4 +543,98 @@ fn submodules_and_their_pointer_history_are_read() {
     let head = String::from_utf8_lossy(&head.stdout).trim().to_string();
     assert_eq!(updates[0].sha, head);
     assert_ne!(updates[1].sha, head);
+}
+
+#[test]
+fn uncommitted_changes_list_files_with_counts_and_diff_against_head() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    std::fs::write(dir.join("note.txt"), "one\n").unwrap();
+    std::fs::write(dir.join("gone.txt"), "bye\n").unwrap();
+    git(dir, &["add", "."]);
+    commit(dir, "root", 1000);
+    let head = read_repo(dir).expect("read repo").head.expect("head");
+
+    // A tracked edit, a staged addition, an untracked file and a deletion:
+    // every kind of change the working tree can hold against HEAD.
+    std::fs::write(dir.join("note.txt"), "one\ntwo\n").unwrap();
+    std::fs::write(dir.join("staged.txt"), "s1\ns2\n").unwrap();
+    git(dir, &["add", "staged.txt"]);
+    std::fs::write(dir.join("scratch.txt"), "wip\n").unwrap();
+    std::fs::remove_file(dir.join("gone.txt")).unwrap();
+
+    let detail = read_uncommitted(dir).expect("read uncommitted changes");
+    assert_eq!(detail.id, UNCOMMITTED_ID);
+    assert_eq!(detail.parents, vec![head]);
+    let files: HashMap<&str, &FileChange> =
+        detail.files.iter().map(|f| (f.path.as_str(), f)).collect();
+    let expect = |path: &str, status: &str, additions: usize, deletions: usize| {
+        let file = files.get(path).unwrap_or_else(|| panic!("{path} missing"));
+        assert_eq!(file.status, status, "{path} status");
+        assert_eq!(
+            (file.additions, file.deletions),
+            (additions, deletions),
+            "{path} counts"
+        );
+    };
+    expect("note.txt", "M", 1, 0);
+    expect("staged.txt", "A", 2, 0);
+    expect("scratch.txt", "A", 1, 0);
+    expect("gone.txt", "D", 0, 1);
+    assert_eq!(detail.files.len(), 4);
+
+    // A tracked file diffs through git (filters and all); an untracked one
+    // diffs against nothing.
+    let note = read_uncommitted_diff(dir, "note.txt").expect("note diff");
+    assert_eq!(note.status, "M");
+    assert!(!note.binary);
+    assert!(note.text.starts_with("@@"), "hunks only, got {:?}", note.text);
+    assert!(note.text.contains("+two\n"), "got {:?}", note.text);
+    let scratch = read_uncommitted_diff(dir, "scratch.txt").expect("scratch diff");
+    assert_eq!(scratch.status, "A");
+    assert!(scratch.text.contains("+wip\n"), "got {:?}", scratch.text);
+    let gone = read_uncommitted_diff(dir, "gone.txt").expect("gone diff");
+    assert_eq!(gone.status, "D");
+    assert!(gone.text.contains("-bye\n"), "got {:?}", gone.text);
+
+    let all = read_uncommitted_diffs(dir).expect("all diffs");
+    assert_eq!(all.len(), 4);
+
+    // An untracked embedded repository shows up as a directory entry that
+    // git will not descend into; it must neither error nor sink the other
+    // diffs.
+    let nested = dir.join("nested");
+    std::fs::create_dir(&nested).unwrap();
+    git(&nested, &["init", "-q", "-b", "main"]);
+    std::fs::write(nested.join("inner.txt"), "in\n").unwrap();
+    let detail = read_uncommitted(dir).expect("with an embedded repository");
+    let entry = detail
+        .files
+        .iter()
+        .find(|f| f.path == "nested/")
+        .expect("the embedded repository is listed as a directory");
+    assert_eq!((entry.status.as_str(), entry.additions, entry.deletions), ("A", 0, 0));
+    let all = read_uncommitted_diffs(dir).expect("diffs survive the directory");
+    assert_eq!(all.len(), 5);
+    let dir_diff = read_uncommitted_diff(dir, "nested/").expect("directory diff");
+    assert_eq!((dir_diff.binary, dir_diff.text.as_str()), (false, ""));
+
+    // An unchanged path is not part of the uncommitted changes.
+    assert!(read_uncommitted_diff(dir, "missing.txt").is_err());
+}
+
+#[test]
+fn a_clean_working_tree_has_no_uncommitted_paths() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    std::fs::write(dir.join("note.txt"), "one\n").unwrap();
+    git(dir, &["add", "."]);
+    commit(dir, "root", 1000);
+
+    assert!(uncommitted_paths(dir).is_empty());
+    assert!(read_uncommitted(dir).expect("clean detail").files.is_empty());
 }

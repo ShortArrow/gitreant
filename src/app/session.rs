@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use crate::git::{
-    discover_repo, gpg_available, read_repo_with_progress, verification_state, verify_command,
-    verify_signatures, RepoData, SignatureCheck,
+    discover_repo, gpg_available, read_repo_with_progress, uncommitted_paths, verification_state,
+    verify_command, verify_signatures, RepoData, SignatureCheck,
 };
 
 use super::view::{build_view, RepoView};
@@ -109,7 +109,10 @@ pub fn read_view(
             // lags at a stale value while gpg runs.
             on_commits(data.commits.len());
             let command = annotate_verification(session, path, &mut data);
-            (build_view(path, &data), command)
+            // Whatever the working tree holds against HEAD rides above it
+            // as one synthetic row; the count is all the view needs.
+            let uncommitted = uncommitted_paths(path).len();
+            (build_view(path, &data, uncommitted), command)
         }
         Err(message) => (RepoView::error(path, message), None),
     }
