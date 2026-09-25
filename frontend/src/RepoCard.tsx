@@ -315,6 +315,22 @@ export function RepoCard({
   const [diffFiles, setDiffFiles] = useState<FileDiff[] | null>(null);
   const [diffError, setDiffError] = useState<string | null>(null);
 
+  // A reload can drop the selected row (the tree became clean, or the
+  // history was rewritten): nothing may keep showing a commit that is gone.
+  useEffect(() => {
+    if (selected && !repo.commits.some((c) => c.id === selected)) {
+      setSelected(null);
+      setDiffTarget(null);
+    }
+  }, [repo.commits, selected]);
+  // The tooltip follows a node; a node that vanishes under the pointer
+  // (reload, paging) never fires mouseleave.
+  useEffect(() => setHoverNode(null), [view.commits]);
+  // Commits are immutable, the working tree is not: while the changes row
+  // is selected, every reload re-reads its files and diffs.
+  const uncommittedGeneration =
+    selected === UNCOMMITTED_ID ? repo.commits : null;
+
   useEffect(() => {
     if (!selected) {
       setDetail(null);
@@ -334,7 +350,7 @@ export function RepoCard({
     return () => {
       stale = true;
     };
-  }, [selected, repo.id, loadDetail]);
+  }, [selected, repo.id, loadDetail, uncommittedGeneration]);
 
   useEffect(() => {
     if (!selected || !diffTarget) {
@@ -359,7 +375,14 @@ export function RepoCard({
     return () => {
       stale = true;
     };
-  }, [selected, diffTarget, repo.id, loadDiff, loadCommitDiff]);
+  }, [
+    selected,
+    diffTarget,
+    repo.id,
+    loadDiff,
+    loadCommitDiff,
+    uncommittedGeneration,
+  ]);
 
   if (repo.error) {
     return (
@@ -445,7 +468,9 @@ export function RepoCard({
           files={diffFiles}
           error={diffError}
           commitId={
-            selectedCommit?.uncommitted === undefined ? selected : undefined
+            selectedCommit && selectedCommit.uncommitted === undefined
+              ? selected
+              : undefined
           }
           parentId={selectedCommit?.parents[0]}
           githubUrl={repo.github_url}

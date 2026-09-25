@@ -132,6 +132,9 @@ test.describe.serial("gitreant UI", () => {
 
   test("merge history spans multiple lanes", async ({ page }) => {
     await page.locator('[data-repo-name="repoA"]').click();
+    // Count lanes only once the graph is drawn; the view read runs git
+    // subprocesses and can land after the click returns.
+    await expect(page.getByTestId("commit-row")).toHaveCount(5);
     const lanes = await page
       .locator('[data-testid="graph"] circle')
       .evaluateAll((els) => new Set(els.map((e) => e.getAttribute("cx"))).size);
@@ -2265,6 +2268,33 @@ test.describe.serial("gitreant UI", () => {
       await item.getByTestId("repo-remove").click();
       await expect(item).toHaveCount(0);
     }
+  });
+
+  test("the changes panel does not outlive the changes it showed", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoP);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoP"]')).toBeVisible();
+    await page.getByTestId("commit-row").first().click();
+    const detail = page.getByTestId("commit-detail");
+    await expect(detail.getByTestId("detail-file")).toHaveCount(2);
+
+    // Committing everything in a terminal and reloading leaves no changes
+    // row, and the panel that showed the old changes closes with it.
+    git(fixtures.repoP, ["add", "."]);
+    commit(fixtures.repoP, "p-3");
+    await page.getByTestId("reload").click();
+    const rows = page.getByTestId("commit-row");
+    await expect(rows).toHaveCount(3);
+    await expect(rows.first()).toContainText("p-3");
+    await expect(page.locator(".commit-uncommitted")).toHaveCount(0);
+    await expect(page.getByTestId("commit-detail")).toHaveCount(0);
+
+    const repoP = page.locator('[data-repo-name="repoP"]');
+    await repoP.hover();
+    await repoP.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoP"]')).toHaveCount(0);
   });
 
   test("a branch force-checked-out in a second worktree is marked on HEAD too", async ({

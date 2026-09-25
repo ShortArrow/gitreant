@@ -4,13 +4,14 @@
 //!
 //! The change list and the diffs of tracked files come from the `git` CLI,
 //! so line-ending conversion, `.gitattributes` filters and ignore rules match
-//! what the user's own `git status` / `git diff` show. An untracked file has
-//! nothing to diff against, so it is read straight from disk.
+//! what the user's own `git status` / `git diff` show, and the user's
+//! `status.showUntrackedFiles` setting decides how untracked files are
+//! listed. An untracked file has nothing to diff against, so it is read
+//! straight from disk, up to a size cap.
 
 use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::detail::{looks_binary, unified, CommitDetail, FileChange, FileDiff};
 use super::fetch::hide_console;
@@ -31,35 +32,33 @@ pub struct UncommittedPath {
     pub untracked: bool,
 }
 
+/// Untracked files larger than this are not read: they count as binary,
+/// so a stray VM image or dataset never lands in memory or in a response.
+pub const UNTRACKED_READ_LIMIT: u64 = 4 * 1024 * 1024;
+
 impl UncommittedPath {
-    /// An untracked directory git will not descend into — an embedded
-    /// repository. Listed (git status shows it), but there is no file to
-    /// count or diff, so it reads as an empty addition.
+    /// An untracked directory git lists as one entry (the default
+    /// `status.showUntrackedFiles=normal`, or an embedded repository).
+    /// Listed as git status shows it, but there is no file to count or
+    /// diff, so it reads as an empty addition.
     fn is_directory(&self) -> bool {
         self.untracked && self.path.ends_with('/')
     }
 }
 
-/// Every path changed against HEAD, staged or not, plus untracked files.
-/// Best effort: a repository git cannot read yields an empty list.
+/// Every path changed against HEAD, staged or not, plus untracked files as
+/// the user's `status.showUntrackedFiles` lists them (one entry per
+/// untracked directory by default). Best effort: a repository git cannot
+/// read yields an empty list.
 pub fn uncommitted_paths(path: &Path) -> Vec<UncommittedPath> {
-    output(
-        path,
-        &[
-            "status",
-            "--porcelain",
-            "-z",
-            "--untracked-files=all",
-            "--no-renames",
-        ],
-    )
-    .map(|out| parse_status(&out))
-    .unwrap_or_default()
+    output(path, &["status", "--porcelain", "-z", "--no-renames"])
+        .map(|out| parse_status(&out))
+        .unwrap_or_default()
 }
 
-/// The uncommitted changes as a commit-shaped detail: no author, the time
-/// of the read, HEAD as the only parent, and the changed files with line
-/// counts. Fails when there is no HEAD to compare against.
+/// The uncommitted changes as a commit-shaped detail: no author or time,
+/// HEAD as the only parent, and the changed files with line counts. Fails
+/// when there is no HEAD to compare against.
 pub fn read_uncommitted(path: &Path) -> Result<CommitDetail, String> {
     let head = head_id(path)?;
     let counts = parse_numstat(&output(
@@ -72,7 +71,9 @@ pub fn read_uncommitted(path: &Path) -> Result<CommitDetail, String> {
             let (additions, deletions) = if entry.is_directory() {
                 (0, 0)
             } else if entry.untracked {
-                std::fs::read(path.join(&entry.path))
+                read_untracked(&path.join(&entry.path), UNTRACKED_READ_LIMIT)
+                    .ok()
+                    .flatten()
                     .map(|data| new_file_counts(&data))
                     .unwrap_or((0, 0))
             } else {
@@ -91,7 +92,7 @@ pub fn read_uncommitted(path: &Path) -> Result<CommitDetail, String> {
         message: "Uncommitted changes".to_string(),
         author: String::new(),
         email: String::new(),
-        time: now(),
+        time: 0,
         parents: vec![head],
         signature: None,
         files,
@@ -107,12 +108,15 @@ pub fn read_uncommitted_diff(path: &Path, file: &str) -> Result<FileDiff, String
     diff_entry(path, &entry)
 }
 
-/// Every changed file's diff against HEAD, in status order.
+/// Every changed file's diff against HEAD, in status order. A file that
+/// cannot be read right now (locked by another process, gone since the
+/// status) is left out rather than sinking the whole set; asking for that
+/// one file alone still reports the error.
 pub fn read_uncommitted_diffs(path: &Path) -> Result<Vec<FileDiff>, String> {
-    uncommitted_paths(path)
+    Ok(uncommitted_paths(path)
         .iter()
-        .map(|entry| diff_entry(path, entry))
-        .collect()
+        .filter_map(|entry| diff_entry(path, entry).ok())
+        .collect())
 }
 
 fn diff_entry(path: &Path, entry: &UncommittedPath) -> Result<FileDiff, String> {
@@ -125,23 +129,23 @@ fn diff_entry(path: &Path, entry: &UncommittedPath) -> Result<FileDiff, String> 
         });
     }
     if entry.untracked {
-        let data = std::fs::read(path.join(&entry.path))
-            .map_err(|e| format!("read {}: {e}", entry.path))?;
-        let binary = looks_binary(&data);
+        let data = read_untracked(&path.join(&entry.path), UNTRACKED_READ_LIMIT)?;
+        let binary = data.as_deref().is_none_or(looks_binary);
         return Ok(FileDiff {
             path: entry.path.clone(),
             status: entry.status.clone(),
             binary,
-            text: if binary {
-                String::new()
-            } else {
-                unified(&[], &data)
+            text: match data {
+                Some(data) if !binary => unified(&[], &data),
+                _ => String::new(),
             },
         });
     }
+    // Literal pathspecs: a file named `a[1].txt` must not glob onto `a1.txt`.
     let out = output(
         path,
         &[
+            "--literal-pathspecs",
             "diff",
             "HEAD",
             "--no-color",
@@ -167,11 +171,20 @@ fn head_id(path: &Path) -> Result<String, String> {
         .map_err(|e| format!("no HEAD to compare against: {e}"))
 }
 
-fn now() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
+/// An untracked file's bytes, as git would see them: a symbolic link is
+/// its target text, not the file it points at. `None` when the file is
+/// larger than `limit` — the caller treats it as binary.
+fn read_untracked(file: &Path, limit: u64) -> Result<Option<Vec<u8>>, String> {
+    let describe = |e: std::io::Error| format!("read {}: {e}", file.display());
+    let meta = std::fs::symlink_metadata(file).map_err(describe)?;
+    if meta.file_type().is_symlink() {
+        let target = std::fs::read_link(file).map_err(describe)?;
+        return Ok(Some(target.to_string_lossy().into_owned().into_bytes()));
+    }
+    if meta.len() > limit {
+        return Ok(None);
+    }
+    std::fs::read(file).map(Some).map_err(describe)
 }
 
 /// Run git in `path` and return its stdout; stderr becomes the error. Never
@@ -314,6 +327,16 @@ mod tests {
             (true, String::new())
         );
         assert_eq!(parse_diff(""), (false, String::new()));
+    }
+
+    #[test]
+    fn an_untracked_file_over_the_cap_is_not_read() {
+        let tmp = tempfile::tempdir().unwrap();
+        let big = tmp.path().join("big.bin");
+        std::fs::write(&big, vec![b'x'; 64]).unwrap();
+        assert_eq!(read_untracked(&big, 16).unwrap(), None);
+        assert_eq!(read_untracked(&big, 64).unwrap().map(|d| d.len()), Some(64));
+        assert!(read_untracked(&tmp.path().join("missing"), 16).is_err());
     }
 
     #[test]

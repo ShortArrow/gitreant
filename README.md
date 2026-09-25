@@ -67,7 +67,7 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
 - Linked `git worktree` checkouts nest under their repository in the drawer
   (with the branch each has checked out) and open as views of their own;
   a branch checked out in another worktree carries a marker on its badge,
-  and its menu will not offer the checkout git would refuse
+  and its menu disables the checkout git would refuse
 - Live updates via Server-Sent Events when repositories are added or removed,
   plus a reload button to pick up new commits
 - Native folder picker for adding repositories

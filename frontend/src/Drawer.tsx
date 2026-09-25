@@ -471,6 +471,7 @@ export function Drawer({
                     <span className="repo-item-path" title={wt.path}>
                       {wt.path}
                     </span>
+                    <RepoStats status={statuses?.get(wt.path) ?? undefined} />
                   </li>
                 ))}
             </Fragment>

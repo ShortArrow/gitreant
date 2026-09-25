@@ -7,14 +7,6 @@ use serde::Serialize;
 use crate::domain::{layout, CommitInput, GraphEdge};
 use crate::git::{CommitDetail, FileDiff, RepoData, UNCOMMITTED_ID};
 
-/// Seconds since the Unix epoch: the "as of" time of a changes row.
-fn epoch_now() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
-}
-
 /// A commit positioned on the grid, with the metadata needed to render it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct CommitView {
@@ -276,7 +268,7 @@ pub fn build_view(id: &Path, data: &RepoData, uncommitted: usize) -> RepoView {
             author: String::new(),
             email: String::new(),
             avatar: None,
-            time: epoch_now(),
+            time: 0,
             signature: None,
             verified: None,
             signature_key: None,

@@ -113,13 +113,16 @@ fn read_status_counts_uncommitted_unpushed_and_local_branches() {
 
     let status = read_status(dir);
     assert_eq!(status.dirty, 1, "one untracked file");
-    // The drawer counts exactly what the graph's changes row counts: every
-    // file of an untracked directory, not the directory as one line.
+    // The drawer counts exactly what the graph's changes row counts, and
+    // both list untracked files the way the user's git status does: an
+    // untracked directory is one entry under the default setting.
     std::fs::create_dir(dir.join("scratch")).unwrap();
     std::fs::write(dir.join("scratch/a.txt"), "a\n").unwrap();
     std::fs::write(dir.join("scratch/b.txt"), "b\n").unwrap();
     assert_eq!(read_status(dir).dirty, uncommitted_paths(dir).len());
-    assert_eq!(read_status(dir).dirty, 3);
+    assert_eq!(read_status(dir).dirty, 2);
+    git(dir, &["config", "status.showUntrackedFiles", "all"]);
+    assert_eq!(read_status(dir).dirty, 3, "the user's setting is honoured");
     assert_eq!(status.local_branches, 2, "main and feature track nothing");
     // With no remote, every commit is unpushed.
     assert!(status.unpushed >= 1, "the root commit is unpushed");
@@ -623,6 +626,18 @@ fn uncommitted_changes_list_files_with_counts_and_diff_against_head() {
 
     // An unchanged path is not part of the uncommitted changes.
     assert!(read_uncommitted_diff(dir, "missing.txt").is_err());
+
+    // Pathspecs are literal: a file named like a glob diffs only itself.
+    std::fs::write(dir.join("a[1].txt"), "one\n").unwrap();
+    std::fs::write(dir.join("a1.txt"), "one\n").unwrap();
+    git(dir, &["add", "a[1].txt", "a1.txt"]);
+    commit(dir, "globby names", 1001);
+    std::fs::write(dir.join("a[1].txt"), "one\nbracket\n").unwrap();
+    std::fs::write(dir.join("a1.txt"), "one\nplain\n").unwrap();
+    let bracket = read_uncommitted_diff(dir, "a[1].txt").expect("bracket diff");
+    assert!(bracket.text.contains("+bracket\n"), "got {:?}", bracket.text);
+    assert!(!bracket.text.contains("+plain\n"), "globbed onto a1.txt: {:?}", bracket.text);
+    assert_eq!(bracket.text.lines().filter(|l| l.starts_with("@@")).count(), 1);
 }
 
 #[test]

@@ -58,11 +58,12 @@ export type Scenario = {
 };
 
 /** Number of rows the scenario shows: commits, merges, folded stashes, and
- * the uncommitted-changes row a `dirty` step leaves above HEAD. */
+ * the one uncommitted-changes row that any `dirty` step leaves above HEAD. */
 export function commitCount(scenario: Scenario): number {
-  return scenario.steps.filter(
-    (s) => "commit" in s || "merge" in s || "stash" in s || "dirty" in s,
+  const history = scenario.steps.filter(
+    (s) => "commit" in s || "merge" in s || "stash" in s,
   ).length;
+  return history + (scenario.steps.some((s) => "dirty" in s) ? 1 : 0);
 }
 
 /** The Octocat's noreply address: a real avatar with no network lookup. */
