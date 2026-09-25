@@ -9,8 +9,8 @@ use gitreant::domain::layout;
 use gitreant::git::{
     gitlink_updates, read_commit, read_commit_diff, read_file_diff, read_repo,
     read_repo_with_progress, read_status, read_submodules, read_uncommitted,
-    read_uncommitted_diff, read_uncommitted_diffs, uncommitted_paths, FileChange,
-    UNCOMMITTED_ID,
+    read_uncommitted_diff, read_uncommitted_diffs, read_worktrees, uncommitted_paths,
+    FileChange, UNCOMMITTED_ID,
 };
 
 fn git(dir: &Path, args: &[&str]) {
@@ -637,4 +637,66 @@ fn a_clean_working_tree_has_no_uncommitted_paths() {
 
     assert!(uncommitted_paths(dir).is_empty());
     assert!(read_uncommitted(dir).expect("clean detail").files.is_empty());
+}
+
+#[test]
+fn linked_worktrees_are_listed_from_either_side() {
+    let tmp = tempfile::tempdir().unwrap();
+    let main = tmp.path().join("main");
+    std::fs::create_dir(&main).unwrap();
+    git(&main, &["init", "-q", "-b", "main"]);
+    git(&main, &["config", "commit.gpgsign", "false"]);
+    commit(&main, "root", 1000);
+    let linked = tmp.path().join("feature-wt");
+    git(
+        &main,
+        &["worktree", "add", "-q", linked.to_str().unwrap(), "-b", "feature"],
+    );
+    let canon = |p: &Path| std::fs::canonicalize(p).unwrap();
+
+    // From the main worktree: the linked one, on its own branch.
+    let from_main = read_worktrees(&main);
+    assert_eq!(from_main.len(), 1, "{from_main:?}");
+    assert_eq!(from_main[0].name, "feature-wt");
+    assert_eq!(from_main[0].branch.as_deref(), Some("feature"));
+    assert!(!from_main[0].main);
+    assert_eq!(canon(&from_main[0].path), canon(&linked));
+
+    // From the linked worktree: the main one, on main.
+    let from_linked = read_worktrees(&linked);
+    assert_eq!(from_linked.len(), 1, "{from_linked:?}");
+    assert!(from_linked[0].main);
+    assert_eq!(from_linked[0].name, "main");
+    assert_eq!(from_linked[0].branch.as_deref(), Some("main"));
+    assert_eq!(canon(&from_linked[0].path), canon(&main));
+
+    // A linked worktree reads as a repository of its own: shared refs, its
+    // own HEAD, and it carries its relatives.
+    let repo = read_repo(&linked).expect("read the linked worktree");
+    assert_eq!(repo.head_branch.as_deref(), Some("feature"));
+    assert!(repo.refs.iter().any(|r| r.name == "main" && r.remote.is_none()));
+    assert_eq!(repo.worktrees.len(), 1);
+    assert!(repo.worktrees[0].main);
+
+    // A linked worktree whose directory was deleted (prunable) is not
+    // offered: it cannot be opened.
+    let gone = tmp.path().join("gone-wt");
+    git(
+        &main,
+        &["worktree", "add", "-q", gone.to_str().unwrap(), "-b", "gone"],
+    );
+    assert_eq!(read_worktrees(&main).len(), 2);
+    std::fs::remove_dir_all(&gone).unwrap();
+    let remaining = read_worktrees(&main);
+    let names: Vec<&str> = remaining.iter().map(|w| w.name.as_str()).collect();
+    assert_eq!(names, vec!["feature-wt"], "the pruned worktree must vanish");
+
+    // A repository with a single worktree lists nothing.
+    let alone = tmp.path().join("alone");
+    std::fs::create_dir(&alone).unwrap();
+    git(&alone, &["init", "-q", "-b", "main"]);
+    git(&alone, &["config", "commit.gpgsign", "false"]);
+    commit(&alone, "root", 1000);
+    assert!(read_worktrees(&alone).is_empty());
+    assert!(read_repo(&alone).unwrap().worktrees.is_empty());
 }

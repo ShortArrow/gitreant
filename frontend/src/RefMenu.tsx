@@ -9,6 +9,9 @@ export interface RefMenuTarget {
   reference: string;
   /** What the badge is; tags get delete instead of checkout/merge. */
   kind: "branch" | "tag";
+  /** The other worktree this branch is checked out in, if any: git refuses
+   * to switch to it here, so the menu says so instead of trying. */
+  worktreePath?: string;
 }
 
 /**
@@ -76,6 +79,12 @@ export function RefMenu({
               <button
                 type="button"
                 data-testid="ref-menu-checkout"
+                disabled={target.worktreePath !== undefined}
+                title={
+                  target.worktreePath === undefined
+                    ? undefined
+                    : t("checkedOutIn", { path: target.worktreePath })
+                }
                 onClick={() => setConfirm("checkout")}
               >
                 {t("refCheckout", { reference: target.reference })}

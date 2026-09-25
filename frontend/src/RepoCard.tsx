@@ -38,6 +38,7 @@ import {
   PrLinkIcon,
   StashBadgeIcon,
   TagBadgeIcon,
+  WorktreeIcon,
 } from "./Icons";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
 import { format, MESSAGES } from "./i18n";
@@ -158,6 +159,17 @@ export function RepoCard({
   );
   const rowOf = useMemo(() => rowIndex(view.commits), [view.commits]);
   const refMap = useMemo(() => refsByCommit(repo), [repo.refs]);
+  // Which other worktree has each local branch checked out: its badge gets
+  // a marker, and its menu cannot check it out here.
+  const worktreeOf = useMemo(
+    () =>
+      new Map(
+        (repo.worktrees ?? [])
+          .filter((w) => w.branch !== undefined)
+          .map((w) => [w.branch as string, w.path]),
+      ),
+    [repo.worktrees],
+  );
 
   // PRs by head branch name (open) plus merged ones for squash links; loads
   // lazily and silently stays empty when the server has no gh (or the repo
@@ -650,6 +662,10 @@ export function RepoCard({
                   const qualified = ref.remote
                     ? `${ref.remote}/${ref.name}`
                     : ref.name;
+                  const worktreePath =
+                    isBranch && !ref.remote
+                      ? worktreeOf.get(ref.name)
+                      : undefined;
                   return (
                     <span
                       key={`${ref.kind}:${qualified}`}
@@ -669,6 +685,7 @@ export function RepoCard({
                           // origin; operations still address the plain name.
                           reference: ref.kind === "tag" ? ref.name : qualified,
                           kind: ref.kind,
+                          worktreePath,
                         });
                       }}
                     >
@@ -683,6 +700,15 @@ export function RepoCard({
                         {ref.kind === "stash" && <StashBadgeIcon />}
                         {ref.name}
                       </span>
+                      {worktreePath !== undefined && (
+                        <span
+                          className="badge-worktree"
+                          data-testid="badge-worktree"
+                          title={t("checkedOutIn", { path: worktreePath })}
+                        >
+                          <WorktreeIcon />
+                        </span>
+                      )}
                       {pr && (
                         <a
                           className="badge-pr"

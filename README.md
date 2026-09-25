@@ -64,6 +64,10 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
   the `gh` CLI is installed and authenticated; squash-merged branches that
   still exist get a dashed link to the commit their PR landed as
 - Multiple repositories in one SPA: a drawer to list/add/remove, tabs to switch
+- Linked `git worktree` checkouts nest under their repository in the drawer
+  (with the branch each has checked out) and open as views of their own;
+  a branch checked out in another worktree carries a marker on its badge,
+  and its menu will not offer the checkout git would refuse
 - Live updates via Server-Sent Events when repositories are added or removed,
   plus a reload button to pick up new commits
 - Native folder picker for adding repositories

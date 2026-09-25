@@ -17,6 +17,7 @@ import {
   DotFillIcon,
   DownloadIcon,
   FileDirectoryIcon,
+  FileDirectorySymlinkIcon,
   FileDirectoryOpenFillIcon,
   GearIcon,
   GitBranchIcon,
@@ -177,4 +178,10 @@ export function BranchBadgeIcon() {
 /** Marks the stash badge apart from branch badges. */
 export function StashBadgeIcon() {
   return <StackIcon size={12} />;
+}
+
+/** A linked worktree: a drawer row nested under its main worktree, and the
+ * badge segment marking a branch checked out in another worktree. */
+export function WorktreeIcon() {
+  return <FileDirectorySymlinkIcon size={12} />;
 }

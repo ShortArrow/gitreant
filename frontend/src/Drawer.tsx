@@ -10,6 +10,7 @@ import {
   ExpandIcon,
   LocalBranchIcon,
   UnpushedIcon,
+  WorktreeIcon,
 } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { ResizeHandle, useStoredWidth } from "./Resizer";
@@ -69,6 +70,23 @@ export function activateOnKey(run: () => void) {
     e.preventDefault();
     run();
   };
+}
+
+/** The rows the drawer lists at top level. An attached submodule stays under
+ * its superproject's accordion, and a linked worktree under its main
+ * worktree's — but only while that main worktree is listed, so a linked
+ * worktree added on its own keeps a row (with the main one nested). Pure,
+ * so the nesting rules are unit-testable. */
+export function topLevelRepos(repos: RepoListEntry[]): RepoListEntry[] {
+  const nested = new Set(
+    repos.flatMap((r) => (r.submodules ?? []).map((s) => s.path)),
+  );
+  const listed = new Set(repos.map((r) => r.path));
+  return repos.filter(
+    (r) =>
+      !nested.has(r.path) &&
+      !(r.worktrees ?? []).some((w) => w.main && listed.has(w.path)),
+  );
 }
 
 /** The analyzing note next to a repository name: the running commit
@@ -172,7 +190,7 @@ export function Drawer({
     setSort(value);
     storeRepoSort(value);
   };
-  // Which repositories have their submodule accordion open.
+  // Which repositories have their submodule / worktree accordion open.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggleExpanded = (id: string) =>
     setExpanded((prev) => {
@@ -180,9 +198,10 @@ export function Drawer({
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  // Attaching a submodule makes it viewable; then show it in a pane. Opening
-  // it on the right sits its graph beside the superproject's (ADR 0022).
-  const openSubmodule = async (path: string, side: "here" | "right" = "here") => {
+  // Attaching a submodule or worktree makes it viewable; then show it in a
+  // pane. Opening it on the right sits its graph beside its parent's
+  // (ADR 0022).
+  const openChild = async (path: string, side: "here" | "right" = "here") => {
     setError(null);
     try {
       await onAdd(path);
@@ -191,23 +210,15 @@ export function Drawer({
       setError(String(err));
     }
   };
-  // Context menu for a submodule child row (copy its absolute path).
-  const [subMenu, setSubMenu] = useState<{
+  // Context menu for a nested row: a submodule or a worktree.
+  const [childMenu, setChildMenu] = useState<{
     x: number;
     y: number;
     path: string;
+    kind: "submodule" | "worktree";
   } | null>(null);
   const [width, setWidth] = useStoredWidth("gitreant-drawer-width", 260, 180, 480);
-  // An attached submodule stays a child of its superproject's accordion: the
-  // duplicate top-level row it would otherwise get is filtered out.
-  const submodulePaths = new Set(
-    repos.flatMap((r) => (r.submodules ?? []).map((s) => s.path)),
-  );
-  const arranged = arrangeRepos(
-    repos.filter((r) => !submodulePaths.has(r.path)),
-    filter,
-    sort,
-  );
+  const arranged = arrangeRepos(topLevelRepos(repos), filter, sort);
 
   const runAdd = async (value: string) => {
     setAdding(true);
@@ -319,6 +330,7 @@ export function Drawer({
       <ul className="repo-list">
         {arranged.map((repo) => {
           const subs = repo.submodules ?? [];
+          const worktrees = repo.worktrees ?? [];
           const isOpen = expanded.has(repo.id);
           return (
             <Fragment key={repo.id}>
@@ -339,11 +351,17 @@ export function Drawer({
                 }}
               >
                 <span className="repo-item-name">
-                  {subs.length > 0 && (
+                  {subs.length + worktrees.length > 0 && (
                     <button
                       className="repo-disclosure"
                       type="button"
-                      title={t("toggleSubmodules")}
+                      title={t(
+                        subs.length > 0 && worktrees.length > 0
+                          ? "toggleNested"
+                          : worktrees.length > 0
+                            ? "toggleWorktrees"
+                            : "toggleSubmodules",
+                      )}
                       aria-expanded={isOpen}
                       data-testid="repo-disclosure"
                       onClick={(e) => {
@@ -395,16 +413,63 @@ export function Drawer({
                     role="button"
                     tabIndex={0}
                     aria-current={sub.path === activeId ? true : undefined}
-                    onClick={() => openSubmodule(sub.path)}
-                    onKeyDown={activateOnKey(() => openSubmodule(sub.path))}
+                    onClick={() => openChild(sub.path)}
+                    onKeyDown={activateOnKey(() => openChild(sub.path))}
                     onContextMenu={(e) => {
                       e.preventDefault();
-                      setSubMenu({ x: e.clientX, y: e.clientY, path: sub.path });
+                      setChildMenu({
+                        x: e.clientX,
+                        y: e.clientY,
+                        path: sub.path,
+                        kind: "submodule",
+                      });
                     }}
                   >
                     <span className="repo-item-name">{sub.name}</span>
                     <span className="repo-item-path" title={sub.path}>
                       {sub.path}
+                    </span>
+                  </li>
+                ))}
+              {isOpen &&
+                worktrees.map((wt) => (
+                  // Another worktree of the same repository: named after its
+                  // directory, with the branch it has checked out.
+                  <li
+                    key={`${repo.id}//${wt.path}`}
+                    className={`repo-item repo-submodule repo-worktree${
+                      wt.path === activeId ? " active" : ""
+                    }`}
+                    data-testid="repo-worktree"
+                    data-repo-name={wt.name}
+                    title={t("openWorktree")}
+                    role="button"
+                    tabIndex={0}
+                    aria-current={wt.path === activeId ? true : undefined}
+                    onClick={() => openChild(wt.path)}
+                    onKeyDown={activateOnKey(() => openChild(wt.path))}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setChildMenu({
+                        x: e.clientX,
+                        y: e.clientY,
+                        path: wt.path,
+                        kind: "worktree",
+                      });
+                    }}
+                  >
+                    <span className="repo-item-name">
+                      <WorktreeIcon /> {wt.name}
+                      <span
+                        className="repo-worktree-branch"
+                        data-testid="repo-worktree-branch"
+                      >
+                        {wt.branch ?? t("detachedHead")}
+                        {wt.main && ` · ${t("mainWorktree")}`}
+                      </span>
+                    </span>
+                    <span className="repo-item-path" title={wt.path}>
+                      {wt.path}
                     </span>
                   </li>
                 ))}
@@ -459,34 +524,36 @@ export function Drawer({
         />
       )}
 
-      {subMenu && (
+      {childMenu && (
         <ContextMenu
-          x={subMenu.x}
-          y={subMenu.y}
+          x={childMenu.x}
+          y={childMenu.y}
           items={[
             {
-              id: "submodule-open",
-              label: t("openSubmodule"),
-              run: () => openSubmodule(subMenu.path),
+              id: `${childMenu.kind}-open`,
+              label: t(
+                childMenu.kind === "worktree" ? "openWorktree" : "openSubmodule",
+              ),
+              run: () => openChild(childMenu.path),
             },
             {
-              id: "submodule-open-right",
+              id: `${childMenu.kind}-open-right`,
               label: t("openRightPane"),
-              run: () => openSubmodule(subMenu.path, "right"),
+              run: () => openChild(childMenu.path, "right"),
             },
             {
-              id: "submodule-copy-path",
+              id: `${childMenu.kind}-copy-path`,
               label: t("copyAbsolutePath"),
-              run: () => navigator.clipboard?.writeText(subMenu.path),
+              run: () => navigator.clipboard?.writeText(childMenu.path),
             },
-            // An opened submodule has no top-level row of its own, so its
-            // detach lives here.
+            // An opened nested repository has no top-level row of its own,
+            // so its detach lives here.
             ...(() => {
-              const attached = repos.find((r) => r.path === subMenu.path);
+              const attached = repos.find((r) => r.path === childMenu.path);
               return attached
                 ? [
                     {
-                      id: "submodule-remove",
+                      id: `${childMenu.kind}-remove`,
                       label: t("removeFromView"),
                       run: () => onRemove(attached.id),
                     },
@@ -494,7 +561,7 @@ export function Drawer({
                 : [];
             })(),
           ]}
-          onClose={() => setSubMenu(null)}
+          onClose={() => setChildMenu(null)}
         />
       )}
 

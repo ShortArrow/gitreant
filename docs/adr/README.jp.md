@@ -33,3 +33,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0025](0025-timestamp-rendering.jp.md) | 日時形式は単一のクライアント設定で全表示を統べ絶対時刻を残す | Accepted |
 | [0026](0026-app-mode-window.jp.md) | 専用ウィンドウはブラウザのapp modeで開きネイティブGUIは採らない | Accepted |
 | [0027](0027-uncommitted-changes-row.jp.md) | 未コミットの変更はHEADの上に合成行として表示する | Accepted |
+| [0028](0028-worktrees.jp.md) | git worktreeはドロワーの入れ子表示とブランチバッジの印で扱う | Accepted |

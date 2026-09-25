@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { commit } from "./git";
+import { commit, git } from "./git";
 
 const fixtures = JSON.parse(
   readFileSync(path.join(process.cwd(), "e2e/.tmp/fixtures.json"), "utf8"),
@@ -2138,6 +2138,167 @@ test.describe.serial("gitreant UI", () => {
     await repoQ.hover();
     await repoQ.getByTestId("repo-remove").click();
     await expect(page.locator('[data-repo-name="repoQ"]')).toHaveCount(0);
+  });
+
+  test("paging keeps the uncommitted row on top and loads every commit", async ({
+    page,
+  }) => {
+    // A one-row page: the first fetch holds the changes row plus HEAD only,
+    // and the card must keep asking until both real commits are in.
+    await page.addInitScript(() =>
+      localStorage.setItem("gitreant-page-size", "1"),
+    );
+    await page.reload();
+    await page.getByTestId("add-input").fill(fixtures.repoP);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoP"]')).toBeVisible();
+
+    const rows = page.getByTestId("commit-row");
+    await expect(rows).toHaveCount(3);
+    await expect(rows.first()).toHaveClass(/commit-uncommitted/);
+    await expect(rows.nth(1).locator(".badge-head")).toHaveCount(1);
+    await expect(rows.nth(2)).toContainText("p-1");
+    await expect(page.locator(".repo-count")).toHaveText("2 commits");
+    await expect(page.locator(".edge-uncommitted")).toHaveCount(1);
+
+    const repoP = page.locator('[data-repo-name="repoP"]');
+    await repoP.hover();
+    await repoP.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoP"]')).toHaveCount(0);
+  });
+
+  test("a linked worktree and its main worktree share one drawer entry", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoQ);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoQ"]')).toBeVisible();
+    const repoQ = page.locator('[data-repo-name="repoQ"]');
+    await repoQ.getByTestId("repo-disclosure").click();
+    await page.getByTestId("repo-worktree").click();
+    await expect(page.locator('[data-tab-name="repoQ-wt"]')).toBeVisible();
+
+    // Adding the linked worktree by path again dedupes to the same view: it
+    // stays a nested row, marked active, never a second top-level entry.
+    await page.getByTestId("add-input").fill(fixtures.repoQWorktree);
+    await page.getByTestId("add-submit").click();
+    await expect(page.getByTestId("repo-worktree")).toHaveCount(1);
+    await expect(page.getByTestId("repo-worktree")).toHaveClass(/active/);
+    await expect(
+      page.locator('[data-testid="repo-item"][data-repo-name="repoQ-wt"]'),
+    ).toHaveCount(0);
+    await expect(page.getByTestId("tab")).toHaveCount(2);
+
+    // Removing the main worktree promotes the linked one to a top-level
+    // row, which nests the (now unlisted) main worktree under itself.
+    await repoQ.hover();
+    await repoQ.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-tab-name="repoQ"]')).toHaveCount(0);
+    const linked = page.locator(
+      '[data-testid="repo-item"][data-repo-name="repoQ-wt"]',
+    );
+    await expect(linked).toHaveCount(1);
+    await linked.getByTestId("repo-disclosure").click();
+    const nestedMain = page.getByTestId("repo-worktree");
+    await expect(nestedMain).toHaveCount(1);
+    await expect(nestedMain).toContainText("repoQ");
+    await expect(nestedMain.getByTestId("repo-worktree-branch")).toHaveText(
+      "main · main worktree",
+    );
+
+    // Restore the served set.
+    await linked.hover();
+    await linked.getByTestId("repo-remove").click();
+    await expect(linked).toHaveCount(0);
+  });
+
+  test("the uncommitted row and worktree rows read in Japanese", async ({
+    page,
+  }) => {
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("language-ja").click();
+    await page.keyboard.press("Escape");
+    await page.getByTestId("add-input").fill(fixtures.repoP);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoP"]')).toBeVisible();
+
+    const wip = page.getByTestId("commit-row").first();
+    await expect(wip).toContainText("未コミットの変更");
+    await expect(wip).toContainText("2 ファイル");
+    await page.locator(".node-uncommitted").hover();
+    await expect(page.getByTestId("node-tip")).toHaveText("未コミットの変更");
+    await page.mouse.move(0, 0);
+    await wip.click();
+    const detail = page.getByTestId("commit-detail");
+    await expect(detail.locator(".detail-id")).toHaveText("未コミット");
+    await expect(detail.locator(".detail-summary")).toHaveText("未コミットの変更");
+    await expect(detail).toContainText("比較対象");
+
+    await page.getByTestId("add-input").fill(fixtures.repoQ);
+    await page.getByTestId("add-submit").click();
+    const repoQ = page.locator('[data-repo-name="repoQ"]');
+    await expect(repoQ.getByTestId("repo-disclosure")).toHaveAttribute(
+      "title",
+      "ワークツリーを表示",
+    );
+    await repoQ.getByTestId("repo-disclosure").click();
+    await expect(page.getByTestId("repo-worktree")).toHaveAttribute(
+      "title",
+      "ワークツリーを開く",
+    );
+    // The focused pane is showing repoP, so the add did not open a tab.
+    await repoQ.click();
+    await expect(page.locator('[data-tab-name="repoQ"]')).toBeVisible();
+    const topic = page.locator(".badge-kind-branch", { hasText: "topic" });
+    await expect(topic.getByTestId("badge-worktree")).toHaveAttribute(
+      "title",
+      /でチェックアウト中$/,
+    );
+
+    // Back to English, and restore the served set.
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("language-en").click();
+    await page.keyboard.press("Escape");
+    for (const name of ["repoP", "repoQ"]) {
+      const item = page.locator(`[data-repo-name="${name}"]`);
+      await item.hover();
+      await item.getByTestId("repo-remove").click();
+      await expect(item).toHaveCount(0);
+    }
+  });
+
+  test("a branch force-checked-out in a second worktree is marked on HEAD too", async ({
+    page,
+  }) => {
+    // `git worktree add --force` lets two worktrees hold the same branch;
+    // the marker then says "also elsewhere" even on the checked-out branch,
+    // and the (pointless) checkout is refused like any other.
+    const twin = path.join(path.dirname(fixtures.repoQ), "repoQ-twin");
+    git(fixtures.repoQ, ["worktree", "add", "-q", "--force", twin, "main"]);
+    try {
+      await page.getByTestId("add-input").fill(fixtures.repoQ);
+      await page.getByTestId("add-submit").click();
+      await expect(page.locator('[data-tab-name="repoQ"]')).toBeVisible();
+
+      const main = page.locator(".badge-kind-branch", { hasText: "main" });
+      await expect(main.getByTestId("badge-worktree")).toHaveCount(1);
+      await expect(main.getByTestId("badge-worktree")).toHaveAttribute(
+        "title",
+        /repoQ-twin/,
+      );
+      await main.click({ button: "right" });
+      await expect(page.getByTestId("ref-menu-checkout")).toBeDisabled();
+      await page.keyboard.press("Escape");
+
+      const repoQ = page.locator('[data-repo-name="repoQ"]');
+      await repoQ.getByTestId("repo-disclosure").click();
+      await expect(page.getByTestId("repo-worktree")).toHaveCount(2);
+      await repoQ.hover();
+      await repoQ.getByTestId("repo-remove").click();
+      await expect(repoQ).toHaveCount(0);
+    } finally {
+      git(fixtures.repoQ, ["worktree", "remove", "--force", twin]);
+    }
   });
 
   test("browse button adds the folder returned by the picker", async ({

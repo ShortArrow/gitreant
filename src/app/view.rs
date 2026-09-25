@@ -69,6 +69,20 @@ pub struct RefView {
     pub kind: String,
 }
 
+/// Another worktree of the repository, as the SPA consumes it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct WorktreeView {
+    /// Directory name of the checkout.
+    pub name: String,
+    /// Absolute path of the checkout; opening it attaches it as its own view.
+    pub path: String,
+    /// The branch checked out there; absent when its HEAD is detached.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    /// The main worktree, as opposed to a linked one.
+    pub main: bool,
+}
+
 /// One repository as the SPA consumes it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RepoView {
@@ -83,6 +97,10 @@ pub struct RepoView {
     /// Web URL of the origin remote, when it points at github.com.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub github_url: Option<String>,
+    /// The repository's other worktrees, so branch badges can say where a
+    /// branch is checked out (a branch cannot be switched to twice).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub worktrees: Vec<WorktreeView>,
     pub refs: Vec<RefView>,
     pub commits: Vec<CommitView>,
     pub edges: Vec<GraphEdge>,
@@ -108,6 +126,7 @@ impl RepoView {
             head: None,
             head_branch: None,
             github_url: None,
+            worktrees: Vec::new(),
             refs: Vec::new(),
             commits: Vec::new(),
             edges: Vec::new(),
@@ -296,6 +315,18 @@ pub fn build_view(id: &Path, data: &RepoData, uncommitted: usize) -> RepoView {
         })
         .collect();
 
+    let worktrees = data
+        .worktrees
+        .iter()
+        .map(|w| WorktreeView {
+            name: w.name.clone(),
+            // Canonical like the list's, so both name one path the same way.
+            path: super::canonical(&w.path).to_string_lossy().into_owned(),
+            branch: w.branch.clone(),
+            main: w.main,
+        })
+        .collect();
+
     RepoView {
         id: id.to_string_lossy().into_owned(),
         name: data.name.clone(),
@@ -303,6 +334,7 @@ pub fn build_view(id: &Path, data: &RepoData, uncommitted: usize) -> RepoView {
         head: data.head.clone(),
         head_branch: data.head_branch.clone(),
         github_url: data.github_url.clone(),
+        worktrees,
         refs,
         total: data.commits.len(),
         commits,
@@ -354,6 +386,7 @@ mod tests {
             head: None,
             head_branch: None,
             github_url: None,
+            worktrees: vec![],
         };
 
         let view = build_view(Path::new("/tmp/wip"), &data, 0);
@@ -390,6 +423,7 @@ mod tests {
             head: head.map(str::to_string),
             head_branch: head.map(|_| "main".to_string()),
             github_url: None,
+            worktrees: vec![],
         }
     }
 
@@ -459,6 +493,7 @@ mod tests {
             head: Some("A".to_string()),
             head_branch: Some("main".to_string()),
             github_url: None,
+            worktrees: vec![],
         };
 
         let view = build_view(Path::new("/tmp/demo"), &data, 0);

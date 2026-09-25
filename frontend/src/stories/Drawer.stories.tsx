@@ -42,6 +42,45 @@ export const Default: Story = {
   },
 };
 
+/** A repository with a linked worktree nested under it, naming the branch
+ * the worktree has checked out. */
+export const WithWorktrees: Story = {
+  render: () => {
+    const [activeId, setActiveId] = useState<string | null>(null);
+    const withWorktrees = [
+      {
+        id: "/repos/app",
+        name: "app",
+        path: "/home/user/repos/app",
+        worktrees: [
+          {
+            name: "app-hotfix",
+            path: "/home/user/repos/app-hotfix",
+            branch: "hotfix/login",
+            main: false,
+          },
+        ],
+      },
+      linearRepo,
+    ];
+    return (
+      <div style={{ height: "100vh", display: "flex" }}>
+        <Drawer
+          repos={withWorktrees}
+          activeId={activeId}
+          collapsed={false}
+          onToggle={() => {}}
+          onSelect={setActiveId}
+          onOpenRight={(id) => console.log("open right", id)}
+          onReveal={(id) => console.log("reveal", id)}
+          onRemove={(id) => console.log("remove", id)}
+          onAdd={async (path) => console.log("add", path)}
+        />
+      </div>
+    );
+  },
+};
+
 /** A superproject with submodules grouped under a disclosure accordion. */
 export const WithSubmodules: Story = {
   render: () => {

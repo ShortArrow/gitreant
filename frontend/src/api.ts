@@ -65,6 +65,19 @@ export interface RefView {
   kind: string;
 }
 
+/** Another worktree of a repository (`git worktree`). */
+export interface WorktreeEntry {
+  /** Directory name of the checkout. */
+  name: string;
+  /** Canonical absolute path; opening it attaches the worktree as its own
+   *  view, and it matches attached repository ids. */
+  path: string;
+  /** The branch checked out there; absent when its HEAD is detached. */
+  branch?: string;
+  /** The main worktree, as opposed to a linked one. */
+  main: boolean;
+}
+
 export interface RepoView {
   id: string;
   name: string;
@@ -74,6 +87,9 @@ export interface RepoView {
   head_branch?: string;
   /** Web URL of the origin remote, when it points at github.com. */
   github_url?: string;
+  /** The repository's other worktrees, so a branch badge can say where the
+   *  branch is checked out (git refuses to switch to it here). */
+  worktrees?: WorktreeEntry[];
   refs: RefView[];
   commits: CommitView[];
   edges: GraphEdge[];
@@ -350,6 +366,8 @@ export interface RepoListEntry {
   path: string;
   /** Declared submodules, when the repository has a `.gitmodules`. */
   submodules?: SubmoduleEntry[];
+  /** The repository's other worktrees, when it has any. */
+  worktrees?: WorktreeEntry[];
 }
 
 /** The repository list, answered without reading any graph. */

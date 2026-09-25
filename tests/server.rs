@@ -1213,3 +1213,80 @@ async fn shutdown_endpoint_stops_the_server() {
         .unwrap();
     assert!(result.is_ok(), "serve returned an error: {result:?}");
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn listing_carries_linked_worktrees_with_their_branches() {
+    let tmp = tempfile::tempdir().unwrap();
+    let main = tmp.path().join("main");
+    std::fs::create_dir(&main).unwrap();
+    init_repo_with_commit(&main);
+    let linked = tmp.path().join("topic-wt");
+    let status = Command::new("git")
+        .current_dir(&main)
+        .args(["worktree", "add", "-q", linked.to_str().unwrap(), "-b", "topic"])
+        .status()
+        .unwrap();
+    assert!(status.success(), "git worktree add failed");
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(Session::new()))
+            .await
+            .unwrap();
+    });
+    let up = tokio::task::spawn_blocking(move || {
+        for _ in 0..50 {
+            if ping(port) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        false
+    })
+    .await
+    .unwrap();
+    assert!(up, "server did not come up");
+
+    let p = main.to_string_lossy().into_owned();
+    tokio::task::spawn_blocking(move || post_repo(port, &p))
+        .await
+        .unwrap()
+        .expect("add the main worktree");
+
+    let list = tokio::task::spawn_blocking(move || http_get(port, "/api/list"))
+        .await
+        .unwrap();
+    let entries: serde_json::Value = serde_json::from_str(
+        list.lines().find(|l| l.starts_with('[')).expect("list body"),
+    )
+    .unwrap();
+    let worktrees = entries[0]["worktrees"]
+        .as_array()
+        .expect("the listing names the linked worktree");
+    assert_eq!(worktrees.len(), 1);
+    assert_eq!(worktrees[0]["name"], "topic-wt");
+    assert_eq!(worktrees[0]["branch"], "topic");
+    assert_eq!(worktrees[0]["main"], false);
+    // Canonical, like repository ids, so the drawer can match an attached one.
+    let expected = gitreant::app::canonical(&linked).to_string_lossy().into_owned();
+    assert_eq!(worktrees[0]["path"], expected);
+
+    // The view of the main worktree carries the same relation.
+    let view = tokio::task::spawn_blocking(move || http_first_view(port))
+        .await
+        .unwrap();
+    assert!(
+        view.contains("\"worktrees\":[{\"name\":\"topic-wt\""),
+        "view lacks the worktree: {view}"
+    );
+    let escaped = serde_json::to_string(&expected).unwrap();
+    assert!(
+        view.contains(&format!("\"path\":{escaped}")),
+        "view path must be canonical like the list's: {view}"
+    );
+
+    let _ = tokio::task::spawn_blocking(move || post_shutdown(port))
+        .await
+        .unwrap();
+}

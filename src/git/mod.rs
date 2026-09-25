@@ -12,6 +12,7 @@ mod submodule;
 mod tag;
 mod uncommitted;
 mod verify;
+mod worktrees;
 
 pub use avatar::{avatar_search_command, gh_search_avatar, noreply_avatar_url};
 pub use branch::{
@@ -39,3 +40,4 @@ pub use uncommitted::{
 pub use verify::{
     gpg_available, verification_state, verify_command, verify_signatures, SignatureCheck,
 };
+pub use worktrees::{read_worktrees, Worktree};

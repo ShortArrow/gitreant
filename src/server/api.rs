@@ -422,6 +422,24 @@ struct RepoListEntry {
     /// can group them under their superproject.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     submodules: Vec<SubmoduleEntry>,
+    /// The repository's other worktrees, so the drawer can nest a linked
+    /// worktree under its main one and open either as its own view.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    worktrees: Vec<WorktreeEntry>,
+}
+
+/// Another worktree of a listed repository, as the drawer consumes it.
+#[derive(Serialize)]
+struct WorktreeEntry {
+    name: String,
+    /// Canonical absolute path; opening it attaches the worktree as its own
+    /// view, and the drawer matches it against attached repository ids.
+    path: String,
+    /// The branch checked out there; absent when its HEAD is detached.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    branch: Option<String>,
+    /// The main worktree, as opposed to a linked one.
+    main: bool,
 }
 
 /// A submodule of a listed repository, as the drawer consumes it.
@@ -459,6 +477,17 @@ fn light_list(state: &AppState) -> Vec<RepoListEntry> {
                     path: crate::app::canonical(&s.path)
                         .to_string_lossy()
                         .into_owned(),
+                })
+                .collect(),
+            worktrees: crate::git::read_worktrees(&path)
+                .into_iter()
+                .map(|w| WorktreeEntry {
+                    name: w.name,
+                    path: crate::app::canonical(&w.path)
+                        .to_string_lossy()
+                        .into_owned(),
+                    branch: w.branch,
+                    main: w.main,
                 })
                 .collect(),
             path: path.to_string_lossy().into_owned(),

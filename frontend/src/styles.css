@@ -301,6 +301,14 @@ body {
   color: var(--muted);
 }
 
+/* A worktree row names the branch it has checked out beside its directory. */
+.repo-worktree-branch {
+  margin-left: 6px;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .repo-item-status {
   grid-area: status;
   display: flex;
@@ -1104,6 +1112,15 @@ body {
   color: var(--muted);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   white-space: nowrap;
+}
+
+/* A branch checked out in another worktree: a marker segment on its badge. */
+.badge-worktree {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  color: var(--badge);
+  border-left: 1px solid color-mix(in srgb, var(--badge) 40%, transparent);
 }
 
 /* Link to the branch's open PR, appended as a badge segment. */

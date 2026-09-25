@@ -349,6 +349,20 @@ function makeRepoP(): string {
   return dir; // 2 commits
 }
 
+/** repoQ: a repository with a linked worktree (`git worktree add`) that has
+ * a `topic` branch checked out one commit ahead of main. Returns both paths;
+ * the worktree is added by the test through the drawer, never directly. */
+function makeRepoQ(): { main: string; worktree: string } {
+  const main = initRepo("repoQ");
+  const t = 1_700_000_000;
+  commit(main, "q-1", t);
+  const worktree = path.join(tmpDir, "repoQ-wt");
+  git(main, ["worktree", "add", "-q", worktree, "-b", "topic"]);
+  git(worktree, ["config", "commit.gpgsign", "false"]);
+  commit(worktree, "t-1", t + 10);
+  return { main, worktree };
+}
+
 /** Set by makeRepoI; the teardown must talk to the same gpg installation. */
 let gpgconfBin = "gpgconf";
 
@@ -375,6 +389,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoN = makeRepoN();
   const repoO = makeRepoO();
   const repoP = makeRepoP();
+  const repoQ = makeRepoQ();
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
@@ -399,6 +414,8 @@ export default async function globalSetup(_config: FullConfig) {
         repoN,
         repoO,
         repoP,
+        repoQ: repoQ.main,
+        repoQWorktree: repoQ.worktree,
       },
       null,
       2,

@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { RepoListEntry } from "./api";
-import { activateOnKey, arrangeRepos } from "./Drawer";
+import { activateOnKey, arrangeRepos, topLevelRepos } from "./Drawer";
 
 const repos: RepoListEntry[] = [
   { id: "/w/Zeta", name: "Zeta", path: "/work/zeta" },
@@ -96,4 +96,48 @@ test("activateOnKey ignores every other key", () => {
     expect(prevented()).toBe(false);
   }
   expect(runs).toBe(0);
+});
+
+test("topLevelRepos nests attached submodules under their superproject", () => {
+  const app: RepoListEntry = {
+    id: "/p/app",
+    name: "app",
+    path: "/p/app",
+    submodules: [{ name: "core", path: "/p/app/libs/core" }],
+  };
+  const core: RepoListEntry = { id: "/p/app/libs/core", name: "core", path: "/p/app/libs/core" };
+  expect(topLevelRepos([app, core]).map((r) => r.name)).toEqual(["app"]);
+  // Without its superproject listed, the submodule is a repository like any.
+  expect(topLevelRepos([core]).map((r) => r.name)).toEqual(["core"]);
+});
+
+test("topLevelRepos nests a linked worktree only while its main is listed", () => {
+  const main: RepoListEntry = {
+    id: "/p/main",
+    name: "main",
+    path: "/p/main",
+    worktrees: [{ name: "wt", path: "/p/wt", branch: "topic", main: false }],
+  };
+  const linked: RepoListEntry = {
+    id: "/p/wt",
+    name: "wt",
+    path: "/p/wt",
+    worktrees: [{ name: "main", path: "/p/main", branch: "main", main: true }],
+  };
+  // Both listed: the linked one lives under the main one's accordion.
+  expect(topLevelRepos([main, linked]).map((r) => r.name)).toEqual(["main"]);
+  expect(topLevelRepos([linked, main]).map((r) => r.name)).toEqual(["main"]);
+  // The linked worktree on its own keeps its row (the main one nests).
+  expect(topLevelRepos([linked]).map((r) => r.name)).toEqual(["wt"]);
+  // Two linked worktrees without their main both stay top level.
+  const other: RepoListEntry = {
+    id: "/p/wt2",
+    name: "wt2",
+    path: "/p/wt2",
+    worktrees: [
+      { name: "main", path: "/p/main", branch: "main", main: true },
+      { name: "wt", path: "/p/wt", branch: "topic", main: false },
+    ],
+  };
+  expect(topLevelRepos([linked, other]).map((r) => r.name)).toEqual(["wt", "wt2"]);
 });

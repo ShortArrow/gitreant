@@ -7,4 +7,5 @@ mod view;
 pub use session::{canonical, read_view, ExecutedCommand, Session};
 pub use view::{
     build_view, CommitDetailView, CommitView, FileChangeView, FileDiffView, RefView, RepoView,
+    WorktreeView,
 };

@@ -5,6 +5,7 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use super::detail::signature_kind;
+use super::worktrees::{read_worktrees, Worktree};
 use crate::domain::CommitInput;
 
 /// A commit with the metadata needed to render it.
@@ -55,6 +56,9 @@ pub struct RepoData {
     pub head_branch: Option<String>,
     /// Web URL of the origin remote, when it points at github.com.
     pub github_url: Option<String>,
+    /// The repository's other worktrees (`git worktree`): the main one when
+    /// this is a linked worktree, and every linked one otherwise.
+    pub worktrees: Vec<Worktree>,
 }
 
 impl RepoData {
@@ -135,6 +139,7 @@ pub fn read_repo_with_progress(
         head,
         head_branch,
         github_url,
+        worktrees: read_worktrees(path),
     })
 }
 
