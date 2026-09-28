@@ -112,22 +112,22 @@ change the graph topology shown in the README, then regenerate.
 
 ```console
 $ cd frontend
-$ pnpm icon    # regenerates public/{favicon.svg,icon.svg,icon-16.png,icon-32.png,icon-512.png}
-               # and icon/gitreant.ico (the Windows executable's icon)
+$ pnpm icon    # regenerates public/{favicon.ico,favicon.svg,icon.svg,icon-512.png}
 ```
 
 The master is the Inkscape file `frontend/icon/gitreant.svg`. It carries
 three drawings of the treant, one top-level layer each, drawn for the size
-they are meant for: "512px main" (128px and up: `icon.svg`, `icon-512.png`,
-the large `.ico` frames), "64px faceup" (24-64px: `favicon.svg`,
-`icon-32.png`, the middle frames) and "16px outline" (16-20px:
-`icon-16.png`, the smallest frames). `pnpm icon` strips the editor
-metadata, gives the main and faceup frames a white outline one pixel wide
-at the target size (the 16px glyph draws its own), and renders the PNGs and
-the `.ico` when Inkscape is installed, otherwise the committed ones stay.
-Vite copies `public/` into `dist`, so the binary serves the icons at the
-site root, and on Windows `build.rs` embeds the `.ico` as the executable's
-icon resource through `winresource`.
+they are meant for: "512px main" (128px and up), "64px faceup" (24-64px)
+and "16px outline" (16-20px). `pnpm icon` strips the editor metadata, gives
+the main and faceup frames a white outline one pixel wide at the target
+size (the 16px glyph draws its own), and renders `icon-512.png` and
+`favicon.ico` when Inkscape is installed, otherwise the committed ones
+stay. `favicon.ico` holds one frame per size from 16 to 256px, each from
+the drawing made for it, so browsers pick the frame they need; `favicon.svg`
+(faceup) covers other sizes and `icon.svg` (main) is the README logo. Vite
+copies `public/` into `dist`, so the binary serves the icons at the site
+root, and on Windows `build.rs` embeds the same `favicon.ico` as the
+executable's icon resource through `winresource`.
 
 ## Releasing
 

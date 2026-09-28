@@ -63,16 +63,18 @@ test.describe.serial("gitreant UI", () => {
     expect(svg.status()).toBe(200);
     expect(svg.headers()["content-type"]).toContain("image/svg+xml");
     expect(await svg.text()).toContain("<svg");
-    // The tab takes the bitmap drawn for its size; the large one serves
-    // app-mode windows and install prompts.
-    for (const size of [16, 32, 512]) {
-      const png = await page.request.get(`/icon-${size}.png`);
-      expect(png.status(), `icon-${size}.png`).toBe(200);
-      expect(png.headers()["content-type"]).toContain("image/png");
-    }
-    await expect(
-      page.locator('link[rel="icon"][sizes="16x16"]'),
-    ).toHaveAttribute("href", "./icon-16.png");
+    // The tab picks its size from the multi-frame .ico; the large PNG
+    // serves app-mode windows and install prompts.
+    const ico = await page.request.get("/favicon.ico");
+    expect(ico.status()).toBe(200);
+    expect(ico.headers()["content-type"]).toMatch(/image\/(x-icon|vnd\.microsoft\.icon)/);
+    await expect(page.locator('link[rel="icon"][href="./favicon.ico"]')).toHaveAttribute(
+      "sizes",
+      /16x16.*256x256/,
+    );
+    const png = await page.request.get("/icon-512.png");
+    expect(png.status()).toBe(200);
+    expect(png.headers()["content-type"]).toContain("image/png");
   });
 
   test("pane is empty until a repository is selected", async ({ page }) => {

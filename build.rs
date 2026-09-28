@@ -38,13 +38,14 @@ fn main() {
 }
 
 /// Explorer, the taskbar and the app-mode window all read the executable's
-/// icon resource; `pnpm icon` renders it from the SVG master.
+/// icon resource: the same multi-size .ico the SPA serves as its favicon,
+/// rendered by `pnpm icon` from the SVG master.
 #[cfg(windows)]
 fn embed_windows_icon() {
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
         return;
     }
-    let icon = "frontend/icon/gitreant.ico";
+    let icon = "frontend/public/favicon.ico";
     println!("cargo:rerun-if-changed={icon}");
     winresource::WindowsResource::new()
         .set_icon(icon)

@@ -4,11 +4,13 @@
 // with "frame", "body", "face" and "leaf" sublayers, drawn for the size it
 // is meant for: "512px main" (the full drawing, 128px and up), "64px faceup"
 // (a bigger face, 24-64px) and "16px outline" (a white line glyph with its
-// own white edge, 16-20px). This script writes the served SVGs and PNGs
-// stripped of editor metadata, gives the main and faceup frames a white
-// outline one pixel wide at the target size, and when Inkscape is available
-// rasterizes the PNGs and `gitreant.ico` (the Windows executable's icon,
-// embedded by build.rs).
+// own white edge, 16-20px). This script writes the served SVGs stripped of
+// editor metadata, gives the main and faceup frames a white outline one
+// pixel wide at the target size, and when Inkscape is available rasterizes
+// `icon-512.png` and `favicon.ico`. The .ico holds one frame per size from
+// 16 to 256px, each from the drawing made for it; browsers pick the frame
+// they need, and build.rs embeds the same file as the Windows executable's
+// icon.
 //
 //   pnpm icon
 import { execFileSync } from "node:child_process";
@@ -116,8 +118,8 @@ function document(variant, pixels) {
 }
 
 mkdirSync(outDir, { recursive: true });
-// Browsers take the SVG for any size it has no bitmap for; the tab itself
-// gets the 16px and 32px bitmaps below. The README shows icon.svg at 128px.
+// Browsers take the SVG for any size the .ico has no frame for; the tab
+// itself picks a frame from favicon.ico. The README shows icon.svg at 128px.
 writeFileSync(path.join(outDir, "favicon.svg"), document(VARIANTS.faceup, 32));
 writeFileSync(path.join(outDir, "icon.svg"), document(VARIANTS.main, 128));
 console.log("wrote favicon.svg (faceup) and icon.svg (main)");
@@ -176,23 +178,17 @@ function ico(frames) {
   return Buffer.concat([header, directory, ...frames.map((f) => f.data)]);
 }
 
-const PNG_SIZES = [16, 32, 512];
 const ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 128, 256];
-const rasters = PNG_SIZES.map((size) => path.join(outDir, `icon-${size}.png`));
+const rasters = ["icon-512.png", "favicon.ico"].map((name) => path.join(outDir, name));
 
 if (inkscape) {
-  for (const size of PNG_SIZES) {
-    writeFileSync(path.join(outDir, `icon-${size}.png`), render(size));
-  }
-  console.log(`wrote ${PNG_SIZES.map((s) => `icon-${s}.png`).join(", ")}`);
+  writeFileSync(path.join(outDir, "icon-512.png"), render(SIZE));
+  console.log("wrote icon-512.png");
   const frames = ICO_SIZES.map((size) => ({ size, data: render(size) }));
-  writeFileSync(path.join(here, "gitreant.ico"), ico(frames));
-  console.log(`wrote gitreant.ico (${frames.length} frames)`);
-} else if (
-  rasters.some((file) => !existsSync(file)) ||
-  !existsSync(path.join(here, "gitreant.ico"))
-) {
+  writeFileSync(path.join(outDir, "favicon.ico"), ico(frames));
+  console.log(`wrote favicon.ico (${frames.length} frames)`);
+} else if (rasters.some((file) => !existsSync(file))) {
   throw new Error("the rasterized icons are missing and Inkscape was not found to render them");
 } else {
-  console.log("Inkscape not found; the PNGs and gitreant.ico are left as committed");
+  console.log("Inkscape not found; icon-512.png and favicon.ico are left as committed");
 }

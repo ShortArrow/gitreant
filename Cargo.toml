@@ -20,7 +20,7 @@ include = [
     "/LICENSE-MIT",
     "/LICENSE-APACHE",
     "/frontend/dist/**",
-    "/frontend/icon/gitreant.ico",
+    "/frontend/public/favicon.ico",
 ]
 
 [lib]

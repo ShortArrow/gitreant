@@ -1,11 +1,12 @@
-//! The Windows executable icon is a generated artefact (`pnpm icon`); this
-//! pins its shape so a broken generator cannot land a file Explorer would
-//! reject: PNG-compressed frames covering the tab size up to 256px.
+//! The multi-size icon (`pnpm icon`) is both the SPA's favicon and the
+//! Windows executable's icon; this pins its shape so a broken generator
+//! cannot land a file Explorer or a browser would reject: PNG-compressed
+//! frames covering the tab size up to 256px.
 
 use std::path::Path;
 
 fn icon_bytes() -> Vec<u8> {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("frontend/icon/gitreant.ico");
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("frontend/public/favicon.ico");
     std::fs::read(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()))
 }
 
