@@ -1,12 +1,14 @@
 // Derive the served icons from the Inkscape master `gitreant.svg`.
 //
-// The master holds two drawings of the treant on one 512px canvas: the
-// full-size layers ("frame", "body", "face", "leaf") and simplified "… mini"
-// layers drawn in the central 1/5 box for tab-sized rendering. This script
-// splits them into `public/favicon.svg` (mini, cropped) and
-// `public/icon.svg` (full), stripped of editor metadata, and when Inkscape
-// is available rasterizes `public/icon-512.png` and `gitreant.ico` (the
-// Windows executable's icon, embedded by build.rs).
+// The master holds the treant on a 512px canvas in the layers "frame",
+// "body", "face" and "leaf" (its "… mini" layers, a simplified drawing, are
+// kept for reference but not used: the full drawing reads better even at tab
+// size). This script writes `public/favicon.svg` and `public/icon.svg`,
+// stripped of editor metadata and with a white outline along the diamond
+// frame so it stands off dark tab strips, and when Inkscape is available
+// rasterizes `public/icon-512.png` and `gitreant.ico` (the Windows
+// executable's icon, embedded by build.rs), each frame outlined one pixel
+// wide at its own size.
 //
 //   pnpm icon
 import { execFileSync } from "node:child_process";
@@ -17,8 +19,6 @@ const here = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z
 const master = path.join(here, "gitreant.svg");
 const outDir = path.join(here, "..", "public");
 const SIZE = 512;
-/** The mini layers live in the central fifth of the canvas. */
-const MINI_BOX = { x: SIZE * 0.4, y: SIZE * 0.4, size: SIZE / 5 };
 
 const source = readFileSync(master, "utf8");
 
@@ -54,30 +54,54 @@ function clean(markup) {
     .replace(/\s+xml:space="preserve"/g, "");
 }
 
-function document(viewBox, layers) {
+/**
+ * A white band `width` canvas units wide along the inside of the diamond's
+ * edge, drawn above every layer. The blue diamond's tips already touch the
+ * canvas, so the outline cannot go outside it; inside, it also trims the
+ * trunk where the drawing runs up to the frame.
+ */
+function frameOutline(frame, width) {
+  const rect = /<rect\b[^>]*\/>/.exec(frame)?.[0];
+  if (!rect) throw new Error("the frame layer holds no <rect>");
+  const num = (name) => parseFloat(new RegExp(`\\b${name}="([^"]+)"`).exec(rect)[1]);
+  const transform = /transform="([^"]+)"/.exec(rect)?.[1] ?? "";
+  const inset = width / 2;
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">\n` +
+    `<g><rect x="${num("x") + inset}" y="${num("y") + inset}"` +
+    ` width="${num("width") - width}" height="${num("height") - width}"` +
+    ` ry="${Math.max(0, num("ry") - inset)}" transform="${transform}"` +
+    ` style="fill:none;stroke:#ffffff;stroke-width:${width};stroke-linejoin:round"/></g>`
+  );
+}
+
+function document(layers, outline) {
+  const frame = layers.find((g) => layerLabel(g) === "frame");
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE}">\n` +
     clean(defs) +
     "\n" +
     layers.map(clean).join("\n") +
+    "\n" +
+    frameOutline(frame, outline) +
     "\n</svg>\n"
   );
 }
 
 const layers = topLevelGroups(source).filter((g) => layerLabel(g) !== "");
-const mini = layers.filter((g) => layerLabel(g).endsWith(" mini"));
 const full = layers.filter((g) => !layerLabel(g).endsWith(" mini"));
-if (mini.length === 0 || full.length === 0) {
-  throw new Error(`expected both layer sets, found ${layers.map(layerLabel)}`);
+if (!full.some((g) => layerLabel(g) === "frame")) {
+  throw new Error(`no "frame" layer among ${layers.map(layerLabel)}`);
 }
 
+/** Canvas units per device pixel when the drawing is `pixels` wide. */
+const unitsPerPixel = (pixels) => SIZE / pixels;
+
 mkdirSync(outDir, { recursive: true });
-writeFileSync(
-  path.join(outDir, "favicon.svg"),
-  document(`${MINI_BOX.x} ${MINI_BOX.y} ${MINI_BOX.size} ${MINI_BOX.size}`, mini),
-);
-writeFileSync(path.join(outDir, "icon.svg"), document(`0 0 ${SIZE} ${SIZE}`, full));
-console.log(`wrote favicon.svg (${mini.length} layers) and icon.svg (${full.length} layers)`);
+// The tab favicon renders at 16px on a 1x display: a one-pixel outline there.
+writeFileSync(path.join(outDir, "favicon.svg"), document(full, unitsPerPixel(16)));
+// The large icon shows at 128px in the READMEs: one pixel there too.
+writeFileSync(path.join(outDir, "icon.svg"), document(full, unitsPerPixel(128)));
+console.log(`wrote favicon.svg and icon.svg (${full.length} layers)`);
 
 // The PNG is for contexts that will not rasterize SVG (app-mode window
 // icons, install prompts). Inkscape renders it; without Inkscape the
@@ -94,8 +118,12 @@ const inkscape = [
     return false;
   }
 });
-function render(svg, width) {
+
+/** Rasterize the drawing `width` pixels wide with a one-pixel outline. */
+function render(width) {
+  const svg = path.join(here, `.render-${width}.svg`);
   const png = path.join(here, `.render-${width}.png`);
+  writeFileSync(svg, document(full, unitsPerPixel(width)));
   execFileSync(inkscape, [
     "--export-type=png",
     `--export-width=${width}`,
@@ -104,11 +132,12 @@ function render(svg, width) {
   ]);
   const data = readFileSync(png);
   rmSync(png);
+  rmSync(svg);
   return data;
 }
 
-/** A Windows .ico holding PNG-compressed frames: the mini drawing for the
- * sizes Explorer and the taskbar show small, the full one above that. */
+/** A Windows .ico holding PNG-compressed frames, one per size Explorer and
+ * the taskbar ask for. */
 function ico(frames) {
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);
@@ -131,16 +160,12 @@ function ico(frames) {
   return Buffer.concat([header, directory, ...frames.map((f) => f.data)]);
 }
 
-const MINI_SIZES = [16, 20, 24, 32, 40, 48];
-const FULL_SIZES = [64, 128, 256];
+const ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 128, 256];
 
 if (inkscape) {
-  writeFileSync(path.join(outDir, "icon-512.png"), render(path.join(outDir, "icon.svg"), SIZE));
+  writeFileSync(path.join(outDir, "icon-512.png"), render(SIZE));
   console.log("wrote icon-512.png");
-  const frames = [
-    ...MINI_SIZES.map((size) => ({ size, data: render(path.join(outDir, "favicon.svg"), size) })),
-    ...FULL_SIZES.map((size) => ({ size, data: render(path.join(outDir, "icon.svg"), size) })),
-  ];
+  const frames = ICO_SIZES.map((size) => ({ size, data: render(size) }));
   writeFileSync(path.join(here, "gitreant.ico"), ico(frames));
   console.log(`wrote gitreant.ico (${frames.length} frames)`);
 } else if (

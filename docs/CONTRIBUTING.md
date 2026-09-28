@@ -116,15 +116,16 @@ $ pnpm icon    # regenerates public/favicon.svg, public/icon.svg, public/icon-51
                # and icon/gitreant.ico (the Windows executable's icon)
 ```
 
-The master is the Inkscape file `frontend/icon/gitreant.svg`. It carries two
-drawings of the treant on one canvas: the full-size layers and the "… mini"
-layers, a simplified version drawn in the central fifth for tab-sized
-rendering. `pnpm icon` splits them into the served files and strips the
-editor metadata; the PNG and the `.ico` (mini drawing for 16–48px, full
-drawing above) are rendered when Inkscape is installed, otherwise the
-committed ones stay. Vite copies `public/` into `dist`, so the binary serves
-the icons at the site root, and on Windows `build.rs` embeds the `.ico` as
-the executable's icon resource through `winresource`.
+The master is the Inkscape file `frontend/icon/gitreant.svg`; its "frame",
+"body", "face" and "leaf" layers are the drawing (the "… mini" layers are an
+unused simplified variant). `pnpm icon` strips the editor metadata, gives
+the diamond frame a white outline one pixel wide at the size each output
+is meant for (16px for the favicon, 128px for the README icon, each frame's
+own size in the `.ico`), and renders the PNG and the `.ico` when Inkscape is
+installed, otherwise the committed ones stay. Vite copies `public/` into
+`dist`, so the binary serves the icons at the site root, and on Windows
+`build.rs` embeds the `.ico` as the executable's icon resource through
+`winresource`.
 
 ## Releasing
 
