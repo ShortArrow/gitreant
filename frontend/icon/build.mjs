@@ -1,14 +1,14 @@
 // Derive the served icons from the Inkscape master `gitreant.svg`.
 //
-// The master holds the treant on a 512px canvas in the layers "frame",
-// "body", "face" and "leaf" (its "… mini" layers, a simplified drawing, are
-// kept for reference but not used: the full drawing reads better even at tab
-// size). This script writes `public/favicon.svg` and `public/icon.svg`,
-// stripped of editor metadata and with a white outline along the diamond
-// frame so it stands off dark tab strips, and when Inkscape is available
-// rasterizes `public/icon-512.png` and `gitreant.ico` (the Windows
-// executable's icon, embedded by build.rs), each frame outlined one pixel
-// wide at its own size.
+// The master carries three drawings of the treant, each a top-level layer
+// with "frame", "body", "face" and "leaf" sublayers, drawn for the size it
+// is meant for: "512px main" (the full drawing, 128px and up), "64px faceup"
+// (a bigger face, 24-64px) and "16px outline" (a white line glyph with its
+// own white edge, 16-20px). This script writes the served SVGs and PNGs
+// stripped of editor metadata, gives the main and faceup frames a white
+// outline one pixel wide at the target size, and when Inkscape is available
+// rasterizes the PNGs and `gitreant.ico` (the Windows executable's icon,
+// embedded by build.rs).
 //
 //   pnpm icon
 import { execFileSync } from "node:child_process";
@@ -19,6 +19,20 @@ const here = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z
 const master = path.join(here, "gitreant.svg");
 const outDir = path.join(here, "..", "public");
 const SIZE = 512;
+
+/** Where each drawing sits on the master canvas (Inkscape user units). */
+const VARIANTS = {
+  main: { label: "512px main", viewBox: [0, 0, 512, 512], outlined: true },
+  faceup: { label: "64px faceup", viewBox: [204.8, 204.8, 102.4, 102.4], outlined: true },
+  outline16: { label: "16px outline", viewBox: [248.32, 248.32, 15.36, 15.36], outlined: false },
+};
+
+/** Which drawing a rendition `pixels` wide uses. */
+function variantFor(pixels) {
+  if (pixels <= 20) return VARIANTS.outline16;
+  if (pixels <= 64) return VARIANTS.faceup;
+  return VARIANTS.main;
+}
 
 const source = readFileSync(master, "utf8");
 
@@ -45,6 +59,13 @@ function topLevelGroups(svg) {
 
 const layerLabel = (g) => /inkscape:label="([^"]*)"/.exec(g)?.[1] ?? "";
 const defs = /<defs\b[\s\S]*?<\/defs>/.exec(source)?.[0] ?? "";
+const layers = topLevelGroups(source).filter((g) => layerLabel(g) !== "");
+for (const variant of Object.values(VARIANTS)) {
+  variant.markup = layers.find((g) => layerLabel(g) === variant.label);
+  if (!variant.markup) {
+    throw new Error(`no "${variant.label}" layer among ${layers.map(layerLabel)}`);
+  }
+}
 
 /** Drop Inkscape/Sodipodi attributes, force layers visible, tidy whitespace. */
 function clean(markup) {
@@ -54,82 +75,53 @@ function clean(markup) {
     .replace(/\s+xml:space="preserve"/g, "");
 }
 
+/** Canvas units per device pixel when `viewBox` renders `pixels` wide. */
+const unitsPerPixel = (variant, pixels) => variant.viewBox[2] / pixels;
+
 /**
  * A white band `width` canvas units wide along the inside of the diamond's
- * edge, drawn above every layer. The blue diamond's tips already touch the
- * canvas, so the outline cannot go outside it; inside, it also trims the
- * trunk where the drawing runs up to the frame.
+ * edge, drawn above every layer. The diamond's tips touch the drawing's
+ * edge, so the outline cannot go outside it; inside, it also trims the
+ * trunk where the drawing runs up to the frame. The band repeats the frame
+ * sublayer's transform so it lands where the frame does.
  */
-function frameOutline(frame, width) {
-  const rect = /<rect\b[^>]*\/>/.exec(frame)?.[0];
-  if (!rect) throw new Error("the frame layer holds no <rect>");
+function frameOutline(variant, width) {
+  const frame = /<g\b[^>]*inkscape:label="frame"[^>]*>[\s\S]*?<\/g>/.exec(variant.markup)?.[0];
+  const rect = frame && /<rect\b[^>]*\/>/.exec(frame)?.[0];
+  if (!rect) throw new Error(`"${variant.label}" has no frame rect`);
   const num = (name) => parseFloat(new RegExp(`\\b${name}="([^"]+)"`).exec(rect)[1]);
-  const transform = /transform="([^"]+)"/.exec(rect)?.[1] ?? "";
+  const own = /transform="([^"]+)"/.exec(rect)?.[1] ?? "";
+  const layer = /<g\b[^>]*transform="([^"]+)"/.exec(frame)?.[1] ?? "";
   const inset = width / 2;
   return (
-    `<g><rect x="${num("x") + inset}" y="${num("y") + inset}"` +
+    `<g transform="${layer}"><rect x="${num("x") + inset}" y="${num("y") + inset}"` +
     ` width="${num("width") - width}" height="${num("height") - width}"` +
-    ` ry="${Math.max(0, num("ry") - inset)}" transform="${transform}"` +
+    ` ry="${Math.max(0, num("ry") - inset)}" transform="${own}"` +
     ` style="fill:none;stroke:#ffffff;stroke-width:${width};stroke-linejoin:round"/></g>`
   );
 }
 
-/** Below this many pixels the drawing's own lines vanish (they are one or
- * two canvas units wide), so small renditions get their outlines widened
- * and their stroke-only detail (leaf veins, bark lines) dropped. */
-const SMALL_PIXELS = 48;
-const SMALL_OUTLINE_PIXELS = 0.75;
-
-/** The drawing for a small rendition: outlines at least `pixels`-relative
- * three quarters of a pixel wide, stroke-only detail hidden. */
-function emphasizeOutlines(markup, pixels) {
-  const minimum = SMALL_OUTLINE_PIXELS * unitsPerPixel(pixels);
-  return markup.replace(/style="[^"]*"/g, (style) => {
-    if (/fill:none/.test(style) && !/stroke:#ffffff/.test(style)) {
-      return style.replace(/^style="/, 'style="display:none;');
-    }
-    return style.replace(
-      /stroke-width:([0-9.]+)/g,
-      (_, w) => `stroke-width:${Math.max(parseFloat(w), minimum)}`,
-    );
-  });
-}
-
-/** The SVG document for a rendition `pixels` wide: the drawing, the frame
- * outline one pixel wide at that size, and small sizes emphasized. */
-function document(layers, pixels) {
-  const frame = layers.find((g) => layerLabel(g) === "frame");
-  const drawing = layers.map(clean).join("\n");
+/** The SVG document of `variant` prepared for a rendition `pixels` wide. */
+function document(variant, pixels) {
+  const outline = variant.outlined ? frameOutline(variant, unitsPerPixel(variant, pixels)) : "";
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE}">\n` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${variant.viewBox.join(" ")}">\n` +
     clean(defs) +
     "\n" +
-    (pixels <= SMALL_PIXELS ? emphasizeOutlines(drawing, pixels) : drawing) +
+    clean(variant.markup) +
     "\n" +
-    frameOutline(frame, unitsPerPixel(pixels)) +
+    outline +
     "\n</svg>\n"
   );
 }
 
-const layers = topLevelGroups(source).filter((g) => layerLabel(g) !== "");
-const full = layers.filter((g) => !layerLabel(g).endsWith(" mini"));
-if (!full.some((g) => layerLabel(g) === "frame")) {
-  throw new Error(`no "frame" layer among ${layers.map(layerLabel)}`);
-}
-
-/** Canvas units per device pixel when the drawing is `pixels` wide. */
-const unitsPerPixel = (pixels) => SIZE / pixels;
-
 mkdirSync(outDir, { recursive: true });
-// The tab favicon renders at 16px on a 1x display; the large icon shows at
-// 128px in the READMEs.
-writeFileSync(path.join(outDir, "favicon.svg"), document(full, 16));
-writeFileSync(path.join(outDir, "icon.svg"), document(full, 128));
-console.log(`wrote favicon.svg and icon.svg (${full.length} layers)`);
+// Browsers take the SVG for any size it has no bitmap for; the tab itself
+// gets the 16px and 32px bitmaps below. The README shows icon.svg at 128px.
+writeFileSync(path.join(outDir, "favicon.svg"), document(VARIANTS.faceup, 32));
+writeFileSync(path.join(outDir, "icon.svg"), document(VARIANTS.main, 128));
+console.log("wrote favicon.svg (faceup) and icon.svg (main)");
 
-// The PNG is for contexts that will not rasterize SVG (app-mode window
-// icons, install prompts). Inkscape renders it; without Inkscape the
-// committed PNG simply stays as it is.
 const inkscape = [
   "inkscape",
   "C:/Program Files/Inkscape/bin/inkscape.exe",
@@ -143,11 +135,11 @@ const inkscape = [
   }
 });
 
-/** Rasterize the drawing `width` pixels wide, as prepared for that size. */
+/** Rasterize the drawing meant for `width` pixels, `width` pixels wide. */
 function render(width) {
   const svg = path.join(here, `.render-${width}.svg`);
   const png = path.join(here, `.render-${width}.png`);
-  writeFileSync(svg, document(full, width));
+  writeFileSync(svg, document(variantFor(width), width));
   execFileSync(inkscape, [
     "--export-type=png",
     `--export-width=${width}`,
@@ -184,19 +176,23 @@ function ico(frames) {
   return Buffer.concat([header, directory, ...frames.map((f) => f.data)]);
 }
 
+const PNG_SIZES = [16, 32, 512];
 const ICO_SIZES = [16, 20, 24, 32, 40, 48, 64, 128, 256];
+const rasters = PNG_SIZES.map((size) => path.join(outDir, `icon-${size}.png`));
 
 if (inkscape) {
-  writeFileSync(path.join(outDir, "icon-512.png"), render(SIZE));
-  console.log("wrote icon-512.png");
+  for (const size of PNG_SIZES) {
+    writeFileSync(path.join(outDir, `icon-${size}.png`), render(size));
+  }
+  console.log(`wrote ${PNG_SIZES.map((s) => `icon-${s}.png`).join(", ")}`);
   const frames = ICO_SIZES.map((size) => ({ size, data: render(size) }));
   writeFileSync(path.join(here, "gitreant.ico"), ico(frames));
   console.log(`wrote gitreant.ico (${frames.length} frames)`);
 } else if (
-  !existsSync(path.join(outDir, "icon-512.png")) ||
+  rasters.some((file) => !existsSync(file)) ||
   !existsSync(path.join(here, "gitreant.ico"))
 ) {
   throw new Error("the rasterized icons are missing and Inkscape was not found to render them");
 } else {
-  console.log("Inkscape not found; icon-512.png and gitreant.ico left as committed");
+  console.log("Inkscape not found; the PNGs and gitreant.ico are left as committed");
 }
