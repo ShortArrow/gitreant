@@ -78,7 +78,9 @@ responsibility for — is defined in [QUALITY.md](QUALITY.md).
 - **e2e**: Playwright E2E on Ubuntu
 - **docs-tandem**: bilingual documents update together — when both `X.jp.md`
   and `X.md` exist, a change to one side must change the other in the same
-  push (`.github/scripts/check-docs-tandem.sh`). Structural consistency of
+  push (`.github/scripts/check-docs-tandem.sh`); a change that only re-breaks
+  lines is exempt, since Japanese paragraphs are kept on one line (a break
+  inside one renders as a stray space). Structural consistency of
   the ADR indexes (same ADR set, matching slugs, honest links) is a regular
   `cargo test` (`tests/docs.rs`); Japanese is canonical and English bodies
   may be pre-linked before they exist.

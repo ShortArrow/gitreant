@@ -3,8 +3,15 @@
 # was MODIFIED without the other changing too. Additions are exempt: the
 # convention is Japanese-first with English editions landing later, so a new
 # translation (or a brand-new pair) must not require touching its
-# counterpart. Pairs where only one language exists stay exempt as well.
+# counterpart. Pairs where only one language exists stay exempt as well, and
+# so is a change that only re-breaks lines (the text without whitespace is
+# unchanged): it says nothing the other language would have to follow.
 set -euo pipefail
+
+# The file's text with every space and line break removed, at one ref.
+squeezed() {
+  git show "$1:$2" | tr -d ' \t\r\n'
+}
 
 base="${1:?base ref}"
 head="${2:?head ref}"
@@ -26,6 +33,9 @@ while IFS= read -r file; do
     *) continue ;;
   esac
   [ -f "$other" ] || continue
+  if [ "$(squeezed "$base" "$file")" = "$(squeezed "$head" "$file")" ]; then
+    continue
+  fi
   if ! grep -qxF "$other" <<<"$changed"; then
     echo "::error file=$file::$file was modified but its counterpart $other did not change — bilingual docs update together"
     fail=1
