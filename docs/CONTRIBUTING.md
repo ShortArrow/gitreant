@@ -113,15 +113,18 @@ change the graph topology shown in the README, then regenerate.
 ```console
 $ cd frontend
 $ pnpm icon    # regenerates public/favicon.svg, public/icon.svg, public/icon-512.png
+               # and icon/gitreant.ico (the Windows executable's icon)
 ```
 
 The master is the Inkscape file `frontend/icon/gitreant.svg`. It carries two
 drawings of the treant on one canvas: the full-size layers and the "… mini"
 layers, a simplified version drawn in the central fifth for tab-sized
 rendering. `pnpm icon` splits them into the served files and strips the
-editor metadata; the PNG is rendered when Inkscape is installed, otherwise
-the committed one stays. Vite copies `public/` into `dist`, so the binary
-serves the icons at the site root.
+editor metadata; the PNG and the `.ico` (mini drawing for 16–48px, full
+drawing above) are rendered when Inkscape is installed, otherwise the
+committed ones stay. Vite copies `public/` into `dist`, so the binary serves
+the icons at the site root, and on Windows `build.rs` embeds the `.ico` as
+the executable's icon resource through `winresource`.
 
 ## Releasing
 

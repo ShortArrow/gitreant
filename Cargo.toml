@@ -20,6 +20,7 @@ include = [
     "/LICENSE-MIT",
     "/LICENSE-APACHE",
     "/frontend/dist/**",
+    "/frontend/icon/gitreant.ico",
 ]
 
 [lib]
@@ -52,3 +53,8 @@ strip = true
 
 [dev-dependencies]
 tempfile = "3.27.0"
+
+# The executable's icon is a Windows resource; other targets have no
+# equivalent and skip it (see build.rs).
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1.31"

@@ -1,6 +1,7 @@
 //! Ensure `frontend/dist` exists so `rust-embed` can compile even before the SPA
-//! has been built (a real `make build` overwrites this placeholder), and bake
-//! the commit hash into the binary for the info dialog.
+//! has been built (a real `make build` overwrites this placeholder), bake the
+//! commit hash into the binary for the info dialog, and on Windows give the
+//! executable its icon.
 
 use std::fs;
 use std::path::Path;
@@ -32,4 +33,24 @@ fn main() {
         .unwrap_or_else(|| "unknown".to_string());
     println!("cargo:rustc-env=GITREANT_COMMIT={commit}");
     println!("cargo:rerun-if-changed=.git/HEAD");
+
+    embed_windows_icon();
 }
+
+/// Explorer, the taskbar and the app-mode window all read the executable's
+/// icon resource; `pnpm icon` renders it from the SVG master.
+#[cfg(windows)]
+fn embed_windows_icon() {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
+        return;
+    }
+    let icon = "frontend/icon/gitreant.ico";
+    println!("cargo:rerun-if-changed={icon}");
+    winresource::WindowsResource::new()
+        .set_icon(icon)
+        .compile()
+        .expect("compile the Windows icon resource");
+}
+
+#[cfg(not(windows))]
+fn embed_windows_icon() {}

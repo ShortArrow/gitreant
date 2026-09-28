@@ -4,12 +4,13 @@
 // full-size layers ("frame", "body", "face", "leaf") and simplified "… mini"
 // layers drawn in the central 1/5 box for tab-sized rendering. This script
 // splits them into `public/favicon.svg` (mini, cropped) and
-// `public/icon.svg` (full), stripped of editor metadata, and rasterizes
-// `public/icon-512.png` when Inkscape is available.
+// `public/icon.svg` (full), stripped of editor metadata, and when Inkscape
+// is available rasterizes `public/icon-512.png` and `gitreant.ico` (the
+// Windows executable's icon, embedded by build.rs).
 //
 //   pnpm icon
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const here = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"));
@@ -93,16 +94,60 @@ const inkscape = [
     return false;
   }
 });
-if (inkscape) {
+function render(svg, width) {
+  const png = path.join(here, `.render-${width}.png`);
   execFileSync(inkscape, [
     "--export-type=png",
-    `--export-width=${SIZE}`,
-    `--export-filename=${path.join(outDir, "icon-512.png")}`,
-    path.join(outDir, "icon.svg"),
+    `--export-width=${width}`,
+    `--export-filename=${png}`,
+    svg,
   ]);
+  const data = readFileSync(png);
+  rmSync(png);
+  return data;
+}
+
+/** A Windows .ico holding PNG-compressed frames: the mini drawing for the
+ * sizes Explorer and the taskbar show small, the full one above that. */
+function ico(frames) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(frames.length, 4);
+  const directory = Buffer.alloc(16 * frames.length);
+  let offset = header.length + directory.length;
+  frames.forEach(({ size, data }, i) => {
+    const entry = directory.subarray(16 * i);
+    entry.writeUInt8(size === 256 ? 0 : size, 0);
+    entry.writeUInt8(size === 256 ? 0 : size, 1);
+    entry.writeUInt8(0, 2);
+    entry.writeUInt8(0, 3);
+    entry.writeUInt16LE(1, 4);
+    entry.writeUInt16LE(32, 6);
+    entry.writeUInt32LE(data.length, 8);
+    entry.writeUInt32LE(offset, 12);
+    offset += data.length;
+  });
+  return Buffer.concat([header, directory, ...frames.map((f) => f.data)]);
+}
+
+const MINI_SIZES = [16, 20, 24, 32, 40, 48];
+const FULL_SIZES = [64, 128, 256];
+
+if (inkscape) {
+  writeFileSync(path.join(outDir, "icon-512.png"), render(path.join(outDir, "icon.svg"), SIZE));
   console.log("wrote icon-512.png");
-} else if (!existsSync(path.join(outDir, "icon-512.png"))) {
-  throw new Error("icon-512.png is missing and Inkscape was not found to render it");
+  const frames = [
+    ...MINI_SIZES.map((size) => ({ size, data: render(path.join(outDir, "favicon.svg"), size) })),
+    ...FULL_SIZES.map((size) => ({ size, data: render(path.join(outDir, "icon.svg"), size) })),
+  ];
+  writeFileSync(path.join(here, "gitreant.ico"), ico(frames));
+  console.log(`wrote gitreant.ico (${frames.length} frames)`);
+} else if (
+  !existsSync(path.join(outDir, "icon-512.png")) ||
+  !existsSync(path.join(here, "gitreant.ico"))
+) {
+  throw new Error("the rasterized icons are missing and Inkscape was not found to render them");
 } else {
-  console.log("Inkscape not found; icon-512.png left as committed");
+  console.log("Inkscape not found; icon-512.png and gitreant.ico left as committed");
 }
