@@ -121,8 +121,10 @@ The master is the Inkscape file `frontend/icon/gitreant.svg`; its "frame",
 unused simplified variant). `pnpm icon` strips the editor metadata, gives
 the diamond frame a white outline one pixel wide at the size each output
 is meant for (16px for the favicon, 128px for the README icon, each frame's
-own size in the `.ico`), and renders the PNG and the `.ico` when Inkscape is
-installed, otherwise the committed ones stay. Vite copies `public/` into
+own size in the `.ico`), widens the drawing's own outlines and drops its
+stroke-only detail for renditions of 48px and below, and renders the PNG
+and the `.ico` when Inkscape is installed, otherwise the committed ones
+stay. Vite copies `public/` into
 `dist`, so the binary serves the icons at the site root, and on Windows
 `build.rs` embeds the `.ico` as the executable's icon resource through
 `winresource`.

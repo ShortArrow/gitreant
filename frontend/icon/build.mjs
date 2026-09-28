@@ -74,15 +74,39 @@ function frameOutline(frame, width) {
   );
 }
 
-function document(layers, outline) {
+/** Below this many pixels the drawing's own lines vanish (they are one or
+ * two canvas units wide), so small renditions get their outlines widened
+ * and their stroke-only detail (leaf veins, bark lines) dropped. */
+const SMALL_PIXELS = 48;
+const SMALL_OUTLINE_PIXELS = 0.75;
+
+/** The drawing for a small rendition: outlines at least `pixels`-relative
+ * three quarters of a pixel wide, stroke-only detail hidden. */
+function emphasizeOutlines(markup, pixels) {
+  const minimum = SMALL_OUTLINE_PIXELS * unitsPerPixel(pixels);
+  return markup.replace(/style="[^"]*"/g, (style) => {
+    if (/fill:none/.test(style) && !/stroke:#ffffff/.test(style)) {
+      return style.replace(/^style="/, 'style="display:none;');
+    }
+    return style.replace(
+      /stroke-width:([0-9.]+)/g,
+      (_, w) => `stroke-width:${Math.max(parseFloat(w), minimum)}`,
+    );
+  });
+}
+
+/** The SVG document for a rendition `pixels` wide: the drawing, the frame
+ * outline one pixel wide at that size, and small sizes emphasized. */
+function document(layers, pixels) {
   const frame = layers.find((g) => layerLabel(g) === "frame");
+  const drawing = layers.map(clean).join("\n");
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE}">\n` +
     clean(defs) +
     "\n" +
-    layers.map(clean).join("\n") +
+    (pixels <= SMALL_PIXELS ? emphasizeOutlines(drawing, pixels) : drawing) +
     "\n" +
-    frameOutline(frame, outline) +
+    frameOutline(frame, unitsPerPixel(pixels)) +
     "\n</svg>\n"
   );
 }
@@ -97,10 +121,10 @@ if (!full.some((g) => layerLabel(g) === "frame")) {
 const unitsPerPixel = (pixels) => SIZE / pixels;
 
 mkdirSync(outDir, { recursive: true });
-// The tab favicon renders at 16px on a 1x display: a one-pixel outline there.
-writeFileSync(path.join(outDir, "favicon.svg"), document(full, unitsPerPixel(16)));
-// The large icon shows at 128px in the READMEs: one pixel there too.
-writeFileSync(path.join(outDir, "icon.svg"), document(full, unitsPerPixel(128)));
+// The tab favicon renders at 16px on a 1x display; the large icon shows at
+// 128px in the READMEs.
+writeFileSync(path.join(outDir, "favicon.svg"), document(full, 16));
+writeFileSync(path.join(outDir, "icon.svg"), document(full, 128));
 console.log(`wrote favicon.svg and icon.svg (${full.length} layers)`);
 
 // The PNG is for contexts that will not rasterize SVG (app-mode window
@@ -119,11 +143,11 @@ const inkscape = [
   }
 });
 
-/** Rasterize the drawing `width` pixels wide with a one-pixel outline. */
+/** Rasterize the drawing `width` pixels wide, as prepared for that size. */
 function render(width) {
   const svg = path.join(here, `.render-${width}.svg`);
   const png = path.join(here, `.render-${width}.png`);
-  writeFileSync(svg, document(full, unitsPerPixel(width)));
+  writeFileSync(svg, document(full, width));
   execFileSync(inkscape, [
     "--export-type=png",
     `--export-width=${width}`,
