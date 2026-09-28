@@ -2,6 +2,10 @@
 
 [English](../README.md) | [日本語](README.jp.md)
 
+<p align="center">
+  <img src="../frontend/public/icon.svg" width="128" alt="gitreant のトレント: 二枚の葉の下、幹に顔">
+</p>
+
 Gitリポジトリの森を見渡し、整え、育てるための管理ツール。
 
 Gitreant は「Git」と、森を守る樹人「Treant」を組み合わせた造語です。Gitリポジトリの森を見渡し、枝を整え、健全に保つツールという意味を込めています。

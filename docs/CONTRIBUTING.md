@@ -108,6 +108,21 @@ The screenshots are taken from fixture repositories described declaratively in
 `frontend/screenshot/scenario.ts` — edit its branch/commit/merge steps to
 change the graph topology shown in the README, then regenerate.
 
+## App icon
+
+```console
+$ cd frontend
+$ pnpm icon    # regenerates public/favicon.svg, public/icon.svg, public/icon-512.png
+```
+
+The master is the Inkscape file `frontend/icon/gitreant.svg`. It carries two
+drawings of the treant on one canvas: the full-size layers and the "… mini"
+layers, a simplified version drawn in the central fifth for tab-sized
+rendering. `pnpm icon` splits them into the served files and strips the
+editor metadata; the PNG is rendered when Inkscape is installed, otherwise
+the committed one stays. Vite copies `public/` into `dist`, so the binary
+serves the icons at the site root.
+
 ## Releasing
 
 Push a `vX.Y.Z` tag; `.github/workflows/release.yml` does the rest:

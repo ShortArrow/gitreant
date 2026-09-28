@@ -7,6 +7,10 @@
 
 [English](README.md) | [日本語](docs/README.jp.md)
 
+<p align="center">
+  <img src="frontend/public/icon.svg" width="128" alt="The gitreant treant: a face in a trunk under two leaves">
+</p>
+
 Manage, inspect, and maintain multiple Git repositories from one place.
 
 Gitreant combines “Git” with “Treant,” a mythical guardian of the forest. The name represents a tool that watches over, organizes, and maintains a forest of Git repositories.

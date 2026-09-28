@@ -51,6 +51,23 @@ test.describe.serial("gitreant UI", () => {
     await expect(row).toBeFocused();
   });
 
+  test("the page declares an icon and the server serves it", async ({
+    page,
+  }) => {
+    // The tab and the app-mode window take their icon from these links.
+    await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute(
+      "href",
+      "./favicon.svg",
+    );
+    const svg = await page.request.get("/favicon.svg");
+    expect(svg.status()).toBe(200);
+    expect(svg.headers()["content-type"]).toContain("image/svg+xml");
+    expect(await svg.text()).toContain("<svg");
+    const png = await page.request.get("/icon-512.png");
+    expect(png.status()).toBe(200);
+    expect(png.headers()["content-type"]).toContain("image/png");
+  });
+
   test("pane is empty until a repository is selected", async ({ page }) => {
     await expect(page.getByTestId("pane-empty")).toBeVisible();
     await expect(page.getByTestId("graph")).toHaveCount(0);
