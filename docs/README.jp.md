@@ -3,7 +3,7 @@
 [English](../README.md) | [日本語](README.jp.md)
 
 <p align="center">
-  <img src="../frontend/public/icon.svg" width="128" alt="gitreant のトレント: 二枚の葉の下、幹に顔">
+  <img src="../frontend/public/icon.svg" width="256" alt="gitreant のトレント: 二枚の葉の下、幹に顔">
 </p>
 
 Gitリポジトリの森を見渡し、整え、育てるための管理ツール。
