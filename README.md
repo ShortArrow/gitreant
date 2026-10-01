@@ -41,49 +41,20 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
 
 ## Features
 
-- Commit graph rendering with lanes and colors computed server-side;
-  merge-commit messages are dimmed, and clicking a hash copies the full id.
-  Hovering a graph node shows its hash; clicking it selects the commit
-- Right-click a branch badge to copy its name, check it out, or merge it
-  into the current branch (server-side `git switch` / `git merge`);
-  right-click a commit row or its graph node to tag it, or a tag badge to
-  delete the tag.
-  Tags, the stash and branches render as distinct badges
-- Click a commit to see its full message, signature state (with the signing
-  key id, click to copy), and changed files (flat or tree view) with line
-  counts; click a file (or "Diff all") to see diffs inline or side-by-side,
-  with intra-line changes highlighted; a change of line endings alone is
-  labelled on the file and marked at each line end. The author links to their GitHub
-  profile and their address copies; so do the parent ids, and a file's
-  right-click menu copies its relative or absolute path
-- Select diff lines via the line-number gutter (shift-click for ranges) to
-  copy them or a GitHub permalink
-- Uncommitted changes appear as a dashed row above HEAD; open it to list
-  the changed files and diff them against HEAD (server-side `git status` /
-  `git diff`)
-- Fetch button runs `git fetch` for every shown repository (requires git);
-  a toggleable bottom pane logs the executed commands and your UI actions
-- Signed commits carry a badge in the graph: Verified / Unverified when a
-  local gpg can check the signature, plain Signed otherwise
-- Branch badges carry a GitHub mark linking to their open pull request when
-  the `gh` CLI is installed and authenticated; squash-merged branches that
-  still exist get a dashed link to the commit their PR landed as
-- Multiple repositories in one SPA: a drawer to list/add/remove, tabs to switch
-- Linked `git worktree` checkouts nest under their repository in the drawer
-  (with the branch each has checked out) and open as views of their own;
-  a branch checked out in another worktree carries a marker on its badge,
-  and its menu disables the checkout git would refuse
-- Live updates via Server-Sent Events when repositories are added or removed,
-  plus a reload button to pick up new commits
-- Native folder picker for adding repositories
-- Detaches from the terminal by default; `--shutdown` stops the server
-- A command palette (Ctrl+K / Cmd+K) for switching repositories and
-  running fetch, reload, theme and other actions from the keyboard
-- Dark/light theme toggle, and a settings dialog for the UI language
-  (auto / English / Japanese), the timestamp format (ISO / locale /
-  relative), and for rendering action buttons as icons, icons with labels,
-  or labels only
-- Single self-contained binary — no runtime dependencies
+- Commit graphs of several local repositories on one page, in tabs and two
+  side-by-side panes
+- Commit details and diffs: the full message, signature state, changed
+  files, and inline or side-by-side diffs with intra-line highlights
+- Work in progress at a glance: uncommitted changes above HEAD, linked
+  worktrees, and line-ending-only changes named as such
+- Fetch, check out, merge, create branches, and create or delete tags from
+  the graph, each delegated to the git CLI
+- Pull request links through `gh` and signature verification through `gpg`,
+  both optional
+- One self-contained binary, a command palette, dark and light themes, and
+  an English or Japanese UI
+
+Every feature in detail: [docs/FEATURES.md](docs/FEATURES.md).
 
 ## Install / Build
 
