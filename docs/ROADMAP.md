@@ -5,10 +5,10 @@
 The next two versions each have a theme. Items after them are grouped by
 area, not by priority. Settled designs live in [adr/](adr/).
 
-## 0.2.0 — see the work in progress (release in preparation)
+## 0.2.0 — see the work in progress (released)
 
 The version that brings the work in progress, not only committed history,
-onto one screen.
+onto one screen. Released on 2026-10-01.
 
 - **Uncommitted changes as a row above HEAD**
   ([ADR 0027](adr/0027-uncommitted-changes-row.md))
@@ -20,6 +20,16 @@ onto one screen.
   0.3.0)
 - Copyable commit metadata and a timestamp format setting
   ([ADR 0025](adr/0025-timestamp-rendering.md))
+
+## 0.2.1 — line-ending changes (release in preparation)
+
+A fix release: a file whose only change is its line endings no longer
+shows identical removed and added lines
+([ADR 0029](adr/0029-line-ending-changes.md)).
+
+- The changed line end is marked (`␍␊` or `␊`) on both lines of the pair
+- The file list labels the file "line endings only"
+- The diff header names the direction (`LF → CRLF` and so on)
 
 Before release, pass the release gate in [QUALITY.md](QUALITY.md): the full
 E2E suite and the `pnpm screenshot` assertions.
@@ -74,6 +84,24 @@ keyed off the remote URL's host.
   list** — check existence with a timeout, or leave it out of the list and
   resolve it later
 
+## Diff display (follow-ups to ADR 0029)
+
+- **Respect `.gitattributes` `binary` / `-diff`** — git shows such files
+  as binary (`- -` in numstat); gitreant counts and diffs them as text (the
+  diff pane has done so since 0.2.0)
+- **Show the end-of-file newline change** — removing or adding the final
+  newline shows identical `-x` / `+x` lines, because git's
+  "\ No newline at end of file" marker is dropped. The working-tree side
+  also labels such a file "line endings only" while the commit side does
+  not (`--ignore-cr-at-eol` ignores it, the blob comparison does not);
+  make both consistent
+- **Name endings exactly** — a lone CR at the end of a line (old Mac
+  endings, a CR without LF) is called CRLF today, and with `a\r\r\n`-style
+  input a CR can reach copied text
+- **Give mixed conversions a direction** — when some lines go LF → CRLF and
+  others CRLF → LF, the file gets the label and the marks but the diff
+  header names no direction
+
 ## Graph / UI
 
 - **Blame** — add it to the diff line-selection menu (the UI foundation
@@ -97,3 +125,11 @@ keyed off the remote URL's host.
 - **Consolidate the git-running helpers** — three functions start
   `git -C <path>` (`run` in `branch.rs`, `run` in `status.rs`, `output` in
   `uncommitted.rs`) and differ only in lock handling and how errors return
+- **Check the tag against the version on release** — `release.yml` does
+  not check that the tag matches the version in `Cargo.toml`; a mismatch
+  publishes a GitHub Release and then fails the crates.io upload
+- **Submit 0.2.x to WinGet** — microsoft/winget-pkgs has only 0.1.0
+- **State that the library crate is not covered by semver** —
+  `src/lib.rs` exists for the integration tests and is internal; say so
+  where the crate is described (README, [CONTRIBUTING.md](CONTRIBUTING.md)),
+  or mark the public data structs `#[non_exhaustive]`
