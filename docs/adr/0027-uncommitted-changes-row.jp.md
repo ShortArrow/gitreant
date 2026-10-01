@@ -13,7 +13,7 @@ Accepted (2026-09-23)
 - **合成はサーバのビュー構築時に行う。** `git status --porcelain` の件数が 1 以上で HEAD が存在するとき、id を `uncommitted`、親を HEAD とする合成コミットをレイアウト入力の先頭に挿入し、spine の起点にする。行は HEAD のレーンに乗り、HEAD へ直線で落ちる。HEAD が無い（unborn）リポジトリでは表示しない。
 - **合成行はコミットではない。** `total` に数えず、ページング（ADR 0023）では上限に 1 を足して常に先頭に残す。行に作者・時刻・ハッシュは持たせず、ラベルと変更パス数だけを表示する。ノードは中抜きの破線リング、HEAD へのエッジは破線で、履歴と見分ける。
 - **詳細と差分は既存 API に同じ id を渡す。** `/api/commit`・ `/api/diff`・`/api/commit-diff` はサーバ側で id が `uncommitted` のときだけ作業ツリー読み取りに分岐する。クライアントの選択・詳細・差分の流れは変えない。
-- **読み取りは git CLI に委譲する**（ADR 0007 / 0014 のパターン）。一覧は `git status --porcelain -z --untracked-files=all --no-renames`、行数は `git diff HEAD --numstat`、追跡ファイルの差分は `git diff HEAD -- <path>`。改行変換や `.gitattributes` のフィルタをユーザーの `git diff` と一致させるためで、gix で index と作業ツリーを突き合わせる実装は採らない。未追跡ファイルは比較対象が無いのでディスクから読み、空との unified 差分を自前で作る。いずれも `GIT_OPTIONAL_LOCKS=0` で index ロックを取らない。
+- **読み取りは git CLI に委譲する**（ADR 0007 / 0014 のパターン）。一覧は `git status --porcelain -z --no-renames`（未追跡ファイルの粒度はユーザーの `status.showUntrackedFiles` に従う）、行数は `git diff HEAD --numstat`、追跡ファイルの差分は `git diff HEAD -- <path>`。改行変換や `.gitattributes` のフィルタをユーザーの `git diff` と一致させるためで、gix で index と作業ツリーを突き合わせる実装は採らない。未追跡ファイルは比較対象が無いのでディスクから読み、空との unified 差分を自前で作る。いずれも `GIT_OPTIONAL_LOCKS=0` で index ロックを取らない。
 - **比較対象は HEAD** とし、index と作業ツリーの変更を合算して見せる。 staged / unstaged の区別は仕様として未規定（必要になれば `UncommittedPath` にフラグを足す）。
 - 更新タイミングは他の表示と同じ（Reload ボタン・SSE）。ファイル監視は導入しない。
 
