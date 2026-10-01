@@ -94,6 +94,10 @@ jobs:
           echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${TOOLCHAIN}/bin/aarch64-linux-android24-clang" >> "$GITHUB_ENV"
       - name: Read the declared pnpm version
         id: pnpm
+        # bash on every runner: Windows defaults to PowerShell, where
+        # $GITHUB_OUTPUT is an undefined variable and the write is silently
+        # lost, leaving pnpm/action-setup without a version.
+        shell: bash
         run: >
           echo "version=$(jq -r .packageManager
           "$GITHUB_WORKSPACE/frontend/package.json" | cut -d@ -f2)"
@@ -199,6 +203,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Read the declared pnpm version
         id: pnpm
+        # bash on every runner: Windows defaults to PowerShell, where
+        # $GITHUB_OUTPUT is an undefined variable and the write is silently
+        # lost, leaving pnpm/action-setup without a version.
+        shell: bash
         run: >
           echo "version=$(jq -r .packageManager
           "$GITHUB_WORKSPACE/frontend/package.json" | cut -d@ -f2)"
