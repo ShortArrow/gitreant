@@ -1423,8 +1423,9 @@ body {
 
 .detail-file {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: 2px 8px;
   padding: 3px 0;
   cursor: pointer;
 }
@@ -1671,6 +1672,39 @@ mark.intra {
   font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   font-size: 12px;
   word-break: break-all;
+}
+
+/* A file whose only change is its line endings, named so a mass conversion
+ * reads apart from real edits without opening every diff. In a narrow pane
+ * the label wraps under the path instead of squeezing it: the path keeps a
+ * readable basis and the label comes last in the row. */
+.detail-file .file-path {
+  flex-basis: 12ch;
+}
+
+.file-eol {
+  order: 1;
+}
+
+.file-eol,
+.diff-eol {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.diff-eol {
+  margin-left: 8px;
+}
+
+/* The line ending drawn at the end of a line when it is what changed. */
+mark.intra.eol-mark {
+  margin-left: 2px;
+  font-size: 0.85em;
 }
 
 .file-counts {

@@ -14,14 +14,24 @@ export interface Segment {
   changed: boolean;
 }
 
+/** A line ending, named the way editors name them. */
+export type LineEnding = "LF" | "CRLF";
+
 export interface SplitCell {
-  /** 1-based line number on this side. */
+  /** 1-based line number on this side. Never includes a line ending. */
   no: number;
   text: string;
   kind: CellKind;
   /** Intra-line diff against the paired line, when one exists. */
   segments?: Segment[];
+  /** This line's ending, set only when it differs from the paired line's:
+   * the change a line-ending conversion makes, invisible in the text. */
+  eol?: LineEnding;
 }
+
+/** A removed or added line before pairing: its text without the CR git
+ * leaves on a CRLF line, and whether that CR was there. */
+type RunCell = SplitCell & { cr: boolean };
 
 /** Split a removed/added line pair around their common prefix and suffix.
  *
@@ -137,9 +147,10 @@ export function parseUnified(text: string): DiffHunk[] {
   let current: DiffHunk | null = null;
   let oldNo = 0;
   let newNo = 0;
-  let removes: SplitCell[] = [];
-  let adds: SplitCell[] = [];
+  let removes: RunCell[] = [];
+  let adds: RunCell[] = [];
 
+  const settle = ({ cr: _cr, ...cell }: RunCell): SplitCell => cell;
   const flushRun = () => {
     const count = Math.max(removes.length, adds.length);
     for (let i = 0; i < count; i++) {
@@ -151,11 +162,23 @@ export function parseUnified(text: string): DiffHunk[] {
           left.segments = pair.old;
           right.segments = pair.new;
         }
+        if (left.cr !== right.cr) {
+          left.eol = left.cr ? "CRLF" : "LF";
+          right.eol = right.cr ? "CRLF" : "LF";
+        }
       }
-      current?.rows.push({ left, right });
+      current?.rows.push({
+        left: left && settle(left),
+        right: right && settle(right),
+      });
     }
     removes = [];
     adds = [];
+  };
+  const clean = (line: string) => {
+    const text = line.slice(1);
+    const cr = text.endsWith("\r");
+    return { text: cr ? text.slice(0, -1) : text, cr };
   };
 
   for (const line of text.replace(/\n$/, "").split("\n")) {
@@ -170,12 +193,12 @@ export function parseUnified(text: string): DiffHunk[] {
     }
     if (!current) continue;
     if (line.startsWith("-")) {
-      removes.push({ no: oldNo++, text: line.slice(1), kind: "remove" });
+      removes.push({ no: oldNo++, kind: "remove", ...clean(line) });
     } else if (line.startsWith("+")) {
-      adds.push({ no: newNo++, text: line.slice(1), kind: "add" });
+      adds.push({ no: newNo++, kind: "add", ...clean(line) });
     } else {
       flushRun();
-      const text = line.slice(1);
+      const { text } = clean(line);
       current.rows.push({
         left: { no: oldNo++, text, kind: "context" },
         right: { no: newNo++, text, kind: "context" },
@@ -184,4 +207,22 @@ export function parseUnified(text: string): DiffHunk[] {
   }
   flushRun();
   return hunks;
+}
+
+/** The conversion a diff makes when it changes nothing but line endings:
+ * every changed line is paired with its own text under the other ending,
+ * all in the same direction. Null for any other diff, or an empty one. */
+export function eolChange(
+  hunks: DiffHunk[],
+): { from: LineEnding; to: LineEnding } | null {
+  let change: { from: LineEnding; to: LineEnding } | null = null;
+  for (const { left, right } of hunks.flatMap((h) => h.rows)) {
+    if (left?.kind === "context") continue;
+    if (!left?.eol || !right?.eol || left.text !== right.text) return null;
+    if (change && (change.from !== left.eol || change.to !== right.eol)) {
+      return null;
+    }
+    change = { from: left.eol, to: right.eol };
+  }
+  return change;
 }

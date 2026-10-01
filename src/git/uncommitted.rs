@@ -65,6 +65,14 @@ pub fn read_uncommitted(path: &Path) -> Result<CommitDetail, String> {
         path,
         &["diff", "HEAD", "--numstat", "-z", "--no-renames"],
     )?);
+    // Ignoring the CR at line ends, a file that changed nothing but its line
+    // endings drops out of the listing altogether.
+    let beyond_endings = output(
+        path,
+        &["diff", "HEAD", "--numstat", "-z", "--no-renames", "--ignore-cr-at-eol"],
+    )
+    .map(|out| parse_numstat(&out))
+    .ok();
     let files = uncommitted_paths(path)
         .into_iter()
         .map(|entry| {
@@ -79,11 +87,17 @@ pub fn read_uncommitted(path: &Path) -> Result<CommitDetail, String> {
             } else {
                 counts.get(&entry.path).copied().unwrap_or((0, 0))
             };
+            let eol_only = !entry.untracked
+                && additions + deletions > 0
+                && beyond_endings
+                    .as_ref()
+                    .is_some_and(|rest| !rest.contains_key(&entry.path));
             FileChange {
                 path: entry.path,
                 status: entry.status,
                 additions,
                 deletions,
+                eol_only,
             }
         })
         .collect();
@@ -248,7 +262,7 @@ fn parse_numstat(out: &str) -> HashMap<String, (usize, usize)> {
 }
 
 /// Reduce `git diff` output to what the detail-pane diff carries: the hunks
-/// only (headers dropped), or a binary marker. The "no newline at end of
+/// only (headers dropped), or a binary marker. A CR ending a line is kept. The "no newline at end of
 /// file" markers go too — the client renders hunk lines only.
 fn parse_diff(out: &str) -> (bool, String) {
     if out.lines().any(|line| line.starts_with("Binary files ")) {
@@ -256,7 +270,9 @@ fn parse_diff(out: &str) -> (bool, String) {
     }
     let mut text = String::new();
     let mut in_hunks = false;
-    for line in out.lines() {
+    // `split_terminator`, not `lines`: `lines` also strips a CR before the
+    // LF, which is the whole change when a line's ending changed.
+    for line in out.split_terminator('\n') {
         if line.starts_with("@@") {
             in_hunks = true;
         }
@@ -337,6 +353,17 @@ mod tests {
         assert_eq!(read_untracked(&big, 16).unwrap(), None);
         assert_eq!(read_untracked(&big, 64).unwrap().map(|d| d.len()), Some(64));
         assert!(read_untracked(&tmp.path().join("missing"), 16).is_err());
+    }
+
+    #[test]
+    fn keeps_the_carriage_return_git_prints_on_a_line() {
+        // A line-ending change is only visible through the CR git leaves on
+        // the line; dropping it makes the two sides identical.
+        let out = "diff --git a/n.txt b/n.txt\n--- a/n.txt\n+++ b/n.txt\n@@ -1 +1 @@\n-one\n+one\r\n";
+        assert_eq!(
+            parse_diff(out),
+            (false, "@@ -1 +1 @@\n-one\n+one\r\n".to_string())
+        );
     }
 
     #[test]

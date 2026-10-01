@@ -52,7 +52,8 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
 - Click a commit to see its full message, signature state (with the signing
   key id, click to copy), and changed files (flat or tree view) with line
   counts; click a file (or "Diff all") to see diffs inline or side-by-side,
-  with intra-line changes highlighted. The author links to their GitHub
+  with intra-line changes highlighted; a change of line endings alone is
+  labelled on the file and marked at each line end. The author links to their GitHub
   profile and their address copies; so do the parent ids, and a file's
   right-click menu copies its relative or absolute path
 - Select diff lines via the line-number gutter (shift-click for ranges) to

@@ -363,6 +363,25 @@ function makeRepoQ(): { main: string; worktree: string } {
   return { main, worktree };
 }
 
+/** repoR: line-ending conversions, committed and uncommitted. "convert"
+ * turns eol.txt from LF to CRLF and edits text.txt; the working tree then
+ * converts text.txt as well. Endings stay byte-exact (no autocrlf). */
+function makeRepoR(): string {
+  const dir = initRepo("repoR");
+  git(dir, ["config", "core.autocrlf", "false"]);
+  const t = 1_700_000_000;
+  writeFileSync(path.join(dir, "eol.txt"), "one\ntwo\n");
+  writeFileSync(path.join(dir, "text.txt"), "one\n");
+  git(dir, ["add", "."]);
+  commit(dir, "r-1", t);
+  writeFileSync(path.join(dir, "eol.txt"), "one\r\ntwo\r\n");
+  writeFileSync(path.join(dir, "text.txt"), "one\ntwo\n");
+  git(dir, ["add", "."]);
+  commit(dir, "convert", t + 10);
+  writeFileSync(path.join(dir, "text.txt"), "one\r\ntwo\r\n");
+  return dir; // 2 commits, text.txt converted in the working tree
+}
+
 /** Set by makeRepoI; the teardown must talk to the same gpg installation. */
 let gpgconfBin = "gpgconf";
 
@@ -390,6 +409,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoO = makeRepoO();
   const repoP = makeRepoP();
   const repoQ = makeRepoQ();
+  const repoR = makeRepoR();
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
@@ -416,6 +436,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoP,
         repoQ: repoQ.main,
         repoQWorktree: repoQ.worktree,
+        repoR,
       },
       null,
       2,

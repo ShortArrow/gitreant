@@ -36,3 +36,4 @@ are canonical; the files below are their English translations.
 | [0026](0026-app-mode-window.md) | Open a dedicated window via the browser's app mode, not a native GUI | Accepted |
 | [0027](0027-uncommitted-changes-row.md) | Show uncommitted changes as a synthetic row above HEAD | Accepted |
 | [0028](0028-worktrees.md) | Handle git worktrees by nesting them in the drawer and marking their branches | Accepted |
+| [0029](0029-line-ending-changes.md) | Show line-ending changes with a mark at the line end and a label on the file | Accepted |

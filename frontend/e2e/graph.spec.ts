@@ -24,6 +24,7 @@ const fixtures = JSON.parse(
   repoP: string;
   repoQ: string;
   repoQWorktree: string;
+  repoR: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -2355,6 +2356,52 @@ test.describe.serial("gitreant UI", () => {
     } finally {
       git(fixtures.repoQ, ["worktree", "remove", "--force", twin]);
     }
+  });
+
+  test("a line-ending conversion is named and drawn, not shown as a rewrite", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoR);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoR"]')).toBeVisible();
+
+    // The committed conversion: the file list names it apart from the edit.
+    await page.getByTestId("commit-row").filter({ hasText: "convert" }).click();
+    const detail = page.getByTestId("commit-detail");
+    const eolFile = detail.getByTestId("detail-file").filter({ hasText: "eol.txt" });
+    const textFile = detail.getByTestId("detail-file").filter({ hasText: "text.txt" });
+    await expect(eolFile.getByTestId("file-eol")).toHaveText("Line endings only");
+    await expect(textFile.getByTestId("file-eol")).toHaveCount(0);
+
+    // Its diff says which way it went and marks the ending on every line.
+    await eolFile.click();
+    const pane = page.getByTestId("diff-pane");
+    await expect(pane.getByTestId("diff-eol")).toHaveText(
+      "Line endings only: LF → CRLF",
+    );
+    await expect(pane.getByTestId("eol-mark")).toHaveCount(4);
+    await expect(pane.getByTestId("eol-mark").last()).toHaveText("␍␊");
+    // A real edit carries no such marks.
+    await page.getByTestId("diff-close").click();
+    await textFile.click();
+    await expect(pane.getByTestId("diff-eol")).toHaveCount(0);
+    await expect(pane.getByTestId("eol-mark")).toHaveCount(0);
+    await page.getByTestId("diff-close").click();
+
+    // The working tree's conversion reads the same way.
+    await page.locator(".commit-uncommitted").click();
+    const wip = detail.getByTestId("detail-file").filter({ hasText: "text.txt" });
+    await expect(wip.getByTestId("file-eol")).toHaveText("Line endings only");
+    await wip.click();
+    await expect(pane.getByTestId("diff-eol")).toHaveText(
+      "Line endings only: LF → CRLF",
+    );
+    await page.getByTestId("diff-close").click();
+
+    const repoR = page.locator('[data-repo-name="repoR"]');
+    await repoR.hover();
+    await repoR.getByTestId("repo-remove").click();
+    await expect(repoR).toHaveCount(0);
   });
 
   test("browse button adds the folder returned by the picker", async ({

@@ -11,6 +11,9 @@ pub struct FileChange {
     pub status: String,
     pub additions: usize,
     pub deletions: usize,
+    /// The file changed nothing but its line endings (LF and CRLF swapped
+    /// on some lines); its diff pairs every line with itself.
+    pub eol_only: bool,
 }
 
 /// A single commit with everything the detail pane shows.
@@ -233,7 +236,7 @@ pub(super) fn unified(old: &[u8], new: &[u8]) -> String {
                     DiffLineKind::Remove => '-',
                 });
                 let text = String::from_utf8_lossy(content);
-                self.0.push_str(text.trim_end_matches(['\r', '\n']));
+                self.0.push_str(text.strip_suffix('\n').unwrap_or(&text));
                 self.0.push('\n');
             }
             Ok(())
@@ -262,49 +265,83 @@ fn changed_files(repo: &gix::Repository, commit: &gix::Commit) -> Result<Vec<Fil
     let tree = commit.tree().map_err(|e| format!("tree: {e}"))?;
     let parent_tree = first_parent_tree(repo, commit)?;
 
-    let mut cache = repo
-        .diff_resource_cache_for_tree_diff()
-        .map_err(|e| format!("diff cache: {e}"))?;
     let mut files = Vec::new();
     parent_tree
         .changes()
         .map_err(|e| format!("diff: {e}"))?
         .for_each_to_obtain_tree(&tree, |change| {
-            if let Some(file) = file_change(change, &mut cache) {
+            if let Some(file) = file_change(repo, change) {
                 files.push(file);
             }
-            cache.clear_resource_cache_keep_allocation();
             Ok::<_, std::convert::Infallible>(std::ops::ControlFlow::Continue(()))
         })
         .map_err(|e| format!("diff: {e}"))?;
     Ok(files)
 }
 
+/// One changed file with its line counts, taken from the raw blobs exactly
+/// as the diff pane shows them: a line whose ending changed counts as
+/// changed, as it does for `git diff`.
 fn file_change(
+    repo: &gix::Repository,
     change: gix::object::tree::diff::Change<'_, '_, '_>,
-    cache: &mut gix::diff::blob::Platform,
 ) -> Option<FileChange> {
     use gix::object::tree::diff::Change;
 
     if !change.entry_mode().is_blob() {
         return None;
     }
-    let status = match change {
-        Change::Addition { .. } => "A",
-        Change::Deletion { .. } => "D",
-        Change::Modification { .. } => "M",
-        Change::Rewrite { .. } => "R",
+    let blob = |oid: gix::ObjectId| {
+        repo.find_object(oid)
+            .map(|o| o.data.clone())
+            .unwrap_or_default()
     };
-    let (additions, deletions) = change
-        .diff(cache)
-        .ok()
-        .and_then(|mut platform| platform.line_counts().ok().flatten())
-        .map(|counts| (counts.insertions as usize, counts.removals as usize))
-        .unwrap_or((0, 0));
+    let (status, old, new) = match change {
+        Change::Addition { id, .. } => ("A", Vec::new(), blob(id.detach())),
+        Change::Deletion { id, .. } => ("D", blob(id.detach()), Vec::new()),
+        Change::Modification {
+            previous_id, id, ..
+        } => ("M", blob(previous_id.detach()), blob(id.detach())),
+        Change::Rewrite { source_id, id, .. } => {
+            ("R", blob(source_id.detach()), blob(id.detach()))
+        }
+    };
+    let (additions, deletions) = line_counts(&old, &new);
     Some(FileChange {
         path: change.location().to_string(),
         status: status.to_string(),
         additions,
         deletions,
+        eol_only: status == "M" && differ_only_in_line_endings(&old, &new),
     })
+}
+
+/// Added and removed lines between two blobs; none for binary content.
+fn line_counts(old: &[u8], new: &[u8]) -> (usize, usize) {
+    use gix::diff::blob::{Algorithm, Diff, InternedInput};
+
+    if looks_binary(old) || looks_binary(new) {
+        return (0, 0);
+    }
+    let old = String::from_utf8_lossy(old);
+    let new = String::from_utf8_lossy(new);
+    let input = InternedInput::new(old.as_ref(), new.as_ref());
+    let diff = Diff::compute(Algorithm::Histogram, &input);
+    (diff.count_additions() as usize, diff.count_removals() as usize)
+}
+
+/// The two contents are different, but identical once every CR that ends a
+/// line is dropped.
+fn differ_only_in_line_endings(old: &[u8], new: &[u8]) -> bool {
+    fn without_cr_before_lf(data: &[u8]) -> Vec<u8> {
+        let mut out = Vec::with_capacity(data.len());
+        for (i, &b) in data.iter().enumerate() {
+            if b == b'\r' && data.get(i + 1) == Some(&b'\n') {
+                continue;
+            }
+            out.push(b);
+        }
+        out
+    }
+    old != new && without_cr_before_lf(old) == without_cr_before_lf(new)
 }

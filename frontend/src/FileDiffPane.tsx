@@ -4,6 +4,7 @@ import { InlineIcon, LineMenuIcon, SplitIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { useT } from "./settings";
 import {
+  eolChange,
   inlineCells,
   parseUnified,
   permalinkFragment,
@@ -174,6 +175,7 @@ function FileSection({
 }) {
   const t = useT();
   const hunks = useMemo(() => parseUnified(diff.text), [diff.text]);
+  const conversion = useMemo(() => eolChange(hunks), [hunks]);
   // The selected side's display lines; selection indices point into rows
   // (split) or the flattened inline cells.
   const selectedCells: (SplitCell | undefined)[] = useMemo(() => {
@@ -220,6 +222,11 @@ function FileSection({
           {diff.status}
         </span>
         <span className="diff-path">{diff.path}</span>
+        {conversion && (
+          <span className="diff-eol" data-testid="diff-eol">
+            {t("eolConversion", conversion)}
+          </span>
+        )}
       </div>
       {diff.binary ? (
         <p className="diff-binary">{t("binaryFile")}</p>
@@ -377,19 +384,31 @@ function InlineDiff({
   );
 }
 
-/** Line text with the intra-line changed parts highlighted, when known. */
+/** Line text with the intra-line changed parts highlighted, when known,
+ * and the line ending drawn when it is what changed. */
 function CellText({ cell }: { cell: SplitCell }) {
-  if (!cell.segments) return <>{cell.text}</>;
+  const t = useT();
   return (
     <>
-      {cell.segments.map((s, i) =>
-        s.changed ? (
-          <mark key={i} className="intra" data-testid="intra">
-            {s.text}
-          </mark>
-        ) : (
-          <span key={i}>{s.text}</span>
-        ),
+      {cell.segments
+        ? cell.segments.map((s, i) =>
+            s.changed ? (
+              <mark key={i} className="intra" data-testid="intra">
+                {s.text}
+              </mark>
+            ) : (
+              <span key={i}>{s.text}</span>
+            ),
+          )
+        : cell.text}
+      {cell.eol && (
+        <mark
+          className="intra eol-mark"
+          data-testid="eol-mark"
+          title={t("eolMark", { eol: cell.eol })}
+        >
+          {cell.eol === "CRLF" ? "␍␊" : "␊"}
+        </mark>
       )}
     </>
   );

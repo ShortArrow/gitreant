@@ -105,6 +105,8 @@ export interface FileChange {
   status: string;
   additions: number;
   deletions: number;
+  /** Nothing changed but the line endings. */
+  eol_only?: boolean;
 }
 
 export interface CommitDetail {

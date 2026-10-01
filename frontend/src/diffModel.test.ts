@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import {
+  eolChange,
   inlineCells,
   intralineSegments,
   parseUnified,
@@ -161,4 +162,49 @@ test("attaches segments to paired remove/add rows only", () => {
 
   const lonely = hunks[0].rows[2];
   expect(lonely.left!.segments).toBeUndefined();
+});
+
+test("a line whose only change is its line ending names both endings", () => {
+  // git prints a CR-terminated line with the CR still on it; the cell keeps
+  // its text clean and records the ending instead.
+  const [hunk] = parseUnified("@@ -1,2 +1,2 @@\n-one\n-two\n+one\r\n+two\r\n");
+  const [first] = hunk.rows;
+  expect(first.left).toMatchObject({ text: "one", kind: "remove", eol: "LF" });
+  expect(first.right).toMatchObject({ text: "one", kind: "add", eol: "CRLF" });
+  // Nothing in the text itself changed.
+  expect(first.right?.segments?.some((s) => s.changed) ?? false).toBe(false);
+});
+
+test("a content edit that also changes the ending keeps both marks", () => {
+  const [hunk] = parseUnified("@@ -1 +1 @@\n-one\n+onE\r\n");
+  const [row] = hunk.rows;
+  expect(row.right?.eol).toBe("CRLF");
+  expect(row.right?.segments).toEqual([
+    { text: "on", changed: false },
+    { text: "E", changed: true },
+  ]);
+});
+
+test("unpaired and context lines carry no ending mark and no CR", () => {
+  const [hunk] = parseUnified("@@ -1,1 +1,2 @@\n ctx\r\n+added\r\n");
+  const [context, added] = hunk.rows;
+  expect(context.right).toEqual({ no: 1, text: "ctx", kind: "context" });
+  expect(added.right).toEqual({ no: 2, text: "added", kind: "add" });
+});
+
+test("copied lines never include a carriage return", () => {
+  const [hunk] = parseUnified("@@ -1 +1 @@\n-one\n+one\r\n");
+  expect(selectedLines([hunk.rows[0].right])).toBe("one");
+});
+
+test("eolChange names a whole-file conversion and nothing else", () => {
+  const toCrlf = parseUnified("@@ -1,2 +1,2 @@\n-a\n-b\n+a\r\n+b\r\n");
+  expect(eolChange(toCrlf)).toEqual({ from: "LF", to: "CRLF" });
+  const toLf = parseUnified("@@ -1 +1 @@\n-a\r\n+a\n");
+  expect(eolChange(toLf)).toEqual({ from: "CRLF", to: "LF" });
+  // A content change, an added line, or no change at all is not a
+  // line-ending conversion.
+  expect(eolChange(parseUnified("@@ -1 +1 @@\n-a\n+b\r\n"))).toBeNull();
+  expect(eolChange(parseUnified("@@ -1 +1,2 @@\n-a\n+a\r\n+c\r\n"))).toBeNull();
+  expect(eolChange(parseUnified(""))).toBeNull();
 });

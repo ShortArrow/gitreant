@@ -715,3 +715,51 @@ fn linked_worktrees_are_listed_from_either_side() {
     assert!(read_worktrees(&alone).is_empty());
     assert!(read_repo(&alone).unwrap().worktrees.is_empty());
 }
+
+#[test]
+fn line_ending_only_changes_are_flagged_and_keep_their_carriage_returns() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    // Byte-exact line endings: no conversion on add or checkout.
+    git(dir, &["config", "core.autocrlf", "false"]);
+    std::fs::write(dir.join("eol.txt"), "one\ntwo\n").unwrap();
+    std::fs::write(dir.join("both.txt"), "one\ntwo\n").unwrap();
+    std::fs::write(dir.join("text.txt"), "one\n").unwrap();
+    git(dir, &["add", "."]);
+    commit(dir, "root", 1000);
+
+    // eol.txt only changes its endings; both.txt changes endings and a
+    // word; text.txt gains a line.
+    std::fs::write(dir.join("eol.txt"), "one\r\ntwo\r\n").unwrap();
+    std::fs::write(dir.join("both.txt"), "one\r\nTWO\r\n").unwrap();
+    std::fs::write(dir.join("text.txt"), "one\ntwo\n").unwrap();
+
+    let flags = |files: &[FileChange]| -> HashMap<String, bool> {
+        files.iter().map(|f| (f.path.clone(), f.eol_only)).collect()
+    };
+    let expected: HashMap<String, bool> = [
+        ("eol.txt".to_string(), true),
+        ("both.txt".to_string(), false),
+        ("text.txt".to_string(), false),
+    ]
+    .into();
+
+    // Uncommitted: the flag, and the CR survives into the diff text.
+    let detail = read_uncommitted(dir).expect("uncommitted detail");
+    assert_eq!(flags(&detail.files), expected, "uncommitted flags: {:?}", detail.files);
+    let diff = read_uncommitted_diff(dir, "eol.txt").expect("uncommitted eol diff");
+    assert!(diff.text.contains("-one\n"), "got {:?}", diff.text);
+    assert!(diff.text.contains("+one\r\n"), "got {:?}", diff.text);
+
+    // Committed: the same change read back from history.
+    git(dir, &["add", "."]);
+    commit(dir, "convert", 1001);
+    let head = read_repo(dir).expect("read repo").commits[0].id.clone();
+    let detail = read_commit(dir, &head).expect("commit detail");
+    assert_eq!(flags(&detail.files), expected, "commit flags: {:?}", detail.files);
+    let diff = read_file_diff(dir, &head, "eol.txt").expect("commit eol diff");
+    assert!(diff.text.contains("-one\n"), "got {:?}", diff.text);
+    assert!(diff.text.contains("+one\r\n"), "got {:?}", diff.text);
+}

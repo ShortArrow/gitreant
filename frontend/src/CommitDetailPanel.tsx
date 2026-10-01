@@ -506,6 +506,7 @@ function FileRow({
   onSelect: (path: string) => void;
   onFileMenu: (e: React.MouseEvent, path: string) => void;
 }) {
+  const t = useT();
   return (
     <li
       className="detail-file"
@@ -518,6 +519,11 @@ function FileRow({
         {change.status}
       </span>
       <span className="file-path">{label}</span>
+      {change.eol_only && (
+        <span className="file-eol" data-testid="file-eol">
+          {t("eolOnly")}
+        </span>
+      )}
       <span className="file-counts">
         <span className="file-additions">+{change.additions}</span>{" "}
         <span className="file-deletions">−{change.deletions}</span>
