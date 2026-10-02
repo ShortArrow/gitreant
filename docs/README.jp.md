@@ -1,5 +1,9 @@
 # gitreant
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ShortArrow/gitreant)
+[![Crates.io Version](https://img.shields.io/crates/v/gitreant)](https://crates.io/crates/gitreant)
+![WinGet Package Version](https://img.shields.io/winget/v/ShortArrow.gitreant)
+
 [English](../README.md) | [日本語](README.jp.md)
 
 <p align="center">
