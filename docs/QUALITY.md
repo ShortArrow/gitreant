@@ -58,7 +58,8 @@ running tests are using them.
 The only outbound traffic is these four paths. No telemetry or usage data is
 sent.
 
-- `git fetch` / `git ls-remote` — to the remotes the user configured
+- `git fetch` — to the remotes the user configured
+- `git ls-remote` — to the same remotes
 - the `gh` CLI — the GitHub API, under the user's own authentication
 - avatar image fetches — avatars.githubusercontent.com / github.com
   (from the browser; can be turned off in settings)

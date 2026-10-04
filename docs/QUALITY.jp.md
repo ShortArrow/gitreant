@@ -42,7 +42,8 @@ E2E の運用制約: スイートは直列1本で 10〜17 分かかる。実行�
 
 外部と通信するのは次の4経路のみ。テレメトリ・利用状況の送信は行わない。
 
-- `git fetch` / `git ls-remote` — ユーザーが設定したリモートに対して
+- `git fetch` — ユーザーが設定したリモートに対して
+- `git ls-remote` — 同上
 - `gh` CLI — GitHub API（ユーザー自身の認証で）
 - アバター画像の取得 — avatars.githubusercontent.com / github.com（ブラウザから。設定でオフにできる）
 
