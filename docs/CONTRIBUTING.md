@@ -141,8 +141,12 @@ How a release is guarded is [ADR 0030](adr/0030-release-safeguards.md).
    a `## [X.Y.Z] - YYYY-MM-DD` heading and add its compare link. The
    section becomes the GitHub Release notes as written, so links in it are
    absolute URLs.
-3. Bump `version` in `Cargo.toml` to `X.Y.Z` on `main`. CI fails while the
-   version in `Cargo.toml` has no changelog section.
+3. Bump the version to `X.Y.Z` on `main`, in one commit with the changelog
+   section: `version` in `Cargo.toml` and in `frontend/package.json`, and
+   the `gitreant` entry in `Cargo.lock` (`cargo update -p gitreant
+   --offline`). Every cargo step in the release runs with `--locked`, so a
+   stale `Cargo.lock` fails the release before anything is built. CI fails
+   while the version in `Cargo.toml` has no changelog section.
 4. Optionally rehearse with a prerelease tag (`vX.Y.Z-rc.N`): it runs the
    tests and builds and creates a prerelease GitHub Release with generated
    notes, but never publishes to crates.io. Delete the rehearsal's release
