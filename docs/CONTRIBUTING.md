@@ -82,7 +82,8 @@ responsibility for — is defined in [QUALITY.md](QUALITY.md).
   lines is exempt, since Japanese paragraphs are kept on one line (a break
   inside one renders as a stray space), and so is a file changed only by
   commits marked `[wording-only]` in their message, for rewording one
-  language without changing what it says
+  language without changing what it says (`[jp-only]` and `[en-only]` do the
+  same for one named side)
   ([ADR 0031](adr/0031-wording-only-changes.md)). Structural consistency of
   the ADR indexes (same ADR set, matching slugs, honest links) is a regular
   `cargo test` (`tests/docs.rs`); Japanese is canonical and English bodies

@@ -50,6 +50,23 @@ expect "a change marked [wording-only] passes" 0
 commit_on_base "docs: smooth the English wording [wording-only]" doc.md 'The opening sentence.'
 expect "the mark works for the English side too" 0
 
+commit_on_base "docs: fix a Japanese typo [jp-only]" doc.jp.md '最初の文。'
+expect "a Japanese change marked [jp-only] passes" 0
+
+commit_on_base "docs: fix an English typo [en-only]" doc.md 'The opening sentence.'
+expect "an English change marked [en-only] passes" 0
+
+commit_on_base "docs: mislabelled [jp-only]" doc.md 'The opening sentence.'
+expect "[jp-only] does not exempt the English side" 1
+
+commit_on_base "docs: mislabelled [en-only]" doc.jp.md '最初の文。'
+expect "[en-only] does not exempt the Japanese side" 1
+
+commit_on_base "docs: smooth the wording [wording-only]" doc.jp.md '最初の文。'
+printf '最初の一文。\n' >"$work/doc.jp.md"
+git -C "$work" commit -q -am "docs: fix a Japanese typo [jp-only]"
+expect "different applicable marks on the same file pass" 0
+
 commit_on_base "docs: smooth the wording [wording-only]" doc.jp.md '最初の文。'
 printf 'ちがう文。\n' >"$work/doc.jp.md"
 git -C "$work" commit -q -am "docs: change the meaning"

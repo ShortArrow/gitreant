@@ -6,9 +6,9 @@
 # counterpart. Pairs where only one language exists stay exempt as well, and
 # so is a change that only re-breaks lines (the text without whitespace is
 # unchanged): it says nothing the other language would have to follow. For
-# the same reason a change whose every commit is marked [wording-only] in
-# its message is exempt: it rewords one language without changing what it
-# says (ADR 0031).
+# the same reason a change whose every commit carries a one-language mark in
+# its message is exempt (ADR 0031): [wording-only] for either side,
+# [jp-only] for the Japanese side and [en-only] for the English side.
 set -euo pipefail
 
 # The file's text with every space and line break removed, at one ref.
@@ -16,12 +16,17 @@ squeezed() {
   git show "$1:$2" | tr -d ' \t\r\n'
 }
 
-# True when every commit in base..head that touched the file is marked
-# [wording-only].
-only_rewording() {
-  local touched marked
+# True when every commit in base..head that touched the file carries a mark
+# that applies to the file's language: [wording-only], or [jp-only] for a
+# .jp.md file, or [en-only] for an English one.
+only_one_language() {
+  local side touched marked
+  case "$1" in
+    *.jp.md) side='[jp-only]' ;;
+    *) side='[en-only]' ;;
+  esac
   touched="$(git rev-list --count "$base..$head" -- "$1")"
-  marked="$(git rev-list --count --fixed-strings --grep='[wording-only]' "$base..$head" -- "$1")"
+  marked="$(git rev-list --count --fixed-strings --grep='[wording-only]' --grep="$side" "$base..$head" -- "$1")"
   [ "$touched" -gt 0 ] && [ "$touched" -eq "$marked" ]
 }
 
@@ -48,7 +53,7 @@ while IFS= read -r file; do
   if [ "$(squeezed "$base" "$file")" = "$(squeezed "$head" "$file")" ]; then
     continue
   fi
-  if only_rewording "$file"; then
+  if only_one_language "$file"; then
     continue
   fi
   if ! grep -qxF "$other" <<<"$changed"; then

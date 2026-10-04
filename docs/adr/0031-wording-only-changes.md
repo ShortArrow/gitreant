@@ -29,6 +29,12 @@ purpose.
   must change as before.
 - **The mark works for either language.** A rewording of the English alone
   is treated the same way.
+- **`[jp-only]` and `[en-only]` name the side that changes.** `[jp-only]`
+  exempts only a change to a `.jp.md` file and `[en-only]` only a change to
+  an English `.md` file. A file on the other side is not exempted, so a
+  misplaced mark cannot hide a missed change in the other language. Commits
+  touching the same file may carry different marks, as long as each mark
+  applies to that file.
 - **The mark is only for changes the other language has nothing to follow
   in.** A change that makes the meaning clearer in a way the other language
   should reflect goes unmarked and changes both sides.
