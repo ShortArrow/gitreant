@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+# Actions are pinned to commit SHAs (ADR 0030); the trailing comment names
+# the release each SHA was taken from.
+
 # Cancel superseded runs on the same ref.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,6 +20,7 @@ jobs:
   rust:
     name: Rust (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -30,13 +37,18 @@ jobs:
             windows-11-arm,
           ]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # rfd links system libwayland on Linux (wayland-backend `client_system`).
       - name: Install Linux build deps
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwayland-dev
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       # build.rs writes a placeholder frontend/dist so rust-embed compiles
       # without a frontend build.
       - run: cargo build --verbose
@@ -47,12 +59,16 @@ jobs:
     # keep it compiling on every push so a tag never discovers the breakage.
     name: Android (cargo check)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          targets: aarch64-linux-android
-      - uses: Swatinem/rust-cache@v2
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal --target aarch64-linux-android
+          rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Configure the Android NDK toolchain
         run: |
           NDK_HOME="${ANDROID_NDK_LATEST_HOME:-}"
@@ -68,21 +84,24 @@ jobs:
   web:
     name: Frontend + Storybook
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Read the declared pnpm version
         id: pnpm
         run: >
           echo "version=$(jq -r .packageManager
           "$GITHUB_WORKSPACE/frontend/package.json" | cut -d@ -f2)"
           >> "$GITHUB_OUTPUT"
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
           version: ${{ steps.pnpm.outputs.version }}
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
           cache: pnpm
@@ -95,22 +114,28 @@ jobs:
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Linux build deps
         run: sudo apt-get update && sudo apt-get install -y libwayland-dev
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Read the declared pnpm version
         id: pnpm
         run: >
           echo "version=$(jq -r .packageManager
           "$GITHUB_WORKSPACE/frontend/package.json" | cut -d@ -f2)"
           >> "$GITHUB_OUTPUT"
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
           version: ${{ steps.pnpm.outputs.version }}
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
           cache: pnpm
@@ -130,9 +155,11 @@ jobs:
   docs-tandem:
     name: Bilingual docs updated together
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           # The tandem check diffs against the push base / PR base.
           fetch-depth: 0
       - name: Check .jp.md / .md pairs change together
@@ -140,3 +167,20 @@ jobs:
           bash .github/scripts/check-docs-tandem.sh
           "${{ github.event.pull_request.base.sha || github.event.before }}"
           "${{ github.sha }}"
+
+  release-scripts:
+    # The release workflow only runs on a tag, so its scripts are exercised
+    # here, along with the changelog the next release will read.
+    name: Release scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: bash .github/scripts/test-release-scripts.sh
+      - name: The released version has notes in CHANGELOG.md
+        run: >
+          bash .github/scripts/release-notes.sh
+          "$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          >/dev/null

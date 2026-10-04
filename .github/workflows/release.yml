@@ -1,5 +1,8 @@
 name: Release
 
+# How a release is guarded is ADR 0030. Actions are pinned to commit SHAs;
+# the trailing comment names the release each SHA was taken from.
+
 on:
   push:
     tags: ["v*"]
@@ -7,15 +10,35 @@ on:
 permissions:
   contents: read
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
+  version:
+    # A release tag must sit on main, name the version in Cargo.toml and have
+    # a CHANGELOG.md section. A prerelease tag (one containing "-") rehearses
+    # the pipeline at whatever version main carries, so only the main check
+    # applies to it.
+    name: Check the tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: The tagged commit is on main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - name: The tag matches Cargo.toml and CHANGELOG.md
+        run: bash .github/scripts/check-release-tag.sh "$GITHUB_REF_NAME"
+
   test:
     # Gate the release on tests passing on every platform we ship for; a tag
     # push would otherwise produce artifacts from a commit whose tests never
     # ran before this workflow.
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
+    timeout-minutes: 30
     strategy:
       fail-fast: true
       matrix:
@@ -31,11 +54,16 @@ jobs:
             macos-26,
           ]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Linux build deps
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwayland-dev
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
       - run: cargo test --locked
 
   build:
@@ -44,10 +72,9 @@ jobs:
     # Android (Termux) is the one cross build, linked with the NDK's clang —
     # rfd/open are cfg'd out there.
     name: Build (${{ matrix.target }})
-    needs: test
+    needs: [version, test]
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -74,13 +101,16 @@ jobs:
             os: ubuntu-latest
             archive: tar.gz
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Linux build deps
         if: runner.os == 'Linux' && matrix.target != 'aarch64-linux-android'
         run: sudo apt-get update && sudo apt-get install -y libwayland-dev
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal --target ${{ matrix.target }}
+          rustup default stable
       - name: Configure the Android NDK toolchain
         if: matrix.target == 'aarch64-linux-android'
         run: |
@@ -102,10 +132,10 @@ jobs:
           echo "version=$(jq -r .packageManager
           "$GITHUB_WORKSPACE/frontend/package.json" | cut -d@ -f2)"
           >> "$GITHUB_OUTPUT"
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
           version: ${{ steps.pnpm.outputs.version }}
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
           cache: pnpm
@@ -133,7 +163,7 @@ jobs:
           Compress-Archive -Path target/${{ matrix.target }}/release/gitreant.exe -DestinationPath gitreant-${{ matrix.target }}.zip
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: gitreant-${{ matrix.target }}
           path: gitreant-${{ matrix.target }}.*
@@ -142,6 +172,7 @@ jobs:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
       # Required for actions/attest-build-provenance to mint a Sigstore
@@ -149,7 +180,10 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
           merge-multiple: true
@@ -161,60 +195,69 @@ jobs:
         # repositories, so this arms itself automatically when the repo goes
         # public.
         if: ${{ !github.event.repository.private }}
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
         with:
           subject-path: artifacts/*
 
       - name: Create release
+        # A release takes its notes from its CHANGELOG.md section. A
+        # prerelease has no section of its own, so its notes are generated.
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        # SemVer marks pre-releases with a hyphen (v0.1.0-pre, v1.0.0-rc.1);
-        # mirror that on the GitHub release.
         run: |
+          set -euo pipefail
           case "$TAG" in
-            *-*) prerelease=--prerelease ;;
-            *) prerelease= ;;
+            *-*) notes=(--prerelease --generate-notes) ;;
+            *)
+              bash .github/scripts/release-notes.sh "${TAG#v}" >release-notes.md
+              notes=(--notes-file release-notes.md)
+              ;;
           esac
           gh release create "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
             --title "$TAG" \
-            --generate-notes \
-            $prerelease \
+            "${notes[@]}" \
             artifacts/*
 
   publish-crates:
     # Publish to crates.io via OIDC Trusted Publishing — no long-lived
-    # CARGO_REGISTRY_TOKEN anywhere. The crate ships the prebuilt frontend
-    # (see the include list in Cargo.toml), so the frontend build must run
-    # before packaging. Set `[skip publish]` in the tagged commit message
-    # to bypass this job.
+    # CARGO_REGISTRY_TOKEN anywhere. crates.io versions cannot be reused, so
+    # a prerelease tag never publishes. The release environment waits for
+    # the owner's approval (rejecting it skips publishing) and admits only
+    # v* tags; crates.io accepts tokens only from runs in that environment.
+    # The crate ships the prebuilt frontend (see the include list in
+    # Cargo.toml), so the frontend build must run before packaging.
     name: Publish to crates.io (OIDC)
-    needs: [test, build, release]
-    if: ${{ !contains(github.event.head_commit.message, '[skip publish]') }}
+    needs: release
+    if: ${{ !contains(github.ref_name, '-') }}
+    environment: release
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Linux build deps
         run: sudo apt-get update && sudo apt-get install -y libwayland-dev
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
       - name: Read the declared pnpm version
         id: pnpm
-        # bash on every runner: Windows defaults to PowerShell, where
-        # $GITHUB_OUTPUT is an undefined variable and the write is silently
-        # lost, leaving pnpm/action-setup without a version.
-        shell: bash
         run: >
           echo "version=$(jq -r .packageManager
           "$GITHUB_WORKSPACE/frontend/package.json" | cut -d@ -f2)"
           >> "$GITHUB_OUTPUT"
-      - uses: pnpm/action-setup@v6.0.9
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
           version: ${{ steps.pnpm.outputs.version }}
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
           cache: pnpm
@@ -228,39 +271,32 @@ jobs:
 
       - name: Exchange OIDC token for crates.io token
         id: auth
-        uses: rust-lang/crates-io-auth-action@v1
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
 
-      - name: Dry-run publish (sanity check)
-        # Catches packaging issues (missing dist, manifest rejection) before
-        # the real publish; skipped when this version is already published
-        # so tag-rerun after a glitch stays green.
+      - name: Publish unless this version is already on crates.io
+        # 200 means a rerun after a glitch: nothing to do. Any answer other
+        # than 404 leaves the state unknown, so the job stops rather than
+        # guess. --allow-dirty: the packaged frontend/dist is generated in
+        # the previous step and never committed; the checkout is otherwise
+        # pristine on CI.
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          status=$(curl -fsS -A "gitreant-release (github.com/ShortArrow/gitreant)" -o /dev/null -w '%{http_code}' \
-            "https://crates.io/api/v1/crates/gitreant/$version" || echo "000")
-          if [ "$status" = "200" ]; then
-            echo "gitreant $version already on crates.io — skipping dry-run"
-          else
-            # --allow-dirty: the packaged frontend/dist is generated in the
-            # previous step and never committed; the checkout is otherwise
-            # pristine on CI.
-            cargo publish --dry-run --allow-dirty
-          fi
-
-      - name: Publish gitreant
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run: |
-          set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          status=$(curl -fsS -A "gitreant-release (github.com/ShortArrow/gitreant)" -o /dev/null -w '%{http_code}' \
-            "https://crates.io/api/v1/crates/gitreant/$version" || echo "000")
-          if [ "$status" = "200" ]; then
-            echo "gitreant $version already on crates.io — skipping publish"
-          else
-            # --allow-dirty: see the dry-run step.
-            cargo publish --allow-dirty
-          fi
+          status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -A "gitreant release workflow (https://github.com/$GITHUB_REPOSITORY)" \
+            "https://crates.io/api/v1/crates/gitreant/$version" || echo 000)
+          case "$status" in
+            200)
+              echo "gitreant $version is already on crates.io; nothing to publish"
+              exit 0
+              ;;
+            404) ;;
+            *)
+              echo "::error::crates.io answered $status for gitreant $version; not publishing"
+              exit 1
+              ;;
+          esac
+          cargo publish --locked --allow-dirty --dry-run
+          cargo publish --locked --allow-dirty
