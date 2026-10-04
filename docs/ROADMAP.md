@@ -21,18 +21,15 @@ onto one screen. Released on 2026-10-01.
 - Copyable commit metadata and a timestamp format setting
   ([ADR 0025](adr/0025-timestamp-rendering.md))
 
-## 0.2.1 — line-ending changes (release in preparation)
+## 0.2.1 — line-ending changes (released)
 
-A fix release: a file whose only change is its line endings no longer
-shows identical removed and added lines
+A fix release, released on 2026-10-01: a file whose only change is its
+line endings no longer shows identical removed and added lines
 ([ADR 0029](adr/0029-line-ending-changes.md)).
 
 - The changed line end is marked (`␍␊` or `␊`) on both lines of the pair
 - The file list labels the file "line endings only"
 - The diff header names the direction (`LF → CRLF` and so on)
-
-Before release, pass the release gate in [QUALITY.md](QUALITY.md): the full
-E2E suite and the `pnpm screenshot` assertions.
 
 ## 0.3.0 — more from graph nodes
 
@@ -125,9 +122,9 @@ keyed off the remote URL's host.
 - **Consolidate the git-running helpers** — three functions start
   `git -C <path>` (`run` in `branch.rs`, `run` in `status.rs`, `output` in
   `uncommitted.rs`) and differ only in lock handling and how errors return
-- **Check the tag against the version on release** — `release.yml` does
-  not check that the tag matches the version in `Cargo.toml`; a mismatch
-  publishes a GitHub Release and then fails the crates.io upload
+- **Keep the pinned actions up to date** — the workflows pin actions to
+  commit SHAs ([ADR 0030](adr/0030-release-safeguards.md)), which nothing
+  updates yet; Dependabot version updates for `github-actions` would
 - **Submit 0.2.x to WinGet** — microsoft/winget-pkgs has only 0.1.0
 - **State that the library crate is not covered by semver** —
   `src/lib.rs` exists for the integration tests and is internal; say so

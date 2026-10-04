@@ -16,15 +16,13 @@
 - グラフのノードに右クリックメニューとハッシュ表示（0.3.0 の土台）
 - コミット詳細のメタデータのコピーと日時形式の設定（[ADR 0025](adr/0025-timestamp-rendering.jp.md)）
 
-## 0.2.1 — 改行コードの変更が見える（リリース準備中）
+## 0.2.1 — 改行コードの変更が見える（リリース済み）
 
-修正版。改行コードだけが変わったファイルで、同じ内容の削除行と追加行が並ぶだけになっていた表示を改める（[ADR 0029](adr/0029-line-ending-changes.jp.md)）。
+修正版で、2026-10-01 にリリースした。改行コードだけが変わったファイルで、同じ内容の削除行と追加行が並ぶだけになっていた表示を改める（[ADR 0029](adr/0029-line-ending-changes.jp.md)）。
 
 - 対になった削除行と追加行の両方で、変わった行末に印（`␍␊` か `␊`）を付ける
 - ファイル一覧でそのファイルに「改行コードのみ」のラベルを付ける
 - 差分ヘッダに変換の向き（`LF → CRLF` など）を出す
-
-リリース前に [QUALITY.jp.md](QUALITY.jp.md) のリリースゲート（E2E フル実行と `pnpm screenshot` のアサーション）を通す。
 
 ## 0.3.0 — グラフのノード機能を広げる
 
@@ -84,6 +82,6 @@
 
 - コンフリクト時の解決支援 UI（ADR 0014 の将来項目）
 - **git 実行ヘルパーの整理** — `git -C <path>` を起動する関数が `branch.rs` の `run`、`status.rs` の `run`、`uncommitted.rs` の `output` の 3 つに分かれており、違いはロックの扱いとエラーの返し方だけ
-- **リリース時にタグとバージョンの一致を確かめる** — `release.yml` はタグが `Cargo.toml` のバージョンと一致するかを確かめていない。食い違うと GitHub Release は公開され、そのあと crates.io へのアップロードが失敗する
+- **固定した actions を更新し続ける** — ワークフローは actions をコミットの SHA で固定した（[ADR 0030](adr/0030-release-safeguards.jp.md)）が、まだ何も更新しない。`github-actions` の Dependabot version updates で賄える
 - **0.2.x を WinGet に登録する** — microsoft/winget-pkgs にあるのは 0.1.0 だけ
 - **ライブラリクレートが semver の対象外だと明記する** — `src/lib.rs` は統合テストのためにある内部向けのもの。クレートを説明している箇所（README、[CONTRIBUTING.md](CONTRIBUTING.md)）にそう書くか、公開しているデータ構造体に `#[non_exhaustive]` を付ける

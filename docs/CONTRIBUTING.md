@@ -133,21 +133,46 @@ executable's icon resource through `winresource`.
 
 ## Releasing
 
-Push a `vX.Y.Z` tag; `.github/workflows/release.yml` does the rest:
+How a release is guarded is [ADR 0030](adr/0030-release-safeguards.md).
 
-1. `cargo test --locked` on Linux / Windows / macOS gates the release.
-2. Native binaries (Windows x64, Linux x64, macOS x64/arm64) are built
-   with the frontend embedded, attested (SLSA provenance) and attached
-   to a GitHub Release with generated notes.
-3. The crate is published to crates.io via OIDC Trusted Publishing.
-   The published package ships the prebuilt `frontend/dist` (see the
-   `include` list in Cargo.toml), so `cargo install gitreant` needs no
-   Node.js. Put `[skip publish]` in the tagged commit message to skip
-   this job.
+1. Pass the release gate in [QUALITY.md](QUALITY.md): the full E2E suite
+   and the `pnpm screenshot` assertions.
+2. Move the `[Unreleased]` entries of [CHANGELOG.md](../CHANGELOG.md) under
+   a `## [X.Y.Z] - YYYY-MM-DD` heading and add its compare link. The
+   section becomes the GitHub Release notes as written, so links in it are
+   absolute URLs.
+3. Bump `version` in `Cargo.toml` to `X.Y.Z` on `main`. CI fails while the
+   version in `Cargo.toml` has no changelog section.
+4. Optionally rehearse with a prerelease tag (`vX.Y.Z-rc.N`): it runs the
+   tests and builds and creates a prerelease GitHub Release with generated
+   notes, but never publishes to crates.io. Delete the rehearsal's release
+   and tag afterwards (`gh release delete vX.Y.Z-rc.N --cleanup-tag`).
+5. Push a signed `vX.Y.Z` tag on `main`. `.github/workflows/release.yml`
+   then:
+   1. checks that the tag is on `main`, matches `Cargo.toml` and has a
+      changelog section;
+   2. runs `cargo test --locked` on every platform it ships for;
+   3. builds the native binaries with the frontend embedded, attests them
+      (SLSA provenance) and attaches them to a GitHub Release whose notes
+      are the changelog section;
+   4. waits for approval in the `release` environment, then publishes the
+      crate to crates.io via OIDC Trusted Publishing. The published package
+      ships the prebuilt `frontend/dist` (see the `include` list in
+      Cargo.toml), so `cargo install gitreant` needs no Node.js. Reject the
+      approval to hold a release back from crates.io.
 
-One-time setup: register this repository + `release.yml` as a Trusted
-Publisher for the `gitreant` crate on crates.io (Settings → Trusted
-Publishing). No registry token is stored anywhere.
+One-time setup, outside the repository:
+
+- Create the `release` environment (Settings → Environments) with yourself
+  as a required reviewer and a deployment rule admitting only `v*` tags.
+- Register this repository, `release.yml` and the `release` environment as
+  a Trusted Publisher for the `gitreant` crate on crates.io (Settings →
+  Trusted Publishing). No registry token is stored anywhere.
+
+The workflows pin actions to commit SHAs with the release in a trailing
+comment; when updating one, take the SHA of the release's tag
+(`gh api repos/OWNER/ACTION/commits/vX.Y.Z --jq .sha`) and update the
+comment with it.
 
 ## Architecture decisions
 
