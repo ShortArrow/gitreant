@@ -33,3 +33,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0027](0027-uncommitted-changes-row.jp.md) | 未コミットの変更はHEADの上に合成行として表示する | Accepted |
 | [0028](0028-worktrees.jp.md) | git worktreeはドロワーの入れ子表示とブランチバッジの印で扱う | Accepted |
 | [0029](0029-line-ending-changes.jp.md) | 改行コードの変更は行末の印とファイルのラベルで示す | Accepted |
+| [0030](0030-release-safeguards.jp.md) | リリースはタグを検査し、CHANGELOGを正とし、公開は承認を経る | Accepted |
