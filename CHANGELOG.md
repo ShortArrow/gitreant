@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `gitreant` with no arguments outside any git repository prints the usage
+  and exits with success, as `--help` does, instead of failing with
+  "server exited during startup". Naming a path that is not a repository
+  still fails.
+
 ### Changed
 
 - Releases check that the tag is on `main`, names the version in

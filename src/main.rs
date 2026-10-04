@@ -7,15 +7,17 @@
 //! tab; `--foreground` keeps the server in the current
 //! terminal; `--shutdown` stops the running server. `restart` brings the same
 //! repositories back up in a fresh process; `refresh` re-verifies signatures
-//! in place.
+//! in place. A bare `gitreant` outside any repository prints the usage and
+//! succeeds, while a named path that is not a repository is an error.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 
 use gitreant::app::{canonical, Session};
 use gitreant::doctor;
+use gitreant::git::discover_repo;
 #[cfg(not(target_os = "android"))]
 use gitreant::launch;
 use gitreant::server::{
@@ -77,6 +79,9 @@ fn main() -> ExitCode {
     if cli.shutdown {
         return shutdown_running(&cli);
     }
+    if cli.paths.is_empty() && discover_repo(Path::new(".")).is_err() {
+        return print_usage();
+    }
     let paths = if cli.paths.is_empty() {
         vec![PathBuf::from(".")]
     } else {
@@ -89,6 +94,15 @@ fn main() -> ExitCode {
         run_server(&cli, &paths)
     } else {
         start_background(&cli, &paths, true)
+    }
+}
+
+/// Print the same usage as `--help` and succeed: a bare `gitreant` outside
+/// any repository has nothing to show, which is not an error.
+fn print_usage() -> ExitCode {
+    match Cli::command().print_help() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(_) => ExitCode::FAILURE,
     }
 }
 
