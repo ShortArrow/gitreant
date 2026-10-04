@@ -80,7 +80,10 @@ responsibility for — is defined in [QUALITY.md](QUALITY.md).
   and `X.md` exist, a change to one side must change the other in the same
   push (`.github/scripts/check-docs-tandem.sh`); a change that only re-breaks
   lines is exempt, since Japanese paragraphs are kept on one line (a break
-  inside one renders as a stray space). Structural consistency of
+  inside one renders as a stray space), and so is a file changed only by
+  commits marked `[wording-only]` in their message, for rewording one
+  language without changing what it says
+  ([ADR 0031](adr/0031-wording-only-changes.md)). Structural consistency of
   the ADR indexes (same ADR set, matching slugs, honest links) is a regular
   `cargo test` (`tests/docs.rs`); Japanese is canonical and English bodies
   may be pre-linked before they exist.

@@ -5,12 +5,24 @@
 # translation (or a brand-new pair) must not require touching its
 # counterpart. Pairs where only one language exists stay exempt as well, and
 # so is a change that only re-breaks lines (the text without whitespace is
-# unchanged): it says nothing the other language would have to follow.
+# unchanged): it says nothing the other language would have to follow. For
+# the same reason a change whose every commit is marked [wording-only] in
+# its message is exempt: it rewords one language without changing what it
+# says (ADR 0031).
 set -euo pipefail
 
 # The file's text with every space and line break removed, at one ref.
 squeezed() {
   git show "$1:$2" | tr -d ' \t\r\n'
+}
+
+# True when every commit in base..head that touched the file is marked
+# [wording-only].
+only_rewording() {
+  local touched marked
+  touched="$(git rev-list --count "$base..$head" -- "$1")"
+  marked="$(git rev-list --count --fixed-strings --grep='[wording-only]' "$base..$head" -- "$1")"
+  [ "$touched" -gt 0 ] && [ "$touched" -eq "$marked" ]
 }
 
 base="${1:?base ref}"
@@ -34,6 +46,9 @@ while IFS= read -r file; do
   esac
   [ -f "$other" ] || continue
   if [ "$(squeezed "$base" "$file")" = "$(squeezed "$head" "$file")" ]; then
+    continue
+  fi
+  if only_rewording "$file"; then
     continue
   fi
   if ! grep -qxF "$other" <<<"$changed"; then

@@ -162,6 +162,8 @@ jobs:
           persist-credentials: false
           # The tandem check diffs against the push base / PR base.
           fetch-depth: 0
+      - name: Examples of the tandem check
+        run: bash .github/scripts/test-docs-tandem.sh
       - name: Check .jp.md / .md pairs change together
         run: >
           bash .github/scripts/check-docs-tandem.sh
