@@ -38,3 +38,4 @@ are canonical; the files below are their English translations.
 | [0028](0028-worktrees.md) | Handle git worktrees by nesting them in the drawer and marking their branches | Accepted |
 | [0029](0029-line-ending-changes.md) | Show line-ending changes with a mark at the line end and a label on the file | Accepted |
 | [0030](0030-release-safeguards.md) | Check the tag, take notes from the changelog, and approve publishing | Accepted |
+| [0031](0031-wording-only-changes.md) | Exempt a one-language rewording from the bilingual check by a commit mark | Accepted |
