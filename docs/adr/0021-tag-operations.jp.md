@@ -10,7 +10,7 @@ Accepted (2026-07-15)
 
 ## Decision
 
-- **作成**: コミット行の右クリックで名前入力付きメニューを出し、 `POST /api/tag` → `git tag <name> <commit>`（lightweight）。 annotated tag はメッセージ入力 UI が必要になるため対象外（必要になれば拡張）。
+- **作成**: コミット行の右クリックで名前入力付きメニューを出し、`POST /api/tag` → `git tag <name> <commit>`（lightweight）。annotated tag はメッセージ入力 UI が必要になるため対象外（必要になれば拡張）。
 - **削除**: タグバッジの右クリックメニュー（名前コピー / 削除）から確認付きで `DELETE /api/tag` → `git tag -d <name>`。ローカル削除のみでリモートへの push/削除は行わない（fetch 以外の送信操作は未導入の方針）。
 - 実行コマンドはコマンドログに記録し、完了は SSE で全クライアントへ反映。失敗は stderr をそのまま UI に表示。
 

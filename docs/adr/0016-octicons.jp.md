@@ -10,7 +10,7 @@ ADR 0015 では依存を増やさない自前 SVG でアイコンを始めたが
 
 ## Decision
 
-- GitHub 公式の **Octicons**（`@primer/octicons-react`, MIT）を採用する。 git ドメインの語彙（diff・rows/columns・file-directory 等）が揃い、 16px 最適化で小さなボタンに馴染む。
+- GitHub 公式の **Octicons**（`@primer/octicons-react`, MIT）を採用する。git ドメインの語彙（diff・rows/columns・file-directory 等）が揃い、16px 最適化で小さなボタンに馴染む。
 - インポートは `Icons.tsx` に集約し、アプリ側はドメイン名（`FetchIcon`・`TreeIcon` 等）だけを使う。セットの差し替えはこのファイル1枚で済む。
 - すべてのアクションボタンは `LabeledButton` を通り、ADR 0015 の icon / icon+label / label 設定に追従する。
 

@@ -10,7 +10,7 @@ Accepted (2026-07-13)
 
 ## Decision
 
-- 取得は `gh pr list --state open --json number,url,headRefName` に委譲する（ADR 0007/0011 と同じ CLI 委譲パターン）。ユーザーの `gh` 認証にそのまま乗り、gh 未インストール・未認証・GitHub リモート無しの場合は静かに空リストへ縮退する。
+- 取得は `gh pr list --state open --json number,url,headRefName` に委譲する（ADR 0007/0011 と同じ CLI 委譲パターン）。ユーザーの `gh` 認証にそのまま乗り、gh 未インストール・未認証・GitHub リモート無しの場合はエラーにせず空リストへ縮退する。
 - ネットワーク呼び出しなのでリポジトリ読み取り（`/api/repos`）には含めず、専用の `POST /api/prs` をフロントエンドが RepoCard 表示時に遅延取得する。結果はリポジトリ毎に **TTL 5分**でキャッシュする。
 - 実行した gh コマンドはコマンドログ（ADR 0009）に記録する。
 - UI はブランチバッジの末尾に `#<番号>` のリンクセグメントを足し、新しいタブで PR ページを開く。

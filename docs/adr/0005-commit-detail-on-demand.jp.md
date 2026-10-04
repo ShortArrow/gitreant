@@ -10,9 +10,9 @@ Accepted (2026-07-10)
 
 ## Decision
 
-- コミット詳細は **`POST /api/commit` でオンデマンド取得**する。 `/api/repos` のグラフ用データ（summary/author/time）は従来のまま。
-- リクエストは `{ "repo": "<repo id>", "id": "<commit id>" }` の JSON ボディ。 repo id は正規化パス（Windowsではバックスラッシュを含む）なので、 URLエンコードの罠を避けて既存の `DELETE /api/repos` と同じ JSONボディ方式に揃える。GETのキャッシュ性は失うが、ローカルツールでは問題にならない。
-- diff は **第1親との比較**（rootは空tree、マージコミットも第1親のみ）。 `git show` / 他のグラフツールと同じ既定。
+- コミット詳細は **`POST /api/commit` でオンデマンド取得**する。`/api/repos` のグラフ用データ（summary/author/time）は従来のまま。
+- リクエストは `{ "repo": "<repo id>", "id": "<commit id>" }` の JSON ボディ。repo id は正規化パス（Windowsではバックスラッシュを含む）なので、URLエンコードの罠を避けて既存の `DELETE /api/repos` と同じ JSONボディ方式に揃える。GETのキャッシュ性は失うが、ローカルツールでは問題にならない。
+- diff は **第1親との比較**（rootは空tree、マージコミットも第1親のみ）。`git show` / 他のグラフツールと同じ既定。
 - レスポンスはファイル単位の変更（status A/M/D/R + 追加/削除行数）まで。パッチ本文（hunk）は返さない。ファイル内diff表示が必要になったら別エンドポイントで追加する。
 - 実装は `git::read_commit`（gixのtree diff + blob diffの行数カウント）に閉じ、`app` 層の `CommitDetailView` でシリアライズ境界を保つ。
 

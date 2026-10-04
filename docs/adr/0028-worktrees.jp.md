@@ -19,7 +19,7 @@ Accepted (2026-09-23)
 ## Consequences
 
 - 一覧・ビューの読み取りごとに `.git/worktrees/*` を走査し、linked worktree ごとに gix でリポジトリを開いて HEAD を読む。件数は通常数個で、コストは無視できる。
-- bare リポジトリは main として列挙されない（作業ツリーが無い）。 linked worktree は列挙される。
+- bare リポジトリは main として列挙されない（作業ツリーが無い）。linked worktree は列挙される。
 - チェックアウト先ディレクトリが消えた linked worktree（`git worktree prune` の対象）は列挙しない。開けないものを見せない。
 - 同じブランチを複数 worktree で見ると、それぞれのビューで相手側に印が付く。印はあくまで「他所でチェックアウト中」の意味で、HEAD バッジとは別。
 - 入れ子行にも追加済みなら dirty / unpushed のインジケータを出す。ただしドロワーの名前フィルタはトップレベル行だけを対象にするので、入れ子になった worktree は絞り込みで見つからない（既知の制約）。

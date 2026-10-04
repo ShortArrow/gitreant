@@ -10,8 +10,8 @@ diffペインにインライン（unified）表示しかなく、左右分割（
 
 ## Decision
 
-- `/api/diff` / `/api/commit-diff` のレスポンスは**unifiedテキストのまま**変えない。左右分割はフロントエンドの純関数 `parseUnified` (frontend/src/diffModel.ts) がテキストをパースして組み立てる: hunk内の削除行の連続と追加行の連続を行単位でペアにし、余りは反対側を空セルにする。行番号はhunkヘッダから両側で数える。
-- 表示モード（Inline | Split）はdiffペインのトグルで切替え、 localStorage に永続化する。
+- `/api/diff` / `/api/commit-diff` のレスポンスは**unifiedテキストのまま**変えない。左右分割はフロントエンドの純関数 `parseUnified` (frontend/src/diffModel.ts) がテキストをパースして組み立てる。hunk内の削除行の連続と追加行の連続を行単位でペアにし、余りは反対側を空セルにする。行番号はhunkヘッダから両側で数える。
+- 表示モード（Inline | Split）はdiffペインのトグルで切替え、localStorage に永続化する。
 - 一括表示（コミットの全ファイルdiff）は `POST /api/commit-diff {repo, id}` を新設し、`FileDiff` の配列を返す。ファイル単位の `/api/diff` はクリック単位の軽い取得のためそのまま残す。
 
 ## Consequences

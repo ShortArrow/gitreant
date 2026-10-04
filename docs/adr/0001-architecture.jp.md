@@ -6,7 +6,7 @@ Accepted (2026-07-08)
 
 ## Context
 
-ローカルの git リポジトリのコミットグラフを、単一の SPA 上に複数まとめて表示する Web アプリを作る。参考実装は [k1LoW/mo](https://github.com/k1LoW/mo)。 `mo` は単一 Go バイナリに React SPA を `go:embed` で埋め込み、`net/http` + REST + SSE でローカルサーバを起動する。複数ファイルを引数で受けて 1 画面に並べ、二重起動時は既存サーバへ HTTP POST して追加する。
+ローカルの git リポジトリのコミットグラフを、単一の SPA 上に複数まとめて表示する Web アプリを作る。参考実装は [k1LoW/mo](https://github.com/k1LoW/mo)。`mo` は単一 Go バイナリに React SPA を `go:embed` で埋め込み、`net/http` + REST + SSE でローカルサーバを起動する。複数ファイルを引数で受けて 1 画面に並べ、二重起動時は既存サーバへ HTTP POST して追加する。
 
 ## Decision
 
@@ -17,7 +17,7 @@ Accepted (2026-07-08)
 - **二重起動検知**: 既にサーバが動いていれば、新しいバイナリ起動は `POST /api/repos` で既存セッションにリポジトリを追加してブラウザを開くだけにする。
 - **git アクセス**: `gix` (gitoxide, pure Rust)。C ツールチェーン非依存でクロスコンパイル・単一バイナリ配布が容易。
 - **バックエンド**: `axum` + `tokio`。REST API と SSE を提供。
-- **グラフ描画**: レーン割当（線の分岐/合流の計算）は Rust ドメイン層で行い、 JSON で返す。フロントは React で自前 SVG レイアウトエンジンとして描画する。
+- **グラフ描画**: レーン割当（線の分岐/合流の計算）は Rust ドメイン層で行い、JSON で返す。フロントは React で自前 SVG レイアウトエンジンとして描画する。
 - **フロント**: React + Vite + TypeScript。
 
 ## 依存方向

@@ -10,7 +10,7 @@ squashマージされたPRのブランチが残っていると、その変更が
 
 ## Decision
 
-- 推定はせず、**GitHubが知っている事実**を使う: `gh pr list --state merged --limit 50 --json number,url,headRefName,mergeCommit` で「PRのヘッドブランチ ↔ ベースに載ったコミット（mergeCommit）」の対応を取得する（ADR 0013 の照会に相乗り、同じTTLキャッシュ・コマンドログ記録・gh無し環境での静かな縮退）。
+- 推定はせず、**GitHubが知っている事実**を使う。`gh pr list --state merged --limit 50 --json number,url,headRefName,mergeCommit` で「PRのヘッドブランチ ↔ ベースに載ったコミット（mergeCommit）」の対応を取得する（ADR 0013 の照会に相乗り、同じTTLキャッシュ・コマンドログ記録・gh無し環境での静かな縮退）。
 - グラフに **mergeCommit と、まだ残っているローカルブランチのtip の両方が存在する場合のみ**、2ノード間を破線の擬似エッジで結ぶ（色はブランチtipのレーン色、描画はフロントの `squashEdges`）。ブランチ削除済み・mergeCommitが表示範囲外なら何も描かない。
 
 ## Consequences
