@@ -125,6 +125,7 @@ keyed off the remote URL's host.
 - **Keep the pinned actions up to date** — the workflows pin actions to
   commit SHAs ([ADR 0030](adr/0030-release-safeguards.md)), which nothing
   updates yet; Dependabot version updates for `github-actions` would
+  cover it
 - **Submit 0.2.x to WinGet** — microsoft/winget-pkgs has only 0.1.0
 - **State that the library crate is not covered by semver** —
   `src/lib.rs` exists for the integration tests and is internal; say so

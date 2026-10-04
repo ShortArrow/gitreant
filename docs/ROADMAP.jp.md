@@ -2,7 +2,7 @@
 
 [English](ROADMAP.md) | [日本語](ROADMAP.jp.md)
 
-次の 2 版は主題を決めて進める。それ以降の項目は分野別に並べ、優先度順ではない。決定済みの設計は [adr/](adr/) を参照。
+次の 2 版は主題を決めて進める。それ以降の項目は分野別に並べたもので、優先度順ではない。決定済みの設計は [adr/](adr/) を参照。
 
 ## 0.2.0 — 作業中の状態が見える（リリース済み）
 
@@ -70,7 +70,7 @@
 ## グラフ / UI
 
 - **Blame** — diff 行選択メニューに項目追加（土台は実装済み）。バックエンドは gix blame か git CLI 委譲
-- **stash 全体の表示切替** — stash バッジと stash のコミットそのものを隠す。内部構造（index・未追跡ファイルのコミット）の表示切替は実装済み。全体を隠すにはコミット収集がサーバ側のためクエリパラメータの設計が要る（要否確認中）
+- **stash 全体の表示切替** — stash バッジと stash のコミットそのものを隠す。内部構造（index・未追跡ファイルのコミット）の表示切替は実装済み。コミットはサーバ側で収集しているため、全体を隠すにはクエリパラメータの設計が要る（要否確認中）
 
 ## タグ / ブランチ操作（ADR 0021 の残課題）
 
@@ -82,6 +82,6 @@
 
 - コンフリクト時の解決支援 UI（ADR 0014 の将来項目）
 - **git 実行ヘルパーの整理** — `git -C <path>` を起動する関数が `branch.rs` の `run`、`status.rs` の `run`、`uncommitted.rs` の `output` の 3 つに分かれており、違いはロックの扱いとエラーの返し方だけ
-- **固定した actions を更新し続ける** — ワークフローは actions をコミットの SHA で固定した（[ADR 0030](adr/0030-release-safeguards.jp.md)）が、まだ何も更新しない。`github-actions` の Dependabot version updates で賄える
+- **固定した actions を更新し続ける** — ワークフローは actions をコミットの SHA で固定した（[ADR 0030](adr/0030-release-safeguards.jp.md)）が、それを更新するものはまだない。`github-actions` の Dependabot version updates で賄える
 - **0.2.x を WinGet に登録する** — microsoft/winget-pkgs にあるのは 0.1.0 だけ
 - **ライブラリクレートが semver の対象外だと明記する** — `src/lib.rs` は統合テストのためにある内部向けのもの。クレートを説明している箇所（README、[CONTRIBUTING.md](CONTRIBUTING.md)）にそう書くか、公開しているデータ構造体に `#[non_exhaustive]` を付ける

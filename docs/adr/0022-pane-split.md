@@ -27,7 +27,7 @@ primary use case is "putting different repositories side by side".
   the command registry).
 - **A pane disappears when it runs out of tabs.** Closing the right
   pane's last tab (or losing it via repository removal) returns to a
-  single pane. If the left pane runs out, the right pane slides left
+  single pane. If the left pane runs out of tabs, the right pane slides left
   (simply removing empty panes from the array).
 - **Focus**: clicking inside a pane moves focus. A normal click in
   the drawer opens in the focused pane. Repository operation
