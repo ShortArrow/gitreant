@@ -1,0 +1,8 @@
+# Link the C runtime statically on Windows, so gitreant.exe starts without
+# the Visual C++ Redistributable (ADR 0032). The target tables apply both to
+# a native build and to `--target` builds in the release workflow.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

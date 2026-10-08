@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The Windows executables link the C runtime statically, so they start on
+  a Windows without the Visual C++ Redistributable. Before, they failed
+  with exit code 0xC0000135 and printed nothing
+  ([ADR 0032](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0032-static-crt-on-windows.md)).
+
 ## [0.2.2] - 2026-10-04
 
 ### Fixed

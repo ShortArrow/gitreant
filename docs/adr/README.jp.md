@@ -35,3 +35,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0029](0029-line-ending-changes.jp.md) | 改行コードの変更は行末の印とファイルのラベルで示す | Accepted |
 | [0030](0030-release-safeguards.jp.md) | リリースはタグを検査し、CHANGELOGを正とし、公開は承認を経る | Accepted |
 | [0031](0031-wording-only-changes.jp.md) | 片方の言語だけの言い回しの修正はコミットの印で日英同時更新の対象から外す | Accepted |
+| [0032](0032-static-crt-on-windows.jp.md) | Windows 版は C ランタイムを静的リンクする | Accepted |
