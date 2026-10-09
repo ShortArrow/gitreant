@@ -1,0 +1,13 @@
+# Keeps the SHA-pinned actions current (ADR 0030); Dependabot rewrites the
+# SHA and the trailing release comment together.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci

@@ -82,6 +82,4 @@
 
 - コンフリクト時の解決支援 UI（ADR 0014 の将来項目）
 - **git 実行ヘルパーの整理** — `git -C <path>` を起動する関数が `branch.rs` の `run`、`status.rs` の `run`、`uncommitted.rs` の `output` の 3 つに分かれており、違いはロックの扱いとエラーの返し方だけ
-- **固定した actions を更新し続ける** — ワークフローは actions をコミットの SHA で固定した（[ADR 0030](adr/0030-release-safeguards.jp.md)）が、それを更新するものはまだない。`github-actions` の Dependabot version updates で賄える
-- **0.2.x を WinGet に登録する** — microsoft/winget-pkgs にあるのは 0.1.0 だけ
 - **ライブラリクレートが semver の対象外だと明記する** — `src/lib.rs` は統合テストのためにある内部向けのもの。クレートを説明している箇所（README、[CONTRIBUTING.md](CONTRIBUTING.md)）にそう書くか、公開しているデータ構造体に `#[non_exhaustive]` を付ける

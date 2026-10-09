@@ -178,7 +178,8 @@ One-time setup, outside the repository:
   Trusted Publishing). No registry token is stored anywhere.
 
 The workflows pin actions to commit SHAs with the release in a trailing
-comment; when updating one, take the SHA of the release's tag
+comment. Dependabot (`.github/dependabot.yml`) opens one weekly pull request
+that moves both. To update one by hand, take the SHA of the release's tag
 (`gh api repos/OWNER/ACTION/commits/vX.Y.Z --jq .sha`) and update the
 comment with it.
 

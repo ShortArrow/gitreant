@@ -122,11 +122,6 @@ keyed off the remote URL's host.
 - **Consolidate the git-running helpers** — three functions start
   `git -C <path>` (`run` in `branch.rs`, `run` in `status.rs`, `output` in
   `uncommitted.rs`) and differ only in lock handling and how errors return
-- **Keep the pinned actions up to date** — the workflows pin actions to
-  commit SHAs ([ADR 0030](adr/0030-release-safeguards.md)), which nothing
-  updates yet; Dependabot version updates for `github-actions` would
-  cover it
-- **Submit 0.2.x to WinGet** — microsoft/winget-pkgs has only 0.1.0
 - **State that the library crate is not covered by semver** —
   `src/lib.rs` exists for the integration tests and is internal; say so
   where the crate is described (README, [CONTRIBUTING.md](CONTRIBUTING.md)),
