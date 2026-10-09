@@ -122,7 +122,3 @@ keyed off the remote URL's host.
 - **Consolidate the git-running helpers** — three functions start
   `git -C <path>` (`run` in `branch.rs`, `run` in `status.rs`, `output` in
   `uncommitted.rs`) and differ only in lock handling and how errors return
-- **State that the library crate is not covered by semver** —
-  `src/lib.rs` exists for the integration tests and is internal; say so
-  where the crate is described (README, [CONTRIBUTING.md](CONTRIBUTING.md)),
-  or mark the public data structs `#[non_exhaustive]`

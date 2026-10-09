@@ -35,6 +35,10 @@ main (CLI) ──▶ server (axum) ──▶ app (session) ──▶ domain (gra
 - **frontend**: receives lane-precomputed JSON and draws the graph with
   hand-rolled SVG.
 
+The modules are exposed through `src/lib.rs` only for the integration tests.
+The library is not a public API, so its items can change in any release;
+the version number tracks the command-line interface.
+
 ## API
 
 The `/api/*` routes are defined in one place — the `router()` function in
