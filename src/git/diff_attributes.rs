@@ -5,10 +5,11 @@
 use gix::attrs::StateRef;
 use gix::worktree::stack::state::attributes::Source;
 
-/// The `diff` attribute of the paths in one repository. Attributes come from
-/// the working tree's `.gitattributes`, then the index, then
-/// `$GIT_DIR/info/attributes` and `core.attributesFile` — never from the
-/// commits being diffed, as with `git diff`.
+/// The `diff` attribute of the paths in one repository, from the places
+/// `git diff <commit> <commit>` reads: `$GIT_DIR/info/attributes`, the
+/// `.gitattributes` files in the working tree, and the global and system
+/// attribute files. Neither the index nor the commits being diffed are read,
+/// and a bare repository has only the first and last.
 pub(super) struct DiffAttributes<'repo> {
     repo: &'repo gix::Repository,
     /// `None` when the attributes cannot be read; every path is then judged
@@ -18,16 +19,17 @@ pub(super) struct DiffAttributes<'repo> {
 }
 
 impl<'repo> DiffAttributes<'repo> {
+    /// Hands gix an empty index, so it has no `.gitattributes` to map from
+    /// the index; this also spares loading an index, which takes hundreds of
+    /// milliseconds in a large repository.
     pub(super) fn of(repo: &'repo gix::Repository) -> Self {
+        let no_index = gix::index::State::new(repo.object_hash());
         let source = if repo.workdir().is_some() {
             Source::WorktreeThenIdMapping
         } else {
             Source::IdMapping
         };
-        let stack = repo
-            .index_or_empty()
-            .ok()
-            .and_then(|index| repo.attributes_only(&index, source).ok());
+        let stack = repo.attributes_only(&no_index, source).ok();
         let outcome = stack
             .as_ref()
             .map(|stack| stack.selected_attribute_matches(["diff"]))

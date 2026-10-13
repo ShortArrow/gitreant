@@ -339,6 +339,10 @@ fn commit_diffs_take_attributes_from_the_working_tree() {
     assert!(diff.binary, "the uncommitted .gitattributes applies");
     let dat = read_file_diff(dir, &head, "a.dat").expect("diff");
     assert!(!dat.binary, "the committed .gitattributes no longer applies");
+
+    std::fs::remove_dir_all(dir.join("sub")).unwrap();
+    let e = read_file_diff(dir, &head, "sub/e.txt").expect("diff");
+    assert!(!e.binary, "a .gitattributes left only in the index is not read");
 }
 
 #[test]
