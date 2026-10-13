@@ -2,6 +2,8 @@
 
 use std::path::Path;
 
+use super::diff_attributes::DiffAttributes;
+
 /// One changed file in a commit, with line counts against the first parent.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FileChange {
@@ -87,7 +89,8 @@ pub struct FileDiff {
     pub path: String,
     /// "A" (added), "M" (modified) or "D" (deleted).
     pub status: String,
-    /// True when either side looks binary; `text` is empty then.
+    /// The file diffs as binary (its `diff` attribute, else a NUL byte on
+    /// either side); `text` is empty then.
     pub binary: bool,
     /// Unified diff hunks ("@@ ..." headers with -/+/context lines).
     pub text: String,
@@ -99,7 +102,8 @@ pub fn read_file_diff(path: &Path, id: &str, file: &str) -> Result<FileDiff, Str
     let commit = find_commit(&repo, id)?;
     let tree = commit.tree().map_err(|e| format!("tree: {e}"))?;
     let parent_tree = first_parent_tree(&repo, &commit)?;
-    diff_blobs(&repo, &parent_tree, &tree, file)?
+    let mut attributes = DiffAttributes::of(&repo);
+    diff_blobs(&mut attributes, &repo, &parent_tree, &tree, file)?
         .ok_or_else(|| format!("{file} is not part of commit {id}"))
 }
 
@@ -109,11 +113,12 @@ pub fn read_commit_diff(path: &Path, id: &str) -> Result<Vec<FileDiff>, String> 
     let commit = find_commit(&repo, id)?;
     let tree = commit.tree().map_err(|e| format!("tree: {e}"))?;
     let parent_tree = first_parent_tree(&repo, &commit)?;
+    let mut attributes = DiffAttributes::of(&repo);
 
     changed_files(&repo, &commit)?
         .into_iter()
         .map(|file| {
-            diff_blobs(&repo, &parent_tree, &tree, &file.path)?
+            diff_blobs(&mut attributes, &repo, &parent_tree, &tree, &file.path)?
                 .ok_or_else(|| format!("{} vanished while diffing", file.path))
         })
         .collect()
@@ -132,6 +137,7 @@ fn find_commit<'repo>(
 
 /// Diff the blobs at `file` between two trees; `None` when neither side has it.
 fn diff_blobs(
+    attributes: &mut DiffAttributes,
     repo: &gix::Repository,
     parent_tree: &gix::Tree<'_>,
     tree: &gix::Tree<'_>,
@@ -147,7 +153,7 @@ fn diff_blobs(
     };
     let old = old.unwrap_or_default();
     let new = new.unwrap_or_default();
-    let binary = looks_binary(&old) || looks_binary(&new);
+    let binary = attributes.binary(file, &old, &new);
     Ok(Some(FileDiff {
         path: file.to_string(),
         status: status.to_string(),
@@ -197,11 +203,6 @@ fn blob_at(
         .try_into_blob()
         .map_err(|e| format!("{path} is not a blob: {e}"))?;
     Ok(Some(blob.data.clone()))
-}
-
-/// Shared with the uncommitted-changes reader: same rule for both sides.
-pub(super) fn looks_binary(data: &[u8]) -> bool {
-    data.iter().take(8000).any(|&b| b == 0)
 }
 
 /// The unified hunks between two blobs, in the `git diff -u` text form.
@@ -264,13 +265,14 @@ pub(super) fn unified(old: &[u8], new: &[u8]) -> String {
 fn changed_files(repo: &gix::Repository, commit: &gix::Commit) -> Result<Vec<FileChange>, String> {
     let tree = commit.tree().map_err(|e| format!("tree: {e}"))?;
     let parent_tree = first_parent_tree(repo, commit)?;
+    let mut attributes = DiffAttributes::of(repo);
 
     let mut files = Vec::new();
     parent_tree
         .changes()
         .map_err(|e| format!("diff: {e}"))?
         .for_each_to_obtain_tree(&tree, |change| {
-            if let Some(file) = file_change(repo, change) {
+            if let Some(file) = file_change(&mut attributes, repo, change) {
                 files.push(file);
             }
             Ok::<_, std::convert::Infallible>(std::ops::ControlFlow::Continue(()))
@@ -283,6 +285,7 @@ fn changed_files(repo: &gix::Repository, commit: &gix::Commit) -> Result<Vec<Fil
 /// as the diff pane shows them: a line whose ending changed counts as
 /// changed, as it does for `git diff`.
 fn file_change(
+    attributes: &mut DiffAttributes,
     repo: &gix::Repository,
     change: gix::object::tree::diff::Change<'_, '_, '_>,
 ) -> Option<FileChange> {
@@ -306,9 +309,14 @@ fn file_change(
             ("R", blob(source_id.detach()), blob(id.detach()))
         }
     };
-    let (additions, deletions) = line_counts(&old, &new);
+    let path = change.location().to_string();
+    let (additions, deletions) = if attributes.binary(&path, &old, &new) {
+        (0, 0)
+    } else {
+        line_counts(&old, &new)
+    };
     Some(FileChange {
-        path: change.location().to_string(),
+        path,
         status: status.to_string(),
         additions,
         deletions,
@@ -316,13 +324,10 @@ fn file_change(
     })
 }
 
-/// Added and removed lines between two blobs; none for binary content.
+/// Added and removed lines between two text blobs.
 fn line_counts(old: &[u8], new: &[u8]) -> (usize, usize) {
     use gix::diff::blob::{Algorithm, Diff, InternedInput};
 
-    if looks_binary(old) || looks_binary(new) {
-        return (0, 0);
-    }
     let old = String::from_utf8_lossy(old);
     let new = String::from_utf8_lossy(new);
     let input = InternedInput::new(old.as_ref(), new.as_ref());

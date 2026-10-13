@@ -4,6 +4,7 @@
 mod avatar;
 mod branch;
 mod detail;
+mod diff_attributes;
 mod fetch;
 mod prs;
 mod repo;

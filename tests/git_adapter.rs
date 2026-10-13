@@ -268,6 +268,99 @@ fn file_diff_covers_deletions_and_binary_files() {
     assert_eq!(binary.text, "", "binary diffs carry no text");
 }
 
+/// A repository whose `.gitattributes` decides how each file diffs:
+/// `-diff`, the `binary` macro, a driver configured as binary and a
+/// `.gitattributes` in a subdirectory make text binary, `diff` makes NUL
+/// bytes text, and the rest is detected.
+fn repo_with_diff_attributes(dir: &Path) {
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    git(dir, &["config", "diff.pdf.binary", "true"]);
+    std::fs::write(
+        dir.join(".gitattributes"),
+        "*.dat -diff\n*.lock binary\n*.pdf diff=pdf\n*.raw diff\n",
+    )
+    .unwrap();
+    std::fs::create_dir(dir.join("sub")).unwrap();
+    std::fs::write(dir.join("sub/.gitattributes"), "*.txt -diff\n").unwrap();
+    for name in ["a.dat", "b.lock", "c.pdf", "sub/e.txt", "plain.txt"] {
+        std::fs::write(dir.join(name), "one\n").unwrap();
+    }
+    std::fs::write(dir.join("d.raw"), b"one\0\n").unwrap();
+    git(dir, &["add", "."]);
+    commit(dir, "root", 1000);
+    for name in ["a.dat", "b.lock", "c.pdf", "sub/e.txt", "plain.txt"] {
+        std::fs::write(dir.join(name), "one\ntwo\n").unwrap();
+    }
+    std::fs::write(dir.join("d.raw"), b"one\0\ntwo\n").unwrap();
+    git(dir, &["add", "."]);
+    commit(dir, "change every file", 1001);
+}
+
+#[test]
+fn commit_diffs_follow_the_diff_attribute() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    repo_with_diff_attributes(dir);
+    let head = read_repo(dir).expect("read repo").commits[0].id.clone();
+
+    let counts: HashMap<String, (usize, usize)> = read_commit(dir, &head)
+        .expect("read commit")
+        .files
+        .into_iter()
+        .map(|f| (f.path, (f.additions, f.deletions)))
+        .collect();
+    let binary: HashMap<String, bool> = read_commit_diff(dir, &head)
+        .expect("commit diff")
+        .into_iter()
+        .map(|d| (d.path, d.binary))
+        .collect();
+
+    for name in ["a.dat", "b.lock", "c.pdf", "sub/e.txt"] {
+        assert_eq!(counts[name], (0, 0), "{name} counts no lines");
+        assert!(binary[name], "{name} diffs as binary");
+        assert!(read_file_diff(dir, &head, name).unwrap().binary, "{name}");
+    }
+    for name in ["plain.txt", "d.raw"] {
+        assert_eq!(counts[name], (1, 0), "{name} counts its line");
+        assert!(!binary[name], "{name} diffs as text");
+    }
+}
+
+#[test]
+fn commit_diffs_take_attributes_from_the_working_tree() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    repo_with_diff_attributes(dir);
+    let head = read_repo(dir).expect("read repo").commits[0].id.clone();
+    std::fs::write(dir.join(".gitattributes"), "plain.txt -diff\n").unwrap();
+
+    let diff = read_file_diff(dir, &head, "plain.txt").expect("diff");
+    assert!(diff.binary, "the uncommitted .gitattributes applies");
+    let dat = read_file_diff(dir, &head, "a.dat").expect("diff");
+    assert!(!dat.binary, "the committed .gitattributes no longer applies");
+}
+
+#[test]
+fn an_untracked_file_follows_the_diff_attribute() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    repo_with_diff_attributes(dir);
+    git(dir, &["config", "status.showUntrackedFiles", "all"]);
+    std::fs::write(dir.join("new.dat"), "one\ntwo\n").unwrap();
+    std::fs::write(dir.join("new.raw"), b"one\0\n").unwrap();
+
+    let files = read_uncommitted(dir).expect("uncommitted").files;
+    let counts = |name: &str| {
+        let f = files.iter().find(|f| f.path == name).expect(name);
+        (f.additions, f.deletions)
+    };
+    assert_eq!(counts("new.dat"), (0, 0));
+    assert_eq!(counts("new.raw"), (1, 0));
+    assert!(read_uncommitted_diff(dir, "new.dat").unwrap().binary);
+    assert!(!read_uncommitted_diff(dir, "new.raw").unwrap().binary);
+}
+
 #[test]
 fn reads_the_whole_commit_diff_at_once() {
     let tmp = tempfile::tempdir().unwrap();

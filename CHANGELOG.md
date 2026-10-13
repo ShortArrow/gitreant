@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Commit diffs and untracked files follow the `diff` attribute of
+  `.gitattributes`, as `git diff` does: `-diff` and `binary` show as binary
+  with no line counts, and `diff` shows as text
+  ([ADR 0033](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0033-diff-attribute.md)).
+
 ## [0.2.3] - 2026-10-09
 
 ### Fixed

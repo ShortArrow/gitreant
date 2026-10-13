@@ -7,13 +7,15 @@
 //! what the user's own `git status` / `git diff` show, and the user's
 //! `status.showUntrackedFiles` setting decides how untracked files are
 //! listed. An untracked file has nothing to diff against, so it is read
-//! straight from disk, up to a size cap.
+//! straight from disk, up to a size cap, and its `diff` attribute is looked
+//! up the way the commit diffs do (ADR 0033).
 
 use std::collections::HashMap;
 use std::path::Path;
 use std::process::Command;
 
-use super::detail::{looks_binary, unified, CommitDetail, FileChange, FileDiff};
+use super::detail::{unified, CommitDetail, FileChange, FileDiff};
+use super::diff_attributes::DiffAttributes;
 use super::fetch::hide_console;
 
 /// The id the changes row carries in place of a commit hash. Never a valid
@@ -60,7 +62,12 @@ pub fn uncommitted_paths(path: &Path) -> Vec<UncommittedPath> {
 /// HEAD as the only parent, and the changed files with line counts. Fails
 /// when there is no HEAD to compare against.
 pub fn read_uncommitted(path: &Path) -> Result<CommitDetail, String> {
-    let head = head_id(path)?;
+    let repo = open(path)?;
+    let head = repo
+        .head_id()
+        .map(|id| id.detach().to_string())
+        .map_err(|e| format!("no HEAD to compare against: {e}"))?;
+    let mut attributes = DiffAttributes::of(&repo);
     let counts = parse_numstat(&output(
         path,
         &["diff", "HEAD", "--numstat", "-z", "--no-renames"],
@@ -82,7 +89,13 @@ pub fn read_uncommitted(path: &Path) -> Result<CommitDetail, String> {
                 read_untracked(&path.join(&entry.path), UNTRACKED_READ_LIMIT)
                     .ok()
                     .flatten()
-                    .map(|data| new_file_counts(&data))
+                    .map(|data| {
+                        if attributes.binary(&entry.path, &[], &data) {
+                            (0, 0)
+                        } else {
+                            new_file_counts(&data)
+                        }
+                    })
                     .unwrap_or((0, 0))
             } else {
                 counts.get(&entry.path).copied().unwrap_or((0, 0))
@@ -119,7 +132,8 @@ pub fn read_uncommitted_diff(path: &Path, file: &str) -> Result<FileDiff, String
         .into_iter()
         .find(|e| e.path == file)
         .ok_or_else(|| format!("{file} has no uncommitted changes"))?;
-    diff_entry(path, &entry)
+    let repo = open(path)?;
+    diff_entry(&mut DiffAttributes::of(&repo), path, &entry)
 }
 
 /// Every changed file's diff against HEAD, in status order. A file that
@@ -127,13 +141,19 @@ pub fn read_uncommitted_diff(path: &Path, file: &str) -> Result<FileDiff, String
 /// status) is left out rather than sinking the whole set; asking for that
 /// one file alone still reports the error.
 pub fn read_uncommitted_diffs(path: &Path) -> Result<Vec<FileDiff>, String> {
+    let repo = open(path)?;
+    let mut attributes = DiffAttributes::of(&repo);
     Ok(uncommitted_paths(path)
         .iter()
-        .filter_map(|entry| diff_entry(path, entry).ok())
+        .filter_map(|entry| diff_entry(&mut attributes, path, entry).ok())
         .collect())
 }
 
-fn diff_entry(path: &Path, entry: &UncommittedPath) -> Result<FileDiff, String> {
+fn diff_entry(
+    attributes: &mut DiffAttributes,
+    path: &Path,
+    entry: &UncommittedPath,
+) -> Result<FileDiff, String> {
     if entry.is_directory() {
         return Ok(FileDiff {
             path: entry.path.clone(),
@@ -144,7 +164,9 @@ fn diff_entry(path: &Path, entry: &UncommittedPath) -> Result<FileDiff, String> 
     }
     if entry.untracked {
         let data = read_untracked(&path.join(&entry.path), UNTRACKED_READ_LIMIT)?;
-        let binary = data.as_deref().is_none_or(looks_binary);
+        let binary = data
+            .as_deref()
+            .is_none_or(|data| attributes.binary(&entry.path, &[], data));
         return Ok(FileDiff {
             path: entry.path.clone(),
             status: entry.status.clone(),
@@ -178,11 +200,8 @@ fn diff_entry(path: &Path, entry: &UncommittedPath) -> Result<FileDiff, String> 
     })
 }
 
-fn head_id(path: &Path) -> Result<String, String> {
-    let repo = gix::discover(path).map_err(|e| format!("open {path:?}: {e}"))?;
-    repo.head_id()
-        .map(|id| id.detach().to_string())
-        .map_err(|e| format!("no HEAD to compare against: {e}"))
+fn open(path: &Path) -> Result<gix::Repository, String> {
+    gix::discover(path).map_err(|e| format!("open {path:?}: {e}"))
 }
 
 /// An untracked file's bytes, as git would see them: a symbolic link is
@@ -285,13 +304,9 @@ fn parse_diff(out: &str) -> (bool, String) {
     (false, text)
 }
 
-/// An untracked file is all additions: one per line, none for binaries.
+/// An untracked text file is all additions, one per line.
 fn new_file_counts(data: &[u8]) -> (usize, usize) {
-    if looks_binary(data) {
-        (0, 0)
-    } else {
-        (String::from_utf8_lossy(data).lines().count(), 0)
-    }
+    (String::from_utf8_lossy(data).lines().count(), 0)
 }
 
 #[cfg(test)]
@@ -369,7 +384,6 @@ mod tests {
     #[test]
     fn counts_a_new_file_as_pure_additions() {
         assert_eq!(new_file_counts(b"one\ntwo\n"), (2, 0));
-        assert_eq!(new_file_counts(b"\0binary"), (0, 0));
         assert_eq!(new_file_counts(b""), (0, 0));
     }
 }

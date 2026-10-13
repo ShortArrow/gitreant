@@ -81,11 +81,11 @@ keyed off the remote URL's host.
   list** — check existence with a timeout, or leave it out of the list and
   resolve it later
 
-## Diff display (follow-ups to ADR 0029)
+## Diff display (follow-ups to ADR 0029 / 0033)
 
-- **Respect `.gitattributes` `binary` / `-diff`** — git shows such files
-  as binary (`- -` in numstat); gitreant counts and diffs them as text (the
-  diff pane has done so since 0.2.0)
+- **Tell binary files apart in the file list** — the list shows a binary
+  file as `+0 −0`, the same as text whose line count did not change; git's
+  numstat prints `- -`
 - **Show the end-of-file newline change** — removing or adding the final
   newline shows identical `-x` / `+x` lines, because git's
   "\ No newline at end of file" marker is dropped. The working-tree side
