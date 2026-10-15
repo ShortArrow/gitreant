@@ -235,17 +235,26 @@ pub fn commit_url_base(clone_url: &str) -> Option<String> {
 }
 
 /// The repository path of a clone URL on `host`, in its HTTPS, scp-like or
-/// `ssh://` form, without ".git" and trailing slashes.
+/// `ssh://` form, without ".git" and trailing slashes. None unless every
+/// segment is a plain name (letters, digits, `.`, `_`, `-`; not `.`, `..`
+/// or GitLab's `-` separator) and the path is not a wiki's.
 fn repo_path_on<'a>(host: &str, clone_url: &'a str) -> Option<&'a str> {
     let rest = clone_url
         .strip_prefix(&format!("https://{host}/"))
         .or_else(|| clone_url.strip_prefix(&format!("git@{host}:")))
-        .or_else(|| clone_url.strip_prefix(&format!("ssh://git@{host}/")))?;
-    Some(
-        rest.strip_suffix(".git")
-            .unwrap_or(rest)
-            .trim_end_matches('/'),
-    )
+        .or_else(|| clone_url.strip_prefix(&format!("ssh://git@{host}/")))?
+        .trim_end_matches('/');
+    let path = rest
+        .strip_suffix(".git")
+        .unwrap_or(rest)
+        .trim_end_matches('/');
+    let plain = |segment: &str| {
+        !matches!(segment, "" | "." | ".." | "-")
+            && segment
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+    };
+    (path.split('/').all(plain) && !path.ends_with(".wiki")).then_some(path)
 }
 
 /// A commit collected before ordering.
@@ -496,6 +505,33 @@ mod tests {
         assert_eq!(commit_url_base("https://gitlab.com/only-group"), None);
         assert_eq!(commit_url_base("https://gitlab.com/group//repo"), None);
         assert_eq!(commit_url_base("../local/path"), None);
+    }
+
+    #[test]
+    fn commit_url_base_drops_a_git_suffix_before_a_trailing_slash() {
+        assert_eq!(
+            commit_url_base("https://github.com/o/r.git/").as_deref(),
+            Some("https://github.com/o/r/commit/")
+        );
+        assert_eq!(
+            commit_url_base("https://gitlab.com/g/r.git/").as_deref(),
+            Some("https://gitlab.com/g/r/-/commit/")
+        );
+    }
+
+    #[test]
+    fn commit_url_base_rejects_paths_that_name_no_project() {
+        for url in [
+            "https://github.com/o/r.wiki.git",
+            "https://gitlab.com/g/s/r.wiki.git",
+            "https://gitlab.com/g/r?private_token=T",
+            "https://github.com/o/r#frag",
+            "git@gitlab.com:g/r.git ",
+            "https://gitlab.com/g/r/-/tree/main",
+            "https://gitlab.com/g/../r",
+        ] {
+            assert_eq!(commit_url_base(url), None, "for {url}");
+        }
     }
 
     fn oid(hex: &str) -> gix::ObjectId {

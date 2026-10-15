@@ -1717,12 +1717,22 @@ test.describe.serial("gitreant UI", () => {
     const url = `https://github.com/example/repoK/commit/${id}`;
     await node.click({ button: "right" });
     await menu.getByTestId("commit-menu-copy-url").click();
+    await expect(menu).toHaveCount(0);
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(url);
+
+    // The page opens in a new tab (stubbed: the test never goes online),
+    // and the menu closes behind it.
+    await context.route("https://github.com/**", (route) =>
+      route.fulfill({ body: "stub" }),
+    );
     await node.click({ button: "right" });
-    const open = menu.getByTestId("commit-menu-open-url");
-    await expect(open).toHaveAttribute("href", url);
-    await expect(open).toHaveAttribute("target", "_blank");
-    await page.keyboard.press("Escape");
+    const [tab] = await Promise.all([
+      context.waitForEvent("page"),
+      menu.getByTestId("commit-menu-open-url").click(),
+    ]);
+    expect(tab.url()).toBe(url);
+    await tab.close();
+    await expect(menu).toHaveCount(0);
 
     // Restore the served set.
     const repoK = page.locator('[data-repo-name="repoK"]');

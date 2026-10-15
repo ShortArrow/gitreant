@@ -63,7 +63,7 @@ export function CommitMenu({
             data-testid="commit-menu-copy-hash"
             onClick={() => copyAndClose(commit)}
           >
-            {t("copyFullId")}
+            {t("copyCommitId")}
           </button>
           {webUrl && (
             <>
@@ -80,6 +80,7 @@ export function CommitMenu({
                 target="_blank"
                 rel="noreferrer"
                 onClick={onClose}
+                onAuxClick={onClose}
               >
                 {t("openCommitUrl")}
               </a>
