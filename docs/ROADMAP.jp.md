@@ -51,6 +51,7 @@
   - Codeberg / Forgejo / Gitea: `fj` または REST API
 - **縮退規則**: CLI 不在・未認証・対象外ホストでは静かに無効（現行の gh と同じ）
 - リモート URL 正規化（`github_web_url`）をフォージ別のプロバイダに一般化するところから始める
+- **自前で立てたホスト**: コミットメニューの Web ページ（`commit_url_base`）は、github.com と gitlab.com を名前で判別するだけである。自前の GitLab や GitHub Enterprise はホスト名だけでは見分けられないので、ホストとそのフォージを指定する設定が要る
 
 ## 作業ツリー（ADR 0027 / 0028 の残課題）
 

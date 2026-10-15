@@ -3,14 +3,16 @@ import { shortId } from "./graph";
 import { useT } from "./settings";
 
 /**
- * Context menu on a commit row: a list of actions first (create tag, create
- * branch), and a name input once one is chosen — so further commands can
- * slot in without fighting an always-open input.
+ * Context menu on a commit row or node: a list of actions first (copy the
+ * id, copy or open the commit's web page, create tag, create branch), and a
+ * name input once a ref is to be created — so further commands can slot in
+ * without fighting an always-open input.
  */
 export function CommitMenu({
   x,
   y,
   commit,
+  webUrl,
   onCreateTag,
   onCreateBranch,
   onClose,
@@ -19,6 +21,8 @@ export function CommitMenu({
   y: number;
   /** The full commit id the actions apply to. */
   commit: string;
+  /** The commit's page on the origin's host; absent when it has none. */
+  webUrl?: string;
   onCreateTag: (name: string) => void;
   onCreateBranch: (name: string) => void;
   onClose: () => void;
@@ -26,6 +30,10 @@ export function CommitMenu({
   const t = useT();
   const [stage, setStage] = useState<"tag" | "branch" | null>(null);
   const [name, setName] = useState("");
+  const copyAndClose = (text: string) => {
+    navigator.clipboard?.writeText(text).catch(() => {});
+    onClose();
+  };
 
   useEffect(() => {
     const close = (e: MouseEvent | KeyboardEvent) => {
@@ -50,6 +58,33 @@ export function CommitMenu({
       <span className="ctx-menu-note">{shortId(commit)}</span>
       {stage === null ? (
         <>
+          <button
+            type="button"
+            data-testid="commit-menu-copy-hash"
+            onClick={() => copyAndClose(commit)}
+          >
+            {t("copyFullId")}
+          </button>
+          {webUrl && (
+            <>
+              <button
+                type="button"
+                data-testid="commit-menu-copy-url"
+                onClick={() => copyAndClose(webUrl)}
+              >
+                {t("copyCommitUrl")}
+              </button>
+              <a
+                data-testid="commit-menu-open-url"
+                href={webUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={onClose}
+              >
+                {t("openCommitUrl")}
+              </a>
+            </>
+          )}
           <button
             type="button"
             data-testid="commit-menu-tag"

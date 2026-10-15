@@ -446,6 +446,10 @@ export function RepoCard({
           x={commitMenu.x}
           y={commitMenu.y}
           commit={commitMenu.commit}
+          webUrl={
+            repo.commit_url_base &&
+            `${repo.commit_url_base}${commitMenu.commit}`
+          }
           onCreateTag={(name) =>
             runBranchOp(
               (repoId, value) => createTag(repoId, value, commitMenu.commit),

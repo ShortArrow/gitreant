@@ -1695,6 +1695,42 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-repo-name="repoK"]')).toHaveCount(0);
   });
 
+  test("the commit menu copies the hash and the commit's web page", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.getByTestId("add-input").fill(fixtures.repoK);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoK"]')).toBeVisible();
+
+    const node = page.getByTestId("graph-node").first();
+    const menu = page.getByTestId("commit-menu");
+    await node.click({ button: "right" });
+    await menu.getByTestId("commit-menu-copy-hash").click();
+    await expect(menu).toHaveCount(0);
+    const id = await page.evaluate(() => navigator.clipboard.readText());
+    expect(id).toMatch(/^[0-9a-f]{40}$/);
+
+    // repoK's origin is on github.com: its commit page can be copied or
+    // opened in a new tab.
+    const url = `https://github.com/example/repoK/commit/${id}`;
+    await node.click({ button: "right" });
+    await menu.getByTestId("commit-menu-copy-url").click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(url);
+    await node.click({ button: "right" });
+    const open = menu.getByTestId("commit-menu-open-url");
+    await expect(open).toHaveAttribute("href", url);
+    await expect(open).toHaveAttribute("target", "_blank");
+    await page.keyboard.press("Escape");
+
+    // Restore the served set.
+    const repoK = page.locator('[data-repo-name="repoK"]');
+    await repoK.hover();
+    await repoK.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoK"]')).toHaveCount(0);
+  });
+
   test("the branch badge menu copies, checks out and merges", async ({
     page,
     context,
@@ -2068,6 +2104,10 @@ test.describe.serial("gitreant UI", () => {
     const menu = page.getByTestId("commit-menu");
     await expect(menu).toBeVisible();
     await expect(menu.locator(".ctx-menu-note")).toHaveText(shown);
+    // repoA has no origin on a known host, so no web page to offer.
+    await expect(menu.getByTestId("commit-menu-copy-hash")).toBeVisible();
+    await expect(menu.getByTestId("commit-menu-copy-url")).toHaveCount(0);
+    await expect(menu.getByTestId("commit-menu-open-url")).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(menu).toHaveCount(0);
 

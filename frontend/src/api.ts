@@ -87,6 +87,9 @@ export interface RepoView {
   head_branch?: string;
   /** Web URL of the origin remote, when it points at github.com. */
   github_url?: string;
+  /** A commit's web page on the origin's host (github.com or gitlab.com),
+   *  less the full commit id that completes it. */
+  commit_url_base?: string;
   /** The repository's other worktrees, so a branch badge can say where the
    *  branch is checked out (git refuses to switch to it here). */
   worktrees?: WorktreeEntry[];

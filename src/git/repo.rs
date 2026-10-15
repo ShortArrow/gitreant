@@ -56,6 +56,9 @@ pub struct RepoData {
     pub head_branch: Option<String>,
     /// Web URL of the origin remote, when it points at github.com.
     pub github_url: Option<String>,
+    /// A commit's web page on the origin's host, less the full commit id
+    /// (`commit_url_base`).
+    pub commit_url_base: Option<String>,
     /// The repository's other worktrees (`git worktree`): the main one when
     /// this is a linked worktree, and every linked one otherwise.
     pub worktrees: Vec<Worktree>,
@@ -111,10 +114,12 @@ pub fn read_repo_with_progress(
         .ok()
         .flatten()
         .map(|name| name.shorten().to_string());
-    let github_url = repo
+    let origin_url = repo
         .config_snapshot()
         .string("remote.origin.url")
-        .and_then(|url| github_web_url(&url.to_string()));
+        .map(|url| url.to_string());
+    let github_url = origin_url.as_deref().and_then(github_web_url);
+    let commit_url_base = origin_url.as_deref().and_then(commit_url_base);
 
     let tips: Vec<gix::ObjectId> = refs
         .iter()
@@ -139,6 +144,7 @@ pub fn read_repo_with_progress(
         head,
         head_branch,
         github_url,
+        commit_url_base,
         worktrees: read_worktrees(path),
     })
 }
@@ -205,18 +211,41 @@ fn classify(full: &str, short: &str) -> (String, Option<String>, String) {
 /// Handles "https://github.com/o/r(.git)", "git@github.com:o/r(.git)" and
 /// "ssh://git@github.com/o/r(.git)"; anything else is None.
 pub fn github_web_url(clone_url: &str) -> Option<String> {
-    let rest = clone_url
-        .strip_prefix("https://github.com/")
-        .or_else(|| clone_url.strip_prefix("git@github.com:"))
-        .or_else(|| clone_url.strip_prefix("ssh://git@github.com/"))?;
-    let path = rest
-        .strip_suffix(".git")
-        .unwrap_or(rest)
-        .trim_end_matches('/');
+    let path = repo_path_on("github.com", clone_url)?;
     let mut parts = path.splitn(2, '/');
     let owner = parts.next().filter(|s| !s.is_empty())?;
     let repo = parts.next().filter(|s| !s.is_empty() && !s.contains('/'))?;
     Some(format!("https://github.com/{owner}/{repo}"))
+}
+
+/// The web page of a commit on the origin's host, less the full commit id
+/// that completes it, when the origin is on github.com or gitlab.com.
+/// A GitLab project may sit in nested groups ("group/sub/repo"); a
+/// self-hosted GitLab cannot be told from other hosts by name, so it is None.
+pub fn commit_url_base(clone_url: &str) -> Option<String> {
+    if let Some(repo) = github_web_url(clone_url) {
+        return Some(format!("{repo}/commit/"));
+    }
+    let path = repo_path_on("gitlab.com", clone_url)?;
+    let segments: Vec<&str> = path.split('/').collect();
+    if segments.len() < 2 || segments.iter().any(|s| s.is_empty()) {
+        return None;
+    }
+    Some(format!("https://gitlab.com/{path}/-/commit/"))
+}
+
+/// The repository path of a clone URL on `host`, in its HTTPS, scp-like or
+/// `ssh://` form, without ".git" and trailing slashes.
+fn repo_path_on<'a>(host: &str, clone_url: &'a str) -> Option<&'a str> {
+    let rest = clone_url
+        .strip_prefix(&format!("https://{host}/"))
+        .or_else(|| clone_url.strip_prefix(&format!("git@{host}:")))
+        .or_else(|| clone_url.strip_prefix(&format!("ssh://git@{host}/")))?;
+    Some(
+        rest.strip_suffix(".git")
+            .unwrap_or(rest)
+            .trim_end_matches('/'),
+    )
 }
 
 /// A commit collected before ordering.
@@ -439,6 +468,34 @@ mod tests {
         assert_eq!(github_web_url("https://gitlab.com/o/r.git"), None);
         assert_eq!(github_web_url("../local/path"), None);
         assert_eq!(github_web_url("https://github.com/only-owner"), None);
+    }
+
+    #[test]
+    fn commit_url_base_follows_the_host_s_commit_page() {
+        assert_eq!(
+            commit_url_base("git@github.com:owner/repo.git").as_deref(),
+            Some("https://github.com/owner/repo/commit/")
+        );
+        for url in [
+            "https://gitlab.com/group/sub/repo.git",
+            "https://gitlab.com/group/sub/repo",
+            "git@gitlab.com:group/sub/repo.git",
+            "ssh://git@gitlab.com/group/sub/repo.git",
+        ] {
+            assert_eq!(
+                commit_url_base(url).as_deref(),
+                Some("https://gitlab.com/group/sub/repo/-/commit/"),
+                "for {url}"
+            );
+        }
+    }
+
+    #[test]
+    fn commit_url_base_rejects_other_hosts_and_shapes() {
+        assert_eq!(commit_url_base("https://gitlab.example.com/o/r.git"), None);
+        assert_eq!(commit_url_base("https://gitlab.com/only-group"), None);
+        assert_eq!(commit_url_base("https://gitlab.com/group//repo"), None);
+        assert_eq!(commit_url_base("../local/path"), None);
     }
 
     fn oid(hex: &str) -> gix::ObjectId {

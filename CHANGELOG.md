@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The commit menu, on a row or a graph node, copies the full commit id and,
+  when the origin is on github.com or gitlab.com, copies or opens the
+  commit's web page
+  ([#15](https://github.com/ShortArrow/gitreant/issues/15)).
+
 ### Changed
 
 - "Diff all" is a toggle: pressed while every file's diff is open, it closes

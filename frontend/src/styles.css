@@ -1081,7 +1081,8 @@ body {
 }
 
 .ref-menu button,
-.ctx-menu button {
+.ctx-menu button,
+.ctx-menu a {
   text-align: left;
   padding: 6px 10px;
   background: transparent;
@@ -1092,10 +1093,12 @@ body {
   font-size: 13px;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   white-space: nowrap;
+  text-decoration: none;
 }
 
 .ref-menu button:hover:not(:disabled),
-.ctx-menu button:hover:not(:disabled) {
+.ctx-menu button:hover:not(:disabled),
+.ctx-menu a:hover {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 

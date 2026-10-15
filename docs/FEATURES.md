@@ -36,8 +36,9 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 - **HEAD and merges.** The HEAD commit is a hollow ring; merge commit
   messages are dimmed.
 - **Nodes.** Hovering a node shows its hash and clicking selects the
-  commit. Its context menu is the commit row's (create a tag or a branch).
-  Clicking a hash copies the full id.
+  commit. Its context menu is the commit row's: copy the full id, create a
+  tag or a branch, and, when the origin is on github.com or gitlab.com, copy
+  or open the commit's web page. Clicking a hash copies the full id.
 - **Badges.** Branches, tags and the stash render as distinct badges. Remote
   branches, and tags pushed to a remote, carry the remote's name as a
   separate segment.

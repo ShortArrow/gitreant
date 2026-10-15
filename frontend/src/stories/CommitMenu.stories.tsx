@@ -21,3 +21,13 @@ export const Default: Story = {
     onClose: () => console.log("close"),
   },
 };
+
+/** The origin is on github.com or gitlab.com: the commit's web page joins
+ * the actions. */
+export const WithWebPage: Story = {
+  args: {
+    ...Default.args,
+    webUrl:
+      "https://github.com/ShortArrow/gitreant/commit/4043bc624ad30d6cd059d892a8ceb3b7cc9da79a",
+  },
+};

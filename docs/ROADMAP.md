@@ -67,6 +67,10 @@ keyed off the remote URL's host.
   on unknown hosts (same as gh today)
 - Start by generalizing the remote-URL normalization (`github_web_url`)
   into per-forge providers
+- **Self-hosted hosts**: the commit menu's web page (`commit_url_base`)
+  knows github.com and gitlab.com by name only. A self-hosted GitLab or
+  GitHub Enterprise cannot be told from other hosts by its name, so it needs
+  a setting that names the host and its forge
 
 ## Working tree (follow-ups to ADR 0027 / 0028)
 

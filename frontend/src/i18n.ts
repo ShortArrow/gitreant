@@ -135,6 +135,8 @@ const en = {
   tagNamePlaceholder: "Tag name…",
   createBranch: "Create branch",
   branchNamePlaceholder: "Branch name…",
+  copyCommitUrl: "Copy web page URL",
+  openCommitUrl: "Open web page",
   // Commit details
   loading: "Loading…",
   expandBody: "Show full message",
@@ -293,6 +295,8 @@ const ja: Record<MsgKey, string> = {
   tagNamePlaceholder: "タグ名…",
   createBranch: "ブランチを作成",
   branchNamePlaceholder: "ブランチ名…",
+  copyCommitUrl: "Web ページの URL をコピー",
+  openCommitUrl: "Web ページを開く",
   loading: "読み込み中…",
   expandBody: "全文を表示",
   collapseBody: "本文をたたむ",
