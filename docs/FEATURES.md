@@ -57,8 +57,9 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 - **Changed files.** Files show as a flat list or a directory tree, with
   added and removed line counts. A file's context menu copies its relative
   or absolute path, or opens it with the OS default handler.
-- **The diff pane.** Clicking a file (or "Diff all") opens its diff, inline
-  or side by side, with the changed part of each line highlighted.
+- **The diff pane.** Clicking a file opens its diff, inline or side by
+  side, with the changed part of each line highlighted. "Diff all" opens
+  every file's diff at once, and pressed again closes it.
 - **Line-ending changes.** A file whose only change is its line endings
   (LF against CRLF) is labelled "Line endings only"; its diff marks the
   changed line ends and the header names the direction (`LF → CRLF` and so

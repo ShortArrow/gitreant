@@ -105,7 +105,8 @@ export function CommitDetailPanel({
   signatureKey,
   onSelectFile,
   onOpenFile,
-  onShowAllDiffs,
+  allDiffsShown,
+  onToggleAllDiffs,
   onClose,
 }: {
   /** null while loading. */
@@ -121,8 +122,10 @@ export function CommitDetailPanel({
   onSelectFile: (path: string) => void;
   /** Open a changed file with the OS default handler. */
   onOpenFile: (path: string) => void;
-  /** Called when every changed file's diff should open at once. */
-  onShowAllDiffs: () => void;
+  /** Every changed file's diff is open. */
+  allDiffsShown: boolean;
+  /** Opens every changed file's diff at once, or closes it when open. */
+  onToggleAllDiffs: () => void;
   onClose: () => void;
 }) {
   const t = useT();
@@ -199,7 +202,8 @@ export function CommitDetailPanel({
               e.preventDefault();
               setFileMenu({ x: e.clientX, y: e.clientY, path });
             }}
-            onShowAllDiffs={onShowAllDiffs}
+            allDiffsShown={allDiffsShown}
+            onToggleAllDiffs={onToggleAllDiffs}
           />
         )}
       </div>
@@ -244,7 +248,8 @@ function DetailBody({
   onChangeView,
   onSelectFile,
   onFileMenu,
-  onShowAllDiffs,
+  allDiffsShown,
+  onToggleAllDiffs,
 }: {
   detail: CommitDetail;
   verified?: boolean;
@@ -255,7 +260,8 @@ function DetailBody({
   onChangeView: (view: FilesView) => void;
   onSelectFile: (path: string) => void;
   onFileMenu: (e: React.MouseEvent, path: string) => void;
-  onShowAllDiffs: () => void;
+  allDiffsShown: boolean;
+  onToggleAllDiffs: () => void;
 }) {
   const t = useT();
   const time = useTime();
@@ -397,7 +403,8 @@ function DetailBody({
             label={t("diffAll")}
             testId="diff-all"
             className="diff-all-btn"
-            onClick={onShowAllDiffs}
+            active={allDiffsShown}
+            onClick={onToggleAllDiffs}
           />
         )}
         <div className="files-view">

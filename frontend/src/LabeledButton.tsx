@@ -19,7 +19,8 @@ export function LabeledButton({
   label: string;
   testId: string;
   className?: string;
-  /** Adds the "active" class (toggle groups). */
+  /** Marks a toggle as pressed: the "active" class and `aria-pressed`.
+   * Left undefined, the button is not a toggle. */
   active?: boolean;
   disabled?: boolean;
   type?: "button" | "submit";
@@ -35,6 +36,7 @@ export function LabeledButton({
       data-testid={testId}
       title={label}
       aria-label={label}
+      aria-pressed={active}
       disabled={disabled}
       type={type}
       onClick={onClick}

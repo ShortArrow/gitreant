@@ -577,6 +577,35 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("graph")).toBeVisible();
   });
 
+  test("the diff-all button toggles the whole commit diff", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page
+      .getByTestId("commit-row")
+      .filter({ hasText: "main-2" })
+      .click();
+    const diffAll = page.getByTestId("diff-all");
+    const sections = page.getByTestId("diff-file-section");
+    await expect(diffAll).toHaveAttribute("aria-pressed", "false");
+
+    // From one file's diff, the button switches to every file's diff.
+    await page
+      .getByTestId("detail-file")
+      .filter({ hasText: "one.ts" })
+      .click();
+    await expect(sections).toHaveCount(1);
+    await diffAll.click();
+    await expect(sections).toHaveCount(2);
+    await expect(diffAll).toHaveAttribute("aria-pressed", "true");
+
+    // Pressed again, it closes the diff and brings the graph back.
+    await diffAll.click();
+    await expect(page.getByTestId("diff-pane")).toHaveCount(0);
+    await expect(page.getByTestId("graph")).toBeVisible();
+    await expect(diffAll).toHaveAttribute("aria-pressed", "false");
+  });
+
   test("fetch button pulls new remote commits into the graph", async ({
     page,
   }) => {

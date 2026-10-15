@@ -16,7 +16,8 @@ const meta: Meta<typeof CommitDetailPanel> = {
     onClose: () => {},
     onSelectFile: () => {},
     onOpenFile: () => {},
-    onShowAllDiffs: () => {},
+    allDiffsShown: false,
+    onToggleAllDiffs: () => {},
   },
 };
 export default meta;

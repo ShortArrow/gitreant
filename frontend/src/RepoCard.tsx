@@ -834,7 +834,12 @@ export function RepoCard({
           onOpenFile={(path) => {
             revealPath(repo.id, path).catch(() => {});
           }}
-          onShowAllDiffs={() => setDiffTarget({ kind: "all" })}
+          allDiffsShown={diffTarget?.kind === "all"}
+          onToggleAllDiffs={() =>
+            setDiffTarget((target) =>
+              target?.kind === "all" ? null : { kind: "all" },
+            )
+          }
           onClose={() => {
             setSelected(null);
             setDiffTarget(null);

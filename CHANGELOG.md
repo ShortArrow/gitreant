@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- "Diff all" is a toggle: pressed while every file's diff is open, it closes
+  the diff and brings the graph back
+  ([#19](https://github.com/ShortArrow/gitreant/issues/19)).
+
 ### Fixed
 
 - Commit diffs and untracked files follow the `diff` attribute of
