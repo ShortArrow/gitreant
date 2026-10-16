@@ -115,6 +115,26 @@ export function rowIndex(commits: CommitView[]): Map<string, number> {
   return map;
 }
 
+/** The commits reachable from `tip` through any parent, `tip` included,
+ * among the loaded `commits`; a parent beyond them ends that path. Empty
+ * when `tip` is not loaded. */
+export function reachableFrom(
+  commits: CommitView[],
+  tip: string,
+): Set<string> {
+  const byId = new Map(commits.map((c) => [c.id, c]));
+  const reached = new Set<string>();
+  const stack = [tip];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    const commit = byId.get(id);
+    if (!commit || reached.has(id)) continue;
+    reached.add(id);
+    stack.push(...commit.parents);
+  }
+  return reached;
+}
+
 export function shortId(id: string): string {
   return id.slice(0, 7);
 }

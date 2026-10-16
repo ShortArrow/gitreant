@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Hovering a branch badge fades the rows its tip cannot reach
+  ([#17](https://github.com/ShortArrow/gitreant/issues/17)).
 - Each submodule graph collapses to a narrow strip with its name, giving
   the commit rows their width back; the choice is kept per repository
   ([#18](https://github.com/ShortArrow/gitreant/issues/18)).

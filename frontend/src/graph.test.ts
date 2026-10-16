@@ -18,6 +18,7 @@ import {
   submoduleCrossLinks,
   submoduleRegions,
   COLLAPSED_REGION_WIDTH,
+  reachableFrom,
 } from "./graph";
 
 function edge(fromLane: number, toLane: number, fork = false): GraphEdge {
@@ -517,4 +518,29 @@ test("loadedCommitCount leaves the uncommitted-changes row out", () => {
   } as unknown as RepoView;
   expect(loadedCommitCount(repo)).toBe(2);
   expect(loadedCommitCount({ commits: [] } as unknown as RepoView)).toBe(0);
+});
+
+test("reachableFrom follows every parent from a tip", () => {
+  // merge ← (main-2, feature-1); main-2 ← main-1; feature-1 ← main-1 ← root
+  const c = (id: string, parents: string[]) => ({
+    ...commit(id, 0, 0, 0),
+    parents,
+  });
+  const commits = [
+    c("merge", ["main-2", "feature-1"]),
+    c("main-2", ["main-1"]),
+    c("feature-1", ["main-1"]),
+    c("main-1", ["root"]),
+    c("root", []),
+  ];
+
+  expect(reachableFrom(commits, "feature-1")).toEqual(
+    new Set(["feature-1", "main-1", "root"]),
+  );
+  expect(reachableFrom(commits, "merge").size).toBe(5);
+  // A parent beyond the loaded rows is skipped; an unknown tip reaches none.
+  expect(reachableFrom([c("tip", ["unloaded"])], "tip")).toEqual(
+    new Set(["tip"]),
+  );
+  expect(reachableFrom(commits, "gone")).toEqual(new Set());
 });

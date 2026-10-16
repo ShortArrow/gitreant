@@ -41,7 +41,8 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   or open the commit's web page. Clicking a hash copies the full id.
 - **Badges.** Branches, tags and the stash render as distinct badges. Remote
   branches, and tags pushed to a remote, carry the remote's name as a
-  separate segment.
+  separate segment. Hovering a branch badge fades the rows its tip cannot
+  reach, among the loaded commits.
 - **Stashes.** A stash folds to one node. A setting reveals its index and
   untracked-files commits, linked by dashed lines.
 - **Submodule graphs.** For a repository with submodules, each submodule's

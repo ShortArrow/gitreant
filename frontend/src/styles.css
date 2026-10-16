@@ -939,6 +939,15 @@ body {
   font-size: 11px;
 }
 
+/* Rows a hovered branch cannot reach (#17). */
+.commits .commit > * {
+  transition: opacity 0.12s;
+}
+
+.commits .commit-faded > * {
+  opacity: 0.35;
+}
+
 /* The hash of the graph node under the pointer, beside the cursor. */
 .node-tip {
   position: fixed;

@@ -2172,6 +2172,33 @@ test.describe.serial("gitreant UI", () => {
     await expect(hash).toHaveText(shown, { timeout: 3000 });
   });
 
+  test("hovering a branch badge fades the rows it cannot reach", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const rows = page.getByTestId("commit-row");
+    await expect(rows).toHaveCount(5);
+    const faded = page.locator(".commit-faded");
+
+    // feature reaches feature-1, main-1 and root; the merge and main-2
+    // came later on main.
+    await page.locator(".badge-kind-branch", { hasText: "feature" }).hover();
+    await expect(faded).toHaveCount(2);
+    await expect(rows.filter({ hasText: "merge feature" })).toHaveClass(
+      /commit-faded/,
+    );
+    await expect(rows.filter({ hasText: "main-2" })).toHaveClass(
+      /commit-faded/,
+    );
+    await expect(rows.filter({ hasText: "feature-1" })).not.toHaveClass(
+      /commit-faded/,
+    );
+
+    // Leaving the badge restores every row.
+    await page.mouse.move(0, 0);
+    await expect(faded).toHaveCount(0);
+  });
+
   test("graph nodes show their hash on hover and open the commit menu", async ({
     page,
   }) => {

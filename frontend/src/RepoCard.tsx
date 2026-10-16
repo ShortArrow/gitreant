@@ -64,6 +64,7 @@ import {
   laneColor,
   nodeX,
   nodeY,
+  reachableFrom,
   rowIndex,
   ROW_HEIGHT,
   NODE_RADIUS,
@@ -204,6 +205,13 @@ export function RepoCard({
     [repo, showStashInternals],
   );
   const rowOf = useMemo(() => rowIndex(view.commits), [view.commits]);
+  // While a branch badge is hovered, the commits its tip reaches (#17);
+  // every other row fades.
+  const [focusTip, setFocusTip] = useState<string | null>(null);
+  const reached = useMemo(
+    () => (focusTip ? reachableFrom(view.commits, focusTip) : null),
+    [view.commits, focusTip],
+  );
   const refMap = useMemo(() => refsByCommit(repo), [repo.refs]);
   // Which other worktree has each local branch checked out: its badge gets
   // a marker, and its menu cannot check it out here.
@@ -815,7 +823,7 @@ export function RepoCard({
                 key={commit.id}
                 className={`commit${commit.id === selected ? " selected" : ""}${
                   uncommitted !== undefined ? " commit-uncommitted" : ""
-                }`}
+                }${reached && !reached.has(commit.id) ? " commit-faded" : ""}`}
                 data-testid="commit-row"
                 style={{ height: ROW_HEIGHT }}
                 onClick={() => toggleSelected(commit.id)}
@@ -838,6 +846,12 @@ export function RepoCard({
                       className={`badge badge-ref badge-kind-${ref.kind}${
                         ref.remote ? " badge-remote" : ""
                       }`}
+                      onMouseEnter={
+                        isBranch ? () => setFocusTip(commit.id) : undefined
+                      }
+                      onMouseLeave={
+                        isBranch ? () => setFocusTip(null) : undefined
+                      }
                       onContextMenu={(e) => {
                         // Branches get checkout/merge, tags get delete; the
                         // stash and other refs have no operations.
