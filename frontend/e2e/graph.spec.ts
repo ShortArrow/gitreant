@@ -1953,6 +1953,49 @@ test.describe.serial("gitreant UI", () => {
     await expect(subRow).toHaveCount(0);
   });
 
+  test("submodule graph nodes name their commit and open its menu", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.getByTestId("add-input").fill(fixtures.repoO);
+    await page.getByTestId("add-submit").click();
+    await page.locator('[data-repo-name="repoO"]').click();
+    const node = page.getByTestId("submodule-node");
+    await expect(node).toHaveCount(1);
+
+    // Hovering names the commit the way a main graph node does, with the
+    // submodule it belongs to.
+    await node.hover();
+    const tip = page.getByTestId("node-tip");
+    await expect(tip).toHaveText(/^[0-9a-f]{7} sub: sub-1$/);
+    const short = (await tip.textContent())!.slice(0, 7);
+    await page.mouse.move(0, 0);
+
+    // The menu copies the id and the page on the submodule's own origin;
+    // refs cannot be created there, since they would land in another
+    // repository.
+    await node.click({ button: "right" });
+    const menu = page.getByTestId("commit-menu");
+    await expect(menu.locator(".ctx-menu-note")).toHaveText(short);
+    await expect(menu.getByTestId("commit-menu-tag")).toHaveCount(0);
+    await expect(menu.getByTestId("commit-menu-branch")).toHaveCount(0);
+    await menu.getByTestId("commit-menu-copy-hash").click();
+    const id = await page.evaluate(() => navigator.clipboard.readText());
+    expect(id.startsWith(short)).toBe(true);
+    await node.click({ button: "right" });
+    await menu.getByTestId("commit-menu-copy-url").click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      `https://github.com/example/repoO-sub/commit/${id}`,
+    );
+
+    // Restore the served set.
+    const repoO = page.locator('[data-repo-name="repoO"]');
+    await repoO.hover();
+    await repoO.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoO"]')).toHaveCount(0);
+  });
+
   test("a superproject draws its submodule graph with dashed pointer links", async ({
     page,
   }) => {

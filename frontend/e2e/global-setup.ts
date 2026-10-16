@@ -316,7 +316,10 @@ function makeRepoN(): string {
 }
 
 /** repoO: a superproject with one submodule, so the drawer can group them.
- * The submodule is added over the file transport (opt-in for recent git). */
+ * The submodule is added over the file transport (opt-in for recent git).
+ * The submodule's clone then names a github.com origin (never fetched) and
+ * the superproject has none, so a web page can only come from the
+ * submodule's own origin. */
 function makeRepoO(): string {
   const child = initRepo("repoO-sub");
   commit(child, "sub-1", 1_700_000_000);
@@ -331,6 +334,12 @@ function makeRepoO(): string {
     "sub",
   ]);
   commit(parent, "add submodule", 1_700_000_010);
+  git(path.join(parent, "sub"), [
+    "remote",
+    "set-url",
+    "origin",
+    "https://github.com/example/repoO-sub.git",
+  ]);
   return parent;
 }
 

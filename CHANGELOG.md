@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   every release asset
   ([ADR 0034](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0034-debian-packages.md)).
 
+### Changed
+
+- A submodule graph's nodes behave like the main graph's: hovering shows the
+  commit's hash, and the context menu copies its id and its web page on the
+  submodule's own origin. The dashed pointer links no longer cover the node
+  they end on.
+
 ### Fixed
 
 - The arm64 Linux binary starts on glibc 2.35 and later, Debian 12 and

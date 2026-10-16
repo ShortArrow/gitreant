@@ -88,6 +88,12 @@ function refsByCommit(repo: RepoView): Map<string, RefView[]> {
 }
 
 /** What the diff pane shows: one file, or everything the commit changed. */
+/** A commit's page on the origin of the repository `view` shows, when that
+ * origin is on a known host. */
+function webUrlOf(view: RepoView, commit: string): string | undefined {
+  return view.commit_url_base && `${view.commit_url_base}${commit}`;
+}
+
 export type DiffTarget = { kind: "file"; path: string } | { kind: "all" };
 
 /** Badge for a signed commit, following GitHub's wording: "Verified" only
@@ -214,11 +220,16 @@ export function RepoCard({
   }, [repo.id, showSubmodules, loadSubmodules]);
 
   const [refMenu, setRefMenu] = useState<RefMenuTarget | null>(null);
-  // Right-clicking a commit row offers actions on that commit.
+  // Right-clicking a commit row or node offers actions on that commit.
+  // `webUrl` is the commit's page on its own repository's origin; `refs`
+  // offers tag and branch creation, which only this repository takes (a
+  // submodule's commit lives in another repository).
   const [commitMenu, setCommitMenu] = useState<{
     x: number;
     y: number;
     commit: string;
+    webUrl?: string;
+    refs: boolean;
   } | null>(null);
   // Result of the last branch operation that failed; cleared on the next one.
   const [opError, setOpError] = useState<string | null>(null);
@@ -293,7 +304,13 @@ export function RepoCard({
   const openCommitMenu = (e: React.MouseEvent, commit: CommitView) => {
     e.preventDefault();
     if (commit.uncommitted !== undefined) return;
-    setCommitMenu({ x: e.clientX, y: e.clientY, commit: commit.id });
+    setCommitMenu({
+      x: e.clientX,
+      y: e.clientY,
+      commit: commit.id,
+      webUrl: webUrlOf(repo, commit.id),
+      refs: true,
+    });
   };
   const nodeLabel = (commit: CommitView) =>
     commit.uncommitted !== undefined
@@ -307,6 +324,28 @@ export function RepoCard({
     onContextMenu: (e: React.MouseEvent) => openCommitMenu(e, commit),
     onMouseEnter: (e: React.MouseEvent) =>
       setHoverNode({ x: e.clientX, y: e.clientY, label: nodeLabel(commit) }),
+    onMouseLeave: () => setHoverNode(null),
+  });
+  // A submodule's nodes name and offer their commit the same way, from the
+  // submodule's own view; they have no row to select.
+  const submoduleNodeProps = (graph: SubmoduleGraph, commit: CommitView) => ({
+    "data-testid": "submodule-node",
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault();
+      setCommitMenu({
+        x: e.clientX,
+        y: e.clientY,
+        commit: commit.id,
+        webUrl: webUrlOf(graph.view, commit.id),
+        refs: false,
+      });
+    },
+    onMouseEnter: (e: React.MouseEvent) =>
+      setHoverNode({
+        x: e.clientX,
+        y: e.clientY,
+        label: `${shortId(commit.id)} ${graph.name}: ${commit.summary}`,
+      }),
     onMouseLeave: () => setHoverNode(null),
   });
   const [detail, setDetail] = useState<CommitDetail | null>(null);
@@ -446,21 +485,26 @@ export function RepoCard({
           x={commitMenu.x}
           y={commitMenu.y}
           commit={commitMenu.commit}
-          webUrl={
-            repo.commit_url_base &&
-            `${repo.commit_url_base}${commitMenu.commit}`
+          webUrl={commitMenu.webUrl}
+          onCreateTag={
+            commitMenu.refs
+              ? (name) =>
+                  runBranchOp(
+                    (repoId, value) =>
+                      createTag(repoId, value, commitMenu.commit),
+                    name,
+                  )
+              : undefined
           }
-          onCreateTag={(name) =>
-            runBranchOp(
-              (repoId, value) => createTag(repoId, value, commitMenu.commit),
-              name,
-            )
-          }
-          onCreateBranch={(name) =>
-            runBranchOp(
-              (repoId, value) => createBranch(repoId, value, commitMenu.commit),
-              name,
-            )
+          onCreateBranch={
+            commitMenu.refs
+              ? (name) =>
+                  runBranchOp(
+                    (repoId, value) =>
+                      createBranch(repoId, value, commitMenu.commit),
+                    name,
+                  )
+              : undefined
           }
           onClose={() => setCommitMenu(null)}
         />
@@ -514,19 +558,6 @@ export function RepoCard({
                     opacity={0.7}
                   />
                 ))}
-                {region.graph.view.commits.map((commit) => (
-                  <circle
-                    key={commit.id}
-                    className="node node-submodule"
-                    cx={nodeX(commit.lane)}
-                    cy={nodeY(commit.row)}
-                    r={NODE_RADIUS - 1.5}
-                    fill={laneColor(commit.color)}
-                    opacity={0.8}
-                  >
-                    <title>{`${region.graph.name}: ${commit.summary}`}</title>
-                  </circle>
-                ))}
                 <line
                   className="region-divider"
                   x1={region.width + 5}
@@ -552,6 +583,27 @@ export function RepoCard({
               stroke={laneColor(link.color)}
               strokeWidth={1.5}
             />
+          ))}
+          {regions.map((region) => (
+            // Submodule nodes sit above the dashed links, whose wide hit
+            // stroke would otherwise cover the node it ends on.
+            <g
+              key={region.graph.path}
+              transform={`translate(${region.offset},0)`}
+            >
+              {region.graph.view.commits.map((commit) => (
+                <circle
+                  key={commit.id}
+                  className="node node-submodule"
+                  cx={nodeX(commit.lane)}
+                  cy={nodeY(commit.row)}
+                  r={NODE_RADIUS - 1.5}
+                  fill={laneColor(commit.color)}
+                  opacity={0.8}
+                  {...submoduleNodeProps(region.graph, commit)}
+                />
+              ))}
+            </g>
           ))}
           <g transform={`translate(${mainOffset},0)`}>
           {view.edges.map((edge, i) => {

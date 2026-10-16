@@ -46,7 +46,9 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   untracked-files commits, linked by dashed lines.
 - **Submodule graphs.** For a repository with submodules, each submodule's
   graph sits to the left, with dashed links between the commits that moved
-  its pointer. A setting turns this off.
+  its pointer. A setting turns this off. Hovering a submodule's node names
+  its commit, and its context menu copies the id or, from the submodule's
+  own origin, the commit's web page.
 - **Author avatars.** Rows show the author's GitHub avatar; a setting hides
   them.
 

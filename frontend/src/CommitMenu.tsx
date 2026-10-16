@@ -23,8 +23,10 @@ export function CommitMenu({
   commit: string;
   /** The commit's page on the origin's host; absent when it has none. */
   webUrl?: string;
-  onCreateTag: (name: string) => void;
-  onCreateBranch: (name: string) => void;
+  /** Absent when tags cannot be created here (a submodule's commit). */
+  onCreateTag?: (name: string) => void;
+  /** Absent when branches cannot be created here. */
+  onCreateBranch?: (name: string) => void;
   onClose: () => void;
 }) {
   const t = useT();
@@ -86,20 +88,24 @@ export function CommitMenu({
               </a>
             </>
           )}
-          <button
-            type="button"
-            data-testid="commit-menu-tag"
-            onClick={() => setStage("tag")}
-          >
-            {t("createTag")}…
-          </button>
-          <button
-            type="button"
-            data-testid="commit-menu-branch"
-            onClick={() => setStage("branch")}
-          >
-            {t("createBranch")}…
-          </button>
+          {onCreateTag && (
+            <button
+              type="button"
+              data-testid="commit-menu-tag"
+              onClick={() => setStage("tag")}
+            >
+              {t("createTag")}…
+            </button>
+          )}
+          {onCreateBranch && (
+            <button
+              type="button"
+              data-testid="commit-menu-branch"
+              onClick={() => setStage("branch")}
+            >
+              {t("createBranch")}…
+            </button>
+          )}
         </>
       ) : (
         <form
@@ -107,7 +113,7 @@ export function CommitMenu({
             e.preventDefault();
             const trimmed = name.trim();
             if (!trimmed) return;
-            (stage === "tag" ? onCreateTag : onCreateBranch)(trimmed);
+            (stage === "tag" ? onCreateTag : onCreateBranch)?.(trimmed);
             onClose();
           }}
         >
