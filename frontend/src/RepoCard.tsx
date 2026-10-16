@@ -45,6 +45,8 @@ import { format, MESSAGES } from "./i18n";
 import { useCommands, type PaletteCommand } from "./palette";
 import {
   SettingsContext,
+  storeCollapsedSubmodules,
+  storedCollapsedSubmodules,
   useAvatars,
   useSquashLinks,
   useStashInternals,
@@ -88,6 +90,44 @@ function refsByCommit(repo: RepoView): Map<string, RefView[]> {
 }
 
 /** What the diff pane shows: one file, or everything the commit changed. */
+/** A clickable part of the graph drawing that collapses or expands a
+ * submodule region; a button to the keyboard and assistive tech too. */
+function RegionToggle({
+  testId,
+  className,
+  label,
+  onToggle,
+  children,
+}: {
+  testId: string;
+  className: string;
+  label: string;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <g
+      className={`region-toggle ${className}`}
+      data-testid={testId}
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      // A mouse press must not leave a focus ring on the strip that
+      // replaces the button; the keyboard keeps focus across the swap.
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onToggle}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        onToggle();
+      }}
+    >
+      <title>{label}</title>
+      {children}
+    </g>
+  );
+}
+
 /** A commit's page on the origin of the repository `view` shows, when that
  * origin is on a known host. */
 function webUrlOf(view: RepoView, commit: string): string | undefined {
@@ -203,6 +243,19 @@ export function RepoCard({
   // a repository without submodules answers an empty list.
   const showSubmodules = useSubmoduleLinks();
   const [subGraphs, setSubGraphs] = useState<SubmoduleGraph[]>([]);
+  // Submodule regions collapsed to a strip, by path, kept per repository.
+  const [collapsedSubs, setCollapsedSubs] = useState<Set<string>>(() =>
+    storedCollapsedSubmodules(repo.id),
+  );
+  useEffect(() => setCollapsedSubs(storedCollapsedSubmodules(repo.id)), [
+    repo.id,
+  ]);
+  const toggleSubmodule = (path: string) => {
+    const next = new Set(collapsedSubs);
+    if (!next.delete(path)) next.add(path);
+    setCollapsedSubs(next);
+    storeCollapsedSubmodules(repo.id, next);
+  };
   useEffect(() => {
     if (!showSubmodules) {
       setSubGraphs([]);
@@ -439,14 +492,16 @@ export function RepoCard({
   const links = showSquashLinks ? squashLinks(view, mergedPrs) : [];
   // Submodule regions sit left of the main graph; everything main-graph
   // shaped below draws inside a group shifted by mainOffset.
-  const { regions, mainOffset } = submoduleRegions(subGraphs);
+  const { regions, mainOffset } = submoduleRegions(subGraphs, collapsedSubs);
   const subLinks = submoduleCrossLinks(view, mainOffset, regions);
   // Link corridors beyond the real lanes widen the drawing.
   const width = mainOffset + graphWidth(laneSpan(view.lane_count, links));
   const height = graphHeight(
     Math.max(
       view.commits.length,
-      ...regions.map((r) => r.graph.view.commits.length),
+      ...regions
+        .filter((r) => !r.collapsed)
+        .map((r) => r.graph.view.commits.length),
     ),
   );
   const selectedCommit = selected
@@ -548,7 +603,35 @@ export function RepoCard({
                 data-testid="submodule-region"
                 transform={`translate(${region.offset},0)`}
               >
-                {region.graph.view.edges.map((edge, i) => (
+                {region.collapsed ? (
+                  <RegionToggle
+                    testId="region-expand"
+                    className="region-strip"
+                    label={t("expandSubmodule", { name: region.graph.name })}
+                    onToggle={() => toggleSubmodule(region.graph.path)}
+                  >
+                    <rect width={region.width} height={height} rx={4} />
+                    <text
+                      transform={`translate(${region.width / 2 + 4},8) rotate(90)`}
+                    >
+                      {region.graph.name}
+                    </text>
+                  </RegionToggle>
+                ) : (
+                  <RegionToggle
+                    testId="region-collapse"
+                    className="region-collapse"
+                    label={t("collapseSubmodule", { name: region.graph.name })}
+                    onToggle={() => toggleSubmodule(region.graph.path)}
+                  >
+                    <rect x={region.width - 2} y={2} width={14} height={14} rx={3} />
+                    <text x={region.width + 5} y={13}>
+                      ‹
+                    </text>
+                  </RegionToggle>
+                )}
+                {!region.collapsed &&
+                  region.graph.view.edges.map((edge, i) => (
                   <path
                     key={`se${i}`}
                     d={edgePath(edge, subRowOf)}
@@ -584,7 +667,9 @@ export function RepoCard({
               strokeWidth={1.5}
             />
           ))}
-          {regions.map((region) => (
+          {regions
+            .filter((region) => !region.collapsed)
+            .map((region) => (
             // Submodule nodes sit above the dashed links, whose wide hit
             // stroke would otherwise cover the node it ends on.
             <g

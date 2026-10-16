@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Each submodule graph collapses to a narrow strip with its name, giving
+  the commit rows their width back; the choice is kept per repository
+  ([#18](https://github.com/ShortArrow/gitreant/issues/18)).
 - Debian packages for amd64 and arm64, attached to each release and
   installable with `apt` from `pkg.shortarrow.jp`, and a `SHA256SUMS` for
   every release asset

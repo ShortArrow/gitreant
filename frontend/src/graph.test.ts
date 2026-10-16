@@ -17,6 +17,7 @@ import {
   stashView,
   submoduleCrossLinks,
   submoduleRegions,
+  COLLAPSED_REGION_WIDTH,
 } from "./graph";
 
 function edge(fromLane: number, toLane: number, fork = false): GraphEdge {
@@ -352,6 +353,27 @@ test("submoduleRegions place each graph left of the main graph", () => {
   expect(submoduleRegions([]).mainOffset).toBe(0);
 });
 
+test("a collapsed submodule region narrows to a strip", () => {
+  const sub = (id: string, lanes: number) => ({
+    name: id,
+    path: `/p/${id}`,
+    view: repoWith({ id, lane_count: lanes }),
+    updates: [],
+  });
+  const { regions, mainOffset } = submoduleRegions(
+    [sub("a", 3), sub("b", 2)],
+    new Set(["/p/a"]),
+  );
+
+  expect(regions[0].collapsed).toBe(true);
+  expect(regions[0].width).toBe(COLLAPSED_REGION_WIDTH);
+  expect(regions[1].collapsed).toBe(false);
+  expect(regions[1].offset).toBe(COLLAPSED_REGION_WIDTH + REGION_GAP);
+  expect(mainOffset).toBe(
+    COLLAPSED_REGION_WIDTH + REGION_GAP + graphWidth(2) + REGION_GAP,
+  );
+});
+
 test("submoduleCrossLinks connect pointer updates across regions", () => {
   // Main commit "tip" (row 1, lane 1) moved the pointer to sub commit "s1"
   // (row 1, lane 0); an update to an unknown commit or sha is dropped.
@@ -371,6 +393,7 @@ test("submoduleCrossLinks connect pointer updates across regions", () => {
     },
     offset: 0,
     width: graphWidth(1),
+    collapsed: false,
   };
   const mainOffset = graphWidth(1) + REGION_GAP;
 
@@ -389,6 +412,11 @@ test("submoduleCrossLinks connect pointer updates across regions", () => {
   const path = crossPath(links[0]);
   expect(path.startsWith(`M${links[0].x1},${links[0].y1}`)).toBe(true);
   expect(path.endsWith(`${links[0].x2},${links[0].y2}`)).toBe(true);
+
+  // A collapsed region draws no nodes, so nothing links into it.
+  expect(
+    submoduleCrossLinks(main, mainOffset, [{ ...region, collapsed: true }]),
+  ).toEqual([]);
 });
 
 test("grabParameter measures how far along the chord a drag started", () => {

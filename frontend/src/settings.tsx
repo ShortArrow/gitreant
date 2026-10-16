@@ -152,6 +152,39 @@ export function storeSubmoduleLinks(on: boolean) {
   }
 }
 
+export const COLLAPSED_SUBMODULES_KEY = "gitreant-collapsed-submodules";
+
+/** The paths of a repository's submodules whose graph regions are collapsed
+ * (#18), kept per repository id. */
+export function storedCollapsedSubmodules(repoId: string): Set<string> {
+  try {
+    const all = JSON.parse(
+      localStorage.getItem(COLLAPSED_SUBMODULES_KEY) ?? "{}",
+    ) as Record<string, unknown>;
+    const paths = all[repoId];
+    return new Set(
+      Array.isArray(paths)
+        ? paths.filter((p): p is string => typeof p === "string")
+        : [],
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+export function storeCollapsedSubmodules(repoId: string, paths: Set<string>) {
+  try {
+    const all = JSON.parse(
+      localStorage.getItem(COLLAPSED_SUBMODULES_KEY) ?? "{}",
+    ) as Record<string, string[]>;
+    if (paths.size === 0) delete all[repoId];
+    else all[repoId] = [...paths];
+    localStorage.setItem(COLLAPSED_SUBMODULES_KEY, JSON.stringify(all));
+  } catch {
+    // localStorage may be unavailable; the state change alone is enough.
+  }
+}
+
 export const SettingsContext = createContext<{
   buttonStyle: ButtonStyle;
   lang: Lang;

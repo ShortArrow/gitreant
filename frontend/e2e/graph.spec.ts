@@ -1996,6 +1996,44 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-repo-name="repoO"]')).toHaveCount(0);
   });
 
+  test("a submodule graph collapses to a strip and stays collapsed", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoO);
+    await page.getByTestId("add-submit").click();
+    await page.locator('[data-repo-name="repoO"]').click();
+    const region = page.getByTestId("submodule-region");
+    await expect(page.getByTestId("submodule-node")).toHaveCount(1);
+    await expect(page.getByTestId("submodule-edge")).toHaveCount(1);
+    const wide = (await page.getByTestId("graph").getAttribute("width"))!;
+
+    // Collapsing leaves a named strip: no nodes, no links, a narrower graph.
+    await region.getByTestId("region-collapse").click();
+    await expect(page.getByTestId("submodule-node")).toHaveCount(0);
+    await expect(page.getByTestId("submodule-edge")).toHaveCount(0);
+    await expect(region.getByTestId("region-expand")).toContainText("sub");
+    const narrow = (await page.getByTestId("graph").getAttribute("width"))!;
+    expect(Number(narrow)).toBeLessThan(Number(wide));
+
+    // The choice is kept per repository across a reload.
+    await page.reload();
+    await page.locator('[data-repo-name="repoO"]').click();
+    await expect(region.getByTestId("region-expand")).toBeVisible();
+    await expect(page.getByTestId("submodule-node")).toHaveCount(0);
+
+    // The strip expands it again, from the keyboard too.
+    await region.getByTestId("region-expand").focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("submodule-node")).toHaveCount(1);
+    await expect(page.getByTestId("submodule-edge")).toHaveCount(1);
+
+    // Restore the served set.
+    const repoO = page.locator('[data-repo-name="repoO"]');
+    await repoO.hover();
+    await repoO.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoO"]')).toHaveCount(0);
+  });
+
   test("a superproject draws its submodule graph with dashed pointer links", async ({
     page,
   }) => {

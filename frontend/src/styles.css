@@ -902,6 +902,43 @@ body {
   stroke-width: 2.5;
 }
 
+/* Collapsing and expanding a submodule region (#18). */
+.graph .region-divider {
+  pointer-events: none;
+}
+
+.graph .region-toggle {
+  cursor: pointer;
+}
+
+.graph .region-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.graph .region-collapse rect {
+  fill: var(--bg-elev);
+  stroke: var(--border);
+}
+
+.graph .region-collapse text {
+  fill: var(--muted);
+  font-size: 12px;
+  text-anchor: middle;
+}
+
+.graph .region-strip rect {
+  fill: color-mix(in srgb, var(--border) 40%, transparent);
+}
+
+.graph .region-strip:hover rect {
+  fill: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.graph .region-strip text {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
 /* The hash of the graph node under the pointer, beside the cursor. */
 .node-tip {
   position: fixed;

@@ -122,27 +122,39 @@ export function shortId(id: string): string {
 /** Horizontal gap between a submodule's graph region and the next one. */
 export const REGION_GAP = 10;
 
+/** Width of a collapsed submodule region: a strip that shows its name. */
+export const COLLAPSED_REGION_WIDTH = 16;
+
 /** One submodule graph placed as its own region left of the main graph. */
 export interface SubmoduleRegion {
   graph: SubmoduleGraph;
   /** X offset of the region's own coordinate origin within the shared SVG. */
   offset: number;
   width: number;
+  /** Drawn as a strip with no nodes, edges or links. */
+  collapsed: boolean;
 }
 
 /**
  * Split the drawing into one region per submodule, left of the main graph
- * (each region keeps its own lane coordinates; the offset places it). Returns
- * the regions and the main graph's X offset after them.
+ * (each region keeps its own lane coordinates; the offset places it). A
+ * submodule whose path is in `collapsed` narrows to a strip. Returns the
+ * regions and the main graph's X offset after them.
  */
-export function submoduleRegions(graphs: SubmoduleGraph[]): {
+export function submoduleRegions(
+  graphs: SubmoduleGraph[],
+  collapsed: ReadonlySet<string> = new Set(),
+): {
   regions: SubmoduleRegion[];
   mainOffset: number;
 } {
   let x = 0;
   const regions = graphs.map((graph) => {
-    const width = graphWidth(graph.view.lane_count);
-    const region = { graph, offset: x, width };
+    const isCollapsed = collapsed.has(graph.path);
+    const width = isCollapsed
+      ? COLLAPSED_REGION_WIDTH
+      : graphWidth(graph.view.lane_count);
+    const region = { graph, offset: x, width, collapsed: isCollapsed };
     x += width + REGION_GAP;
     return region;
   });
@@ -164,7 +176,7 @@ export interface SubmoduleLink {
  * The cross-region links: for every pointer update whose superproject commit
  * is on screen and whose submodule sha is in that region's (truncated) view,
  * one dashed line between the two nodes. Updates pointing at rows outside
- * either view are dropped silently.
+ * either view, or into a collapsed region, are dropped silently.
  */
 export function submoduleCrossLinks(
   main: RepoView,
@@ -174,6 +186,7 @@ export function submoduleCrossLinks(
   const mainById = new Map(main.commits.map((c) => [c.id, c]));
   const links: SubmoduleLink[] = [];
   for (const region of regions) {
+    if (region.collapsed) continue;
     const subById = new Map(region.graph.view.commits.map((c) => [c.id, c]));
     for (const update of region.graph.updates) {
       const from = mainById.get(update.commit);
