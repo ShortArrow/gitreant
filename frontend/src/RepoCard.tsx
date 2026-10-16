@@ -96,12 +96,15 @@ function refsByCommit(repo: RepoView): Map<string, RefView[]> {
 function RegionToggle({
   testId,
   className,
+  expanded,
   label,
   onToggle,
   children,
 }: {
   testId: string;
   className: string;
+  /** Whether the region it toggles is expanded. */
+  expanded: boolean;
   label: string;
   onToggle: () => void;
   children: React.ReactNode;
@@ -113,6 +116,7 @@ function RegionToggle({
       role="button"
       tabIndex={0}
       aria-label={label}
+      aria-expanded={expanded}
       // A mouse press must not leave a focus ring on the strip that
       // replaces the button; the keyboard keeps focus across the swap.
       onMouseDown={(e) => e.preventDefault()}
@@ -255,9 +259,6 @@ export function RepoCard({
   const [collapsedSubs, setCollapsedSubs] = useState<Set<string>>(() =>
     storedCollapsedSubmodules(repo.id),
   );
-  useEffect(() => setCollapsedSubs(storedCollapsedSubmodules(repo.id)), [
-    repo.id,
-  ]);
   const toggleSubmodule = (path: string) => {
     const next = new Set(collapsedSubs);
     if (!next.delete(path)) next.add(path);
@@ -425,7 +426,12 @@ export function RepoCard({
   }, [repo.commits, selected]);
   // The tooltip follows a node; a node that vanishes under the pointer
   // (reload, paging) never fires mouseleave.
-  useEffect(() => setHoverNode(null), [view.commits]);
+  // A reload can unmount the hovered node or badge before the pointer
+  // leaves it, so its tooltip and branch focus go with the old view.
+  useEffect(() => {
+    setHoverNode(null);
+    setFocusTip(null);
+  }, [view.commits]);
   // Commits are immutable, the working tree is not: while the changes row
   // is selected, every reload re-reads its files and diffs.
   const uncommittedGeneration =
@@ -615,29 +621,19 @@ export function RepoCard({
                   <RegionToggle
                     testId="region-expand"
                     className="region-strip"
+                    expanded={false}
                     label={t("expandSubmodule", { name: region.graph.name })}
                     onToggle={() => toggleSubmodule(region.graph.path)}
                   >
                     <rect width={region.width} height={height} rx={4} />
                     <text
-                      transform={`translate(${region.width / 2 + 4},8) rotate(90)`}
+                      dominantBaseline="central"
+                      transform={`translate(${region.width / 2},8) rotate(90)`}
                     >
                       {region.graph.name}
                     </text>
                   </RegionToggle>
-                ) : (
-                  <RegionToggle
-                    testId="region-collapse"
-                    className="region-collapse"
-                    label={t("collapseSubmodule", { name: region.graph.name })}
-                    onToggle={() => toggleSubmodule(region.graph.path)}
-                  >
-                    <rect x={region.width - 2} y={2} width={14} height={14} rx={3} />
-                    <text x={region.width + 5} y={13}>
-                      ‹
-                    </text>
-                  </RegionToggle>
-                )}
+                ) : null}
                 {!region.collapsed &&
                   region.graph.view.edges.map((edge, i) => (
                   <path
@@ -678,8 +674,8 @@ export function RepoCard({
           {regions
             .filter((region) => !region.collapsed)
             .map((region) => (
-            // Submodule nodes sit above the dashed links, whose wide hit
-            // stroke would otherwise cover the node it ends on.
+            // Submodule nodes and the collapse button sit above the dashed
+            // links, whose wide hit stroke would otherwise cover them.
             <g
               key={region.graph.path}
               transform={`translate(${region.offset},0)`}
@@ -696,6 +692,25 @@ export function RepoCard({
                   {...submoduleNodeProps(region.graph, commit)}
                 />
               ))}
+              <RegionToggle
+                testId="region-collapse"
+                className="region-collapse"
+                expanded
+                label={t("collapseSubmodule", { name: region.graph.name })}
+                onToggle={() => toggleSubmodule(region.graph.path)}
+              >
+                {/* Above the first row's nodes and the links they end in. */}
+                <rect
+                  x={region.width - 2}
+                  y={0}
+                  width={14}
+                  height={10}
+                  rx={3}
+                />
+                <text x={region.width + 5} y={8.5}>
+                  ‹
+                </text>
+              </RegionToggle>
             </g>
           ))}
           <g transform={`translate(${mainOffset},0)`}>

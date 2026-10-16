@@ -9,7 +9,11 @@ import { analyzeNote } from "./Drawer";
 import { format, MESSAGES, type MsgKey } from "./i18n";
 import { signatureBadge } from "./RepoCard";
 import { clampWidth } from "./Resizer";
-import { parseButtonStyle } from "./settings";
+import {
+  collapsedSubmodulesIn,
+  parseButtonStyle,
+  withCollapsedSubmodules,
+} from "./settings";
 import { resolveTheme, toggleTheme } from "./theme";
 
 test("parseButtonStyle falls back to icon-label for unknown values", () => {
@@ -112,4 +116,22 @@ test("resolveTheme prefers the stored value over the OS preference", () => {
   expect(resolveTheme(null, true)).toBe("dark");
   expect(resolveTheme("garbage", false)).toBe("light");
   expect(toggleTheme("dark")).toBe("light");
+});
+
+test("collapsed submodules are kept per repository in one stored value", () => {
+  const one = withCollapsedSubmodules(null, "r1", new Set(["/a"]));
+  const two = withCollapsedSubmodules(one, "r2", new Set(["/b", "/c"]));
+  expect(collapsedSubmodulesIn(two, "r1")).toEqual(new Set(["/a"]));
+  expect(collapsedSubmodulesIn(two, "r2")).toEqual(new Set(["/b", "/c"]));
+  // Expanding everything drops the repository's entry.
+  const cleared = withCollapsedSubmodules(two, "r1", new Set());
+  expect(JSON.parse(cleared)).toEqual({ r2: ["/b", "/c"] });
+});
+
+test("a corrupted collapsed-submodules value is read as empty and replaced", () => {
+  for (const raw of ["[]", "null", "7", "not json", '{"r1":"/a"}']) {
+    expect(collapsedSubmodulesIn(raw, "r1")).toEqual(new Set());
+    const written = withCollapsedSubmodules(raw, "r1", new Set(["/a"]));
+    expect(collapsedSubmodulesIn(written, "r1")).toEqual(new Set(["/a"]));
+  }
 });

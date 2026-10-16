@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { commit, git } from "./git";
@@ -2008,10 +2009,23 @@ test.describe.serial("gitreant UI", () => {
     const wide = (await page.getByTestId("graph").getAttribute("width"))!;
 
     // Collapsing leaves a named strip: no nodes, no links, a narrower graph.
-    await region.getByTestId("region-collapse").click();
+    // The whole button takes the press, even where the dashed link to the
+    // submodule's newest commit runs past it.
+    const toggle = (await page.getByTestId("region-collapse").boundingBox())!;
+    await page.mouse.click(
+      toggle.x + toggle.width / 2,
+      toggle.y + toggle.height - 3,
+    );
     await expect(page.getByTestId("submodule-node")).toHaveCount(0);
     await expect(page.getByTestId("submodule-edge")).toHaveCount(0);
-    await expect(region.getByTestId("region-expand")).toContainText("sub");
+    const strip = region.getByTestId("region-expand");
+    await expect(strip).toContainText("sub");
+    const inside = await strip.evaluate((g) => {
+      const rect = g.querySelector("rect")!.getBoundingClientRect();
+      const text = g.querySelector("text")!.getBoundingClientRect();
+      return text.left >= rect.left - 0.5 && text.right <= rect.right + 0.5;
+    });
+    expect(inside).toBe(true);
     const narrow = (await page.getByTestId("graph").getAttribute("width"))!;
     expect(Number(narrow)).toBeLessThan(Number(wide));
 
@@ -2197,6 +2211,27 @@ test.describe.serial("gitreant UI", () => {
     // Leaving the badge restores every row.
     await page.mouse.move(0, 0);
     await expect(faded).toHaveCount(0);
+
+    // A reload that moves the hovered badge to another row unmounts it
+    // before the pointer leaves; the fade must not outlive it.
+    const featureTip = execFileSync("git", ["rev-parse", "feature"], {
+      cwd: fixtures.repoA,
+      encoding: "utf8",
+    }).trim();
+    try {
+      await page.locator(".badge-kind-branch", { hasText: "feature" }).hover();
+      await expect(faded).toHaveCount(2);
+      git(fixtures.repoA, ["branch", "-f", "feature", "feature~1"]);
+      await page.request.post("/api/refresh");
+      await expect(
+        rows.filter({ hasText: "main-1" }).locator(".badge-kind-branch"),
+      ).toHaveCount(1);
+      await page.mouse.move(0, 0);
+      await expect(faded).toHaveCount(0);
+    } finally {
+      git(fixtures.repoA, ["branch", "-f", "feature", featureTip]);
+      await page.request.post("/api/refresh");
+    }
   });
 
   test("graph nodes show their hash on hover and open the commit menu", async ({

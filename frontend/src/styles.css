@@ -922,7 +922,7 @@ body {
 
 .graph .region-collapse text {
   fill: var(--muted);
-  font-size: 12px;
+  font-size: 10px;
   text-anchor: middle;
 }
 

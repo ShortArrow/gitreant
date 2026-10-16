@@ -428,6 +428,7 @@ export default async function globalSetup(_config: FullConfig) {
     path.join(tmpDir, "fixtures.json"),
     JSON.stringify(
       {
+        repoA,
         repoC,
         repoD,
         repoE,

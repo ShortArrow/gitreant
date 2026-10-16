@@ -154,18 +154,51 @@ export function storeSubmoduleLinks(on: boolean) {
 
 export const COLLAPSED_SUBMODULES_KEY = "gitreant-collapsed-submodules";
 
+/** The stored value as an object of repository id to paths; anything else
+ * (unset, corrupted) reads as empty. */
+function collapsedSubmodulesMap(raw: string | null): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(raw ?? "{}");
+    return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+/** The collapsed submodule paths of `repoId` in a stored value. */
+export function collapsedSubmodulesIn(
+  raw: string | null,
+  repoId: string,
+): Set<string> {
+  const paths = collapsedSubmodulesMap(raw)[repoId];
+  return new Set(
+    Array.isArray(paths)
+      ? paths.filter((p): p is string => typeof p === "string")
+      : [],
+  );
+}
+
+/** The stored value with `repoId`'s collapsed paths replaced by `paths`. */
+export function withCollapsedSubmodules(
+  raw: string | null,
+  repoId: string,
+  paths: Set<string>,
+): string {
+  const all = collapsedSubmodulesMap(raw);
+  if (paths.size === 0) delete all[repoId];
+  else all[repoId] = [...paths];
+  return JSON.stringify(all);
+}
+
 /** The paths of a repository's submodules whose graph regions are collapsed
  * (#18), kept per repository id. */
 export function storedCollapsedSubmodules(repoId: string): Set<string> {
   try {
-    const all = JSON.parse(
-      localStorage.getItem(COLLAPSED_SUBMODULES_KEY) ?? "{}",
-    ) as Record<string, unknown>;
-    const paths = all[repoId];
-    return new Set(
-      Array.isArray(paths)
-        ? paths.filter((p): p is string => typeof p === "string")
-        : [],
+    return collapsedSubmodulesIn(
+      localStorage.getItem(COLLAPSED_SUBMODULES_KEY),
+      repoId,
     );
   } catch {
     return new Set();
@@ -174,12 +207,14 @@ export function storedCollapsedSubmodules(repoId: string): Set<string> {
 
 export function storeCollapsedSubmodules(repoId: string, paths: Set<string>) {
   try {
-    const all = JSON.parse(
-      localStorage.getItem(COLLAPSED_SUBMODULES_KEY) ?? "{}",
-    ) as Record<string, string[]>;
-    if (paths.size === 0) delete all[repoId];
-    else all[repoId] = [...paths];
-    localStorage.setItem(COLLAPSED_SUBMODULES_KEY, JSON.stringify(all));
+    localStorage.setItem(
+      COLLAPSED_SUBMODULES_KEY,
+      withCollapsedSubmodules(
+        localStorage.getItem(COLLAPSED_SUBMODULES_KEY),
+        repoId,
+        paths,
+      ),
+    );
   } catch {
     // localStorage may be unavailable; the state change alone is enough.
   }
