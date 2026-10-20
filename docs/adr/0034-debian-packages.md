@@ -40,10 +40,13 @@ Raspberry Pi OS bookworm included.
     (`packaging/apt/glibc-floor.sh`), not written by hand.
   - `Recommends: xdg-utils`, which opens the browser; `Suggests: gh,
     gnupg`, the tools `gitreant doctor` reports as optional.
-  - A version containing `-` gets no package: it would sort after the final
-    release in Debian's ordering. The release workflow takes the version
-    from `Cargo.toml`, which never has one, so a prerelease tag builds and
-    tests the package at the version `main` carries.
+  - A prerelease tag builds the package with its suffix after a `~`
+    (`v0.3.0-rc.1` gives `0.3.0~rc.1-1`, by `packaging/apt/deb-version.sh`).
+    A `-` would sort it after the release in Debian's ordering, and
+    `Cargo.toml`'s version alone would give an rc and its release the same
+    version with different contents, so apt would not upgrade a machine
+    that installed the rc. A tag that names a version other than
+    `Cargo.toml`'s gets no package.
 - **The Linux release executables are built on `ubuntu-22.04` and
   `ubuntu-22.04-arm`** (glibc 2.35), so neither needs a glibc newer than
   bookworm's.

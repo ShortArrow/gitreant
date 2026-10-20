@@ -16,7 +16,7 @@ Linux のユーザーは gitreant をリリースの tar.gz か `cargo install` 
   - `Depends`：実行ファイルが名指しするライブラリ（`libc6`、`libgcc-s1`、`libwayland-client0`）、`gitreant doctor` が必須とする `git`、リポジトリの `shortarrow-archive-keyring`。最後の 1 つは、gitreant が入っている間、ソースを検証する鍵を残しておくためのもの。
   - `libc6` の下限は、実行ファイルが必須として要求する glibc のバージョンのうち最も高いもの。手で書かず、ビルド時に `readelf` で読み取る（`packaging/apt/glibc-floor.sh`）。
   - `Recommends: xdg-utils`（ブラウザを開く）。`Suggests: gh, gnupg`（`gitreant doctor` が任意とするツール）。
-  - `-` を含む版にはパッケージを作らない。Debian の順序では正式版より後ろに並ぶため。リリースのワークフローは版を `Cargo.toml` から取り、そこには `-` が付かない。そのため、プレリリースのタグでも `main` の版でパッケージをビルドしてテストする。
+  - プレリリースのタグでは、接尾辞を `~` の後ろに付けた版でパッケージを作る（`v0.3.0-rc.1` なら `0.3.0~rc.1-1`。`packaging/apt/deb-version.sh` が決める）。`-` を使うと Debian の順序で正式版より後ろに並ぶ。`Cargo.toml` の版だけを使うと、rc と正式版が中身の違う同じ版になり、rc を入れたマシンを apt が正式版に上げない。`Cargo.toml` と違う版を名指すタグにはパッケージを作らない。
 - **Linux 版のリリース用実行ファイルは `ubuntu-22.04` と `ubuntu-22.04-arm`（glibc 2.35）でビルドする。** これでどちらも bookworm より新しい glibc を要求しない。
 - **リリースのワークフロー**は、リリース用の実行ファイルからパッケージをビルドする。それぞれを使い捨ての署名付きリポジトリから `debian:bookworm`、`ubuntu:22.04`、`ubuntu:24.04` に `apt` でインストールし、`gitreant --version` と `gitreant doctor` を実行する（`packaging/apt/install-test.sh`）。パッケージは、全アセットを載せた `SHA256SUMS` と一緒に GitHub Release に添付する。CI もプルリクエストごとに、同じイメージ上のデバッグビルドで同じことを行う。
 

@@ -172,9 +172,9 @@ jobs:
   deb:
     # The Debian packages (ADR 0034), built from the release executables and
     # installed with apt in Debian and Ubuntu containers before anything is
-    # published. The version is Cargo.toml's, which never carries a "-", so
-    # a prerelease tag rehearses this job too; the package registry indexes
-    # stable releases only.
+    # published. A prerelease tag rehearses this job too, with a package
+    # version that sorts before the release (0.3.0~rc.1); the package
+    # registry indexes stable releases only.
     name: Debian package (${{ matrix.arch }})
     needs: build
     runs-on: ${{ matrix.os }}
@@ -202,8 +202,9 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq && sudo apt-get install -y -qq apt-utils
           version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          deb_version="$(sh packaging/apt/deb-version.sh "$version" "$GITHUB_REF_NAME")"
           tar xzf artifacts/gitreant-${{ matrix.target }}.tar.gz -C artifacts
-          sh packaging/apt/build-deb.sh artifacts/gitreant "$version" ${{ matrix.arch }} deb
+          sh packaging/apt/build-deb.sh artifacts/gitreant "$deb_version" ${{ matrix.arch }} deb
           sh packaging/apt/install-test.sh deb "$version" ${{ matrix.arch }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

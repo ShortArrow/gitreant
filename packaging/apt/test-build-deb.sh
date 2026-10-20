@@ -105,6 +105,18 @@ expect "arm64 builds too" 0 \
 check "the arm64 package says so" \
   test "$(dpkg-deb --field "$work/out-arm64/gitreant_0.3.0-1_arm64.deb" Architecture)" = arm64
 
+expect "a pre-release spelled with ~ builds a package" 0 \
+  bash "$here/build-deb.sh" "$work/gitreant" 0.3.0~rc.1 amd64 "$work/out-tilde"
+check "the ~ pre-release sorts before the release" \
+  dpkg --compare-versions "$(dpkg-deb --field "$work/out-tilde/gitreant_0.3.0~rc.1-1_amd64.deb" Version)" lt 0.3.0-1
+
+check "a release tag gives Cargo.toml's version" \
+  test "$(sh "$here/deb-version.sh" 0.3.0 v0.3.0)" = 0.3.0
+check "a prerelease tag gives a version that sorts before the release" \
+  test "$(sh "$here/deb-version.sh" 0.3.0 v0.3.0-rc.1)" = '0.3.0~rc.1'
+expect "a prerelease tag for another version is refused" 1 \
+  sh "$here/deb-version.sh" 0.3.0 v0.4.0-rc.1
+
 expect "a pre-release version is refused" 1 \
   bash "$here/build-deb.sh" "$work/gitreant" 0.3.0-rc.1 amd64 "$work/out-rc"
 check "a refused pre-release leaves no package" test ! -e "$work/out-rc"
