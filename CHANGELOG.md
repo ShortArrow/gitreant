@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-20
+
 ### Added
 
 - Hovering a branch badge fades the rows its tip cannot reach
@@ -15,13 +17,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Each submodule graph collapses to a narrow strip with its name, giving
   the commit rows their width back; the choice is kept per repository
   ([#18](https://github.com/ShortArrow/gitreant/issues/18)).
-- Debian packages for amd64 and arm64, attached to each release and
-  installable with `apt` from `pkg.shortarrow.jp`, and a `SHA256SUMS` for
-  every release asset
+- The commit menu, on a row or a graph node, copies the full commit id and,
+  when the origin is on github.com or gitlab.com, copies or opens the
+  commit's web page
+  ([#15](https://github.com/ShortArrow/gitreant/issues/15)).
+- Debian packages for amd64 and arm64 are attached to each release, for the
+  APT repository at `pkg.shortarrow.jp` once it starts publishing, and a
+  `SHA256SUMS` lists every release asset
   ([ADR 0034](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0034-debian-packages.md)).
 
 ### Changed
 
+- "Diff all" is a toggle: pressed while every file's diff is open, it closes
+  the diff and brings the graph back
+  ([#19](https://github.com/ShortArrow/gitreant/issues/19)).
 - A submodule graph's nodes behave like the main graph's: hovering shows the
   commit's hash, and the context menu copies its id and its web page on the
   submodule's own origin. The dashed pointer links no longer cover the node
@@ -29,30 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- The arm64 Linux binary starts on glibc 2.35 and later, Debian 12 and
-  Raspberry Pi OS bookworm included; it needed glibc 2.39.
-
-## [0.2.4] - 2026-10-15
-
-### Added
-
-- The commit menu, on a row or a graph node, copies the full commit id and,
-  when the origin is on github.com or gitlab.com, copies or opens the
-  commit's web page
-  ([#15](https://github.com/ShortArrow/gitreant/issues/15)).
-
-### Changed
-
-- "Diff all" is a toggle: pressed while every file's diff is open, it closes
-  the diff and brings the graph back
-  ([#19](https://github.com/ShortArrow/gitreant/issues/19)).
-
-### Fixed
-
 - Commit diffs and untracked files follow the `diff` attribute of
   `.gitattributes`, as `git diff` does: `-diff` and `binary` show as binary
   with no line counts, and `diff` shows as text
   ([ADR 0033](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0033-diff-attribute.md)).
+- The arm64 Linux binary starts on glibc 2.35 and later, Debian 12 and
+  Raspberry Pi OS bookworm included; it needed glibc 2.39.
 
 ## [0.2.3] - 2026-10-09
 
@@ -147,8 +138,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The first release.
 
-[Unreleased]: https://github.com/ShortArrow/gitreant/compare/v0.2.4...HEAD
-[0.2.4]: https://github.com/ShortArrow/gitreant/compare/v0.2.3...v0.2.4
+[Unreleased]: https://github.com/ShortArrow/gitreant/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ShortArrow/gitreant/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/ShortArrow/gitreant/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/ShortArrow/gitreant/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ShortArrow/gitreant/compare/v0.2.0...v0.2.1

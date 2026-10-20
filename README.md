@@ -73,6 +73,10 @@ Installing `shortarrow-archive-keyring` by name keeps it, and the key that
 verifies the repository, when gitreant is removed; later keys arrive with
 `apt upgrade`. `gitreant --version` checks the install.
 
+The repository does not serve packages yet. Until it does, these steps
+fail at `apt update`, and the `.deb` files on the GitHub Release do not
+install on their own, since they depend on `shortarrow-archive-keyring`.
+
 Every GitHub Release also carries the binaries for Windows, macOS, Linux
 and Termux, with a `SHA256SUMS`.
 
