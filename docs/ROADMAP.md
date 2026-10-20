@@ -2,8 +2,8 @@
 
 [English](ROADMAP.md) | [日本語](ROADMAP.jp.md)
 
-The next two versions each have a theme. Items after them are grouped by
-area, not by priority. Settled designs live in [adr/](adr/).
+The next version has a theme. Items after it are grouped by area, not by
+priority. Settled designs live in [adr/](adr/).
 
 ## 0.2.0 — see the work in progress (released)
 
@@ -17,7 +17,7 @@ onto one screen. Released on 2026-10-01.
 - The app icon (favicon, Windows executable, README)
 - Builds for Windows on ARM, Raspberry Pi and Termux
 - A context menu and a hash tooltip on graph nodes (the groundwork for
-  0.3.0)
+  0.4.0)
 - Copyable commit metadata and a timestamp format setting
   ([ADR 0025](adr/0025-timestamp-rendering.md))
 
@@ -31,7 +31,24 @@ line endings no longer shows identical removed and added lines
 - The file list labels the file "line endings only"
 - The diff header names the direction (`LF → CRLF` and so on)
 
-## 0.3.0 — more from graph nodes
+## 0.3.0 — around the graph and packaging (released)
+
+Released on 2026-10-20. The node features planned as its theme moved to
+0.4.0; what shipped is work around the graph and the release packaging.
+
+- Hovering a branch badge fades the rows its tip cannot reach
+- Collapsing a submodule graph to a narrow strip, remembered per repository
+- Copying a commit's full id and its web page (github.com, gitlab.com) from
+  the commit menu
+- "Diff all" as a toggle
+- Submodule graph nodes that behave like the main graph's
+- The `diff` attribute of `.gitattributes`
+  ([ADR 0033](adr/0033-diff-attribute.md))
+- Debian packages and a `SHA256SUMS` on every release, and an arm64 Linux
+  binary that starts on glibc 2.35
+  ([ADR 0034](adr/0034-debian-packages.md))
+
+## 0.4.0 — more from graph nodes
 
 Build on the node interactions 0.2.0 introduced (`nodeProps` in
 `RepoCard.tsx`, and the `CommitMenu` shared with rows) to let a node do
@@ -48,7 +65,7 @@ more.
   first)
   - cherry-pick, revert, reset to this commit
 
-Which of these go into 0.3.0 is narrowed when work starts, once the UI
+Which of these go into 0.4.0 is narrowed when work starts, once the UI
 behaviour (how selection starts and clears, how it relates to the panes)
 is settled.
 
