@@ -3,7 +3,8 @@
 # /usr/bin/gitreant and the licences under /usr/share/doc/gitreant.
 #
 # Usage: build-deb.sh <executable> <version> <amd64|arm64> <out dir>
-# Writes <out dir>/gitreant_<version>-1_<arch>.deb and prints its path.
+# Writes <out dir>/gitreant_<version>-1_<arch>.deb, with a "~" in the version
+# spelled "." as GitHub serves release assets, and prints its path.
 # Needs dpkg-deb and readelf.
 set -eu
 
@@ -72,6 +73,6 @@ Description: commit graphs of local git repositories in the browser
 EOF
 
 mkdir -p "$out"
-deb="$out/gitreant_${version}-1_${arch}.deb"
+deb="$out/gitreant_$(echo "$version" | tr "~" .)-1_${arch}.deb"
 dpkg-deb --root-owner-group -Zxz --build "$root" "$deb" >/dev/null
 echo "$deb"

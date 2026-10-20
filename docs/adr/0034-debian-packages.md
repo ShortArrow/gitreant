@@ -46,7 +46,10 @@ Raspberry Pi OS bookworm included.
     `Cargo.toml`'s version alone would give an rc and its release the same
     version with different contents, so apt would not upgrade a machine
     that installed the rc. A tag that names a version other than
-    `Cargo.toml`'s gets no package.
+    `Cargo.toml`'s gets no package. The file name spells the `~` as `.`
+    (`gitreant_0.3.0.rc.1-1_amd64.deb`): GitHub makes that change to a
+    release asset's name, and `SHA256SUMS` must list the names the release
+    serves.
 - **The Linux release executables are built on `ubuntu-22.04` and
   `ubuntu-22.04-arm`** (glibc 2.35), so neither needs a glibc newer than
   bookworm's.
@@ -57,6 +60,11 @@ Raspberry Pi OS bookworm included.
   (`packaging/apt/install-test.sh`). It attaches them to the GitHub Release
   with a `SHA256SUMS` listing every asset. CI does the same on every pull
   request with a debug build on the same images.
+- **The install test runs in a job that can only read the repository.**
+  The packages reach the job that creates the release as artifacts; that
+  job, which can write releases, runs neither the test nor code from
+  another repository. This holds if the test moves into an action kept in
+  ShortArrow/pkg.
 
 ## Consequences
 

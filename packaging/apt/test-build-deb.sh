@@ -107,8 +107,13 @@ check "the arm64 package says so" \
 
 expect "a pre-release spelled with ~ builds a package" 0 \
   bash "$here/build-deb.sh" "$work/gitreant" 0.3.0~rc.1 amd64 "$work/out-tilde"
+# GitHub turns a "~" in a release asset's name into ".", so the file is
+# named the way the release serves it, or SHA256SUMS would list a name
+# that is not there.
+tilde_deb="$work/out-tilde/gitreant_0.3.0.rc.1-1_amd64.deb"
+check "a ~ pre-release's file name spells the ~ as ." test -f "$tilde_deb"
 check "the ~ pre-release sorts before the release" \
-  dpkg --compare-versions "$(dpkg-deb --field "$work/out-tilde/gitreant_0.3.0~rc.1-1_amd64.deb" Version)" lt 0.3.0-1
+  dpkg --compare-versions "$(dpkg-deb --field "$tilde_deb" Version)" lt 0.3.0-1
 
 check "a release tag gives Cargo.toml's version" \
   test "$(sh "$here/deb-version.sh" 0.3.0 v0.3.0)" = 0.3.0
