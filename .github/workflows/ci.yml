@@ -81,6 +81,40 @@ jobs:
           echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${TOOLCHAIN}/bin/aarch64-linux-android24-clang" >> "$GITHUB_ENV"
       - run: cargo check --target aarch64-linux-android
 
+  deb:
+    # The Debian package on the release's build image (ADR 0034): a debug
+    # build is enough to check the package's layout, its Depends and the
+    # oldest glibc it declares, by installing it with apt.
+    name: Debian package (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            os: ubuntu-22.04
+          - arch: arm64
+            os: ubuntu-22.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y libwayland-dev apt-utils
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo build --locked
+      - name: Build the package and install it with apt
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          sh packaging/apt/build-deb.sh target/debug/gitreant "$version" ${{ matrix.arch }} deb
+          sh packaging/apt/install-test.sh deb "$version" ${{ matrix.arch }}
+
   web:
     name: Frontend + Storybook
     runs-on: ubuntu-latest
@@ -181,6 +215,7 @@ jobs:
         with:
           persist-credentials: false
       - run: bash .github/scripts/test-release-scripts.sh
+      - run: bash packaging/apt/test-build-deb.sh
       - name: The released version has notes in CHANGELOG.md
         run: >
           bash .github/scripts/release-notes.sh

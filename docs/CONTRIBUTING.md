@@ -164,9 +164,13 @@ How a release is guarded is [ADR 0030](adr/0030-release-safeguards.md).
    1. checks that the tag is on `main`, matches `Cargo.toml` and has a
       changelog section;
    2. runs `cargo test --locked` on every platform it ships for;
-   3. builds the native binaries with the frontend embedded, attests them
-      (SLSA provenance) and attaches them to a GitHub Release whose notes
-      are the changelog section;
+   3. builds the native binaries with the frontend embedded, builds the
+      Debian packages from the Linux ones and installs them with apt in
+      containers ([ADR 0034](adr/0034-debian-packages.md)), attests them
+      all (SLSA provenance) and attaches them, with a `SHA256SUMS`, to a
+      GitHub Release whose notes are the changelog section. The APT
+      registry ([ShortArrow/pkg](https://github.com/ShortArrow/pkg)) picks
+      the packages up from there within the hour;
    4. waits for approval in the `release` environment, then publishes the
       crate to crates.io via OIDC Trusted Publishing. The published package
       ships the prebuilt `frontend/dist` (see the `include` list in

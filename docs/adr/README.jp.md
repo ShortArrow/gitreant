@@ -37,3 +37,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0031](0031-wording-only-changes.jp.md) | 片方の言語だけの言い回しの修正はコミットの印で日英同時更新の対象から外す | Accepted |
 | [0032](0032-static-crt-on-windows.jp.md) | Windows 版は C ランタイムを静的リンクする | Accepted |
 | [0033](0033-diff-attribute.jp.md) | バイナリかどうかは git diff と同じく diff 属性で決める | Accepted |
+| [0034](0034-debian-packages.jp.md) | 共有の APT リポジトリ向けに Debian パッケージを配る | Accepted |

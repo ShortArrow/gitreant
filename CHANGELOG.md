@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Debian packages for amd64 and arm64, attached to each release and
+  installable with `apt` from `pkg.shortarrow.jp`, and a `SHA256SUMS` for
+  every release asset
+  ([ADR 0034](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0034-debian-packages.md)).
+
+### Fixed
+
+- The arm64 Linux binary starts on glibc 2.35 and later, Debian 12 and
+  Raspberry Pi OS bookworm included; it needed glibc 2.39.
+
 ## [0.2.4] - 2026-10-15
 
 ### Added
