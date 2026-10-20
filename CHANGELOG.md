@@ -21,9 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when the origin is on github.com or gitlab.com, copies or opens the
   commit's web page
   ([#15](https://github.com/ShortArrow/gitreant/issues/15)).
-- Debian packages for amd64 and arm64 are attached to each release, for the
-  APT repository at `pkg.shortarrow.jp` once it starts publishing, and a
-  `SHA256SUMS` lists every release asset
+- Each release carries Debian packages for amd64 and arm64, and a
+  `SHA256SUMS` listing every release asset
   ([ADR 0034](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0034-debian-packages.md)).
 
 ### Changed

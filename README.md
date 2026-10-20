@@ -58,26 +58,7 @@ Every feature in detail: [docs/FEATURES.md](docs/FEATURES.md).
 
 ## Install / Build
 
-On Debian 12 or Ubuntu 22.04 and later, amd64 or arm64, from the APT
-repository at `pkg.shortarrow.jp`
-([ADR 0034](docs/adr/0034-debian-packages.md)):
-
-```console
-$ sudo curl -fsSLo /usr/share/keyrings/shortarrow-archive-keyring.gpg https://pkg.shortarrow.jp/apt/shortarrow-archive-keyring.gpg
-$ echo "deb [signed-by=/usr/share/keyrings/shortarrow-archive-keyring.gpg] https://pkg.shortarrow.jp/apt stable main" | sudo tee /etc/apt/sources.list.d/shortarrow.list
-$ sudo apt update
-$ sudo apt install shortarrow-archive-keyring gitreant
-```
-
-Installing `shortarrow-archive-keyring` by name keeps it, and the key that
-verifies the repository, when gitreant is removed; later keys arrive with
-`apt upgrade`. `gitreant --version` checks the install.
-
-The repository does not serve packages yet. Until it does, these steps
-fail at `apt update`, and the `.deb` files on the GitHub Release do not
-install on their own, since they depend on `shortarrow-archive-keyring`.
-
-Every GitHub Release also carries the binaries for Windows, macOS, Linux
+Every GitHub Release carries the binaries for Windows, macOS, Linux
 and Termux, with a `SHA256SUMS`.
 
 To build from source, you need Rust (stable), Node.js + pnpm:
