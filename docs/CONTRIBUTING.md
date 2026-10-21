@@ -2,11 +2,19 @@
 
 ## Development setup
 
-Requirements: Rust (stable), Node.js + pnpm.
+Requirements: Rust (stable), Node.js + pnpm, and on Linux the Wayland
+client headers (`libwayland-dev` on Debian and Ubuntu).
 
 ```console
 $ cargo run -- .            # backend (:4000)
 $ cd frontend && pnpm dev   # frontend (Vite, proxies /api to :4000)
+```
+
+A release binary with the frontend embedded:
+
+```console
+$ make build     # build the frontend and embed it into a release binary
+$ ./target/release/gitreant
 ```
 
 The pnpm version this project runs is declared once, in

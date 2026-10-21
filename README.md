@@ -56,7 +56,13 @@ and control returns to your shell. Stop it with `gitreant --shutdown`, or use
 
 Every feature in detail: [docs/FEATURES.md](docs/FEATURES.md).
 
-## Install / Build
+## Install
+
+On Windows, from WinGet:
+
+```console
+> winget install ShortArrow.gitreant
+```
 
 On Debian 12 or Ubuntu 22.04 and later, amd64 or arm64, from the APT
 repository at `pkg.shortarrow.jp`
@@ -75,15 +81,17 @@ verifies the repository, when gitreant is removed; later keys arrive with
 on the GitHub Release do not install on their own, since they depend on
 `shortarrow-archive-keyring`.
 
-Every GitHub Release also carries the binaries for Windows, macOS, Linux
-and Termux, with a `SHA256SUMS`.
-
-To build from source, you need Rust (stable), Node.js + pnpm:
+Anywhere with Rust (stable), from crates.io. The crate carries the built
+frontend, so this needs no Node.js; on Linux it needs the Wayland client
+headers (`libwayland-dev` on Debian and Ubuntu):
 
 ```console
-$ make build     # build the frontend and embed it into a release binary
-$ ./target/release/gitreant
+$ cargo install gitreant
 ```
+
+Every GitHub Release also carries the binaries for Windows, macOS, Linux
+and Termux, with a `SHA256SUMS`. To build from source, see
+[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md#development-setup).
 
 ## Options
 

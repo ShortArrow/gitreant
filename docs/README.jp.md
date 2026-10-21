@@ -43,7 +43,13 @@ $ gitreant ../foo ../bar   # 複数リポジトリをまとめて表示
 
 すべての機能の詳細は [FEATURES.jp.md](FEATURES.jp.md) にまとめてある。
 
-## インストール / ビルド
+## インストール
+
+Windows では WinGet から入れられる。
+
+```console
+> winget install ShortArrow.gitreant
+```
 
 Debian 12 か Ubuntu 22.04 以降（amd64、arm64）では、`pkg.shortarrow.jp` の APT リポジトリから入れられる（[ADR 0034](adr/0034-debian-packages.jp.md)）。
 
@@ -56,14 +62,13 @@ $ sudo apt install shortarrow-archive-keyring gitreant
 
 `shortarrow-archive-keyring` を名前で入れておくと、gitreant を消してもリポジトリを検証する鍵が残り、新しい鍵は `apt upgrade` で届く。入ったかどうかは `gitreant --version` で確かめられる。GitHub Release の `.deb` は `shortarrow-archive-keyring` に依存するので、単体では入らない。
 
-各 GitHub Release には、Windows、macOS、Linux、Termux 向けのバイナリと `SHA256SUMS` も付いている。
-
-ソースからビルドするときの要件: Rust (stable), Node.js + pnpm。
+Rust (stable) があれば、どの環境でも crates.io から入れられる。crate はビルド済みのフロントエンドを含むので Node.js は要らない。Linux では Wayland クライアントのヘッダ（Debian と Ubuntu では `libwayland-dev`）が要る。
 
 ```console
-$ make build     # frontend をビルドして release バイナリに埋め込む
-$ ./target/release/gitreant
+$ cargo install gitreant
 ```
+
+各 GitHub Release には、Windows、macOS、Linux、Termux 向けのバイナリと `SHA256SUMS` も付いている。ソースからのビルドは [CONTRIBUTING.md](CONTRIBUTING.md#development-setup) を参照。
 
 ## オプション
 
