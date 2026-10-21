@@ -63,10 +63,22 @@ pub fn checkout_detached_command(path: &Path, commit: &str) -> String {
     command_line(path, &checkout_detached_args(commit))
 }
 
+/// `value` when it is a full commit id (SHA-1 or SHA-256 hex). Anything else
+/// is refused, so a request cannot pass git an option such as
+/// `--discard-changes` in its place.
+fn commit_id(value: &str) -> Result<&str, String> {
+    let hex = value.bytes().all(|b| b.is_ascii_hexdigit());
+    if hex && (value.len() == 40 || value.len() == 64) {
+        Ok(value)
+    } else {
+        Err(format!("not a commit id: {value:?}"))
+    }
+}
+
 /// Check out `commit` at `path` with a detached HEAD (ADR 0035); git refuses
 /// when local changes would be overwritten.
 pub fn checkout_detached(path: &Path, commit: &str) -> Result<(), String> {
-    run(path, &checkout_detached_args(commit))
+    run(path, &checkout_detached_args(commit_id(commit)?))
 }
 
 /// The command line `merge` executes, for the command log.
@@ -118,6 +130,19 @@ mod tests {
             checkout_detached_command(&PathBuf::from("/repos/demo"), "abc123"),
             "git -C /repos/demo switch --detach abc123"
         );
+    }
+
+    #[test]
+    fn a_detached_checkout_takes_only_a_commit_id() {
+        // Anything else could reach git as an option, such as
+        // --discard-changes; it is refused before git runs.
+        for bad in ["--discard-changes", "-f", "main", "abc123", ""] {
+            assert!(commit_id(bad).is_err(), "{bad:?}");
+        }
+        let sha1 = "0123456789abcdef0123456789abcdef01234567";
+        assert_eq!(commit_id(sha1), Ok(sha1));
+        let sha256 = "0123456789abcdef".repeat(4);
+        assert_eq!(commit_id(&sha256), Ok(sha256.as_str()));
     }
 
     #[test]
