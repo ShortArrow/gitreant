@@ -98,7 +98,8 @@ each delegated to the git command. What it never does is listed in
   repository whose fetch fails shows the error.
 - **Branches.** A branch badge's context menu copies the name, checks the
   branch out, or merges it into the current branch (after a confirmation).
-  A commit's context menu creates a branch at it.
+  A commit's context menu creates a branch at it, or checks the commit out
+  with a detached HEAD (after a confirmation).
 - **Tags.** A commit's context menu creates a tag; a tag badge's context
   menu deletes it.
 - **A record of what ran.** The log pane at the bottom lists the git

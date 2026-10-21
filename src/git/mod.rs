@@ -17,7 +17,8 @@ mod worktrees;
 
 pub use avatar::{avatar_search_command, gh_search_avatar, noreply_avatar_url};
 pub use branch::{
-    checkout, checkout_command, create_branch, create_branch_command, merge, merge_command,
+    checkout, checkout_command, checkout_detached, checkout_detached_command, create_branch,
+    create_branch_command, merge, merge_command,
 };
 pub use detail::{
     read_commit, read_commit_diff, read_file_diff, read_range_diff, CommitDetail, FileChange,

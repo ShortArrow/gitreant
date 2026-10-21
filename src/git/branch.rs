@@ -54,6 +54,21 @@ pub fn checkout(path: &Path, reference: &str) -> Result<(), String> {
     run(path, &checkout_args(reference))
 }
 
+fn checkout_detached_args(commit: &str) -> Vec<&str> {
+    vec!["switch", "--detach", commit]
+}
+
+/// The command line `checkout_detached` executes, for the command log.
+pub fn checkout_detached_command(path: &Path, commit: &str) -> String {
+    command_line(path, &checkout_detached_args(commit))
+}
+
+/// Check out `commit` at `path` with a detached HEAD (ADR 0035); git refuses
+/// when local changes would be overwritten.
+pub fn checkout_detached(path: &Path, commit: &str) -> Result<(), String> {
+    run(path, &checkout_detached_args(commit))
+}
+
 /// The command line `merge` executes, for the command log.
 pub fn merge_command(path: &Path, reference: &str) -> String {
     command_line(path, &merge_args(reference))
@@ -94,6 +109,14 @@ mod tests {
         assert_eq!(
             checkout_command(&repo, "origin/main"),
             "git -C /repos/demo switch --detach origin/main"
+        );
+    }
+
+    #[test]
+    fn a_commit_checks_out_detached() {
+        assert_eq!(
+            checkout_detached_command(&PathBuf::from("/repos/demo"), "abc123"),
+            "git -C /repos/demo switch --detach abc123"
         );
     }
 

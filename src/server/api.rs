@@ -377,6 +377,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/range-diff", post(range_diff))
         .route("/api/fetch", post(fetch_remotes))
         .route("/api/checkout", post(checkout))
+        .route("/api/checkout-detached", post(checkout_detached))
         .route("/api/merge", post(merge))
         .route("/api/tag", post(create_tag).delete(delete_tag))
         .route("/api/branch", post(create_branch))
@@ -1027,6 +1028,20 @@ async fn checkout(
         req,
         crate::git::checkout_command,
         crate::git::checkout,
+    )
+    .await
+}
+
+/// Check out a commit with a detached HEAD in one repository (ADR 0035).
+async fn checkout_detached(
+    State(state): State<AppState>,
+    Json(req): Json<BranchOpRequest>,
+) -> Result<Json<BranchOpResponse>, (StatusCode, String)> {
+    branch_op(
+        state,
+        req,
+        crate::git::checkout_detached_command,
+        crate::git::checkout_detached,
     )
     .await
 }

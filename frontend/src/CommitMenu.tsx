@@ -5,8 +5,9 @@ import { useT } from "./settings";
 
 /**
  * Context menu on a commit row or node: a list of actions first (copy the
- * id, copy or open the commit's web page, create tag, create branch, go to
- * a parent or child), and a name input once a ref is to be created — so
+ * id, copy or open the commit's web page, create tag, create branch, check
+ * out detached, compare, go to a parent or child), then a name input once a
+ * ref is to be created, or a Yes / Cancel question before a checkout — so
  * further commands can slot in without fighting an always-open input.
  */
 export function CommitMenu({
@@ -20,6 +21,7 @@ export function CommitMenu({
   children = [],
   onGoTo,
   onCompare,
+  onCheckoutDetached,
   onClose,
 }: {
   x: number;
@@ -40,10 +42,14 @@ export function CommitMenu({
   /** Compares this commit with the selected one; absent when there is no
    * other commit selected. */
   onCompare?: () => void;
+  /** Checks the commit out detached, after an inline confirmation. */
+  onCheckoutDetached?: () => void;
   onClose: () => void;
 }) {
   const t = useT();
-  const [stage, setStage] = useState<"tag" | "branch" | null>(null);
+  const [stage, setStage] = useState<"tag" | "branch" | "checkout" | null>(
+    null,
+  );
   const [name, setName] = useState("");
   const copyAndClose = (text: string) => {
     navigator.clipboard?.writeText(text).catch(() => {});
@@ -119,6 +125,15 @@ export function CommitMenu({
               {t("createBranch")}…
             </button>
           )}
+          {onCheckoutDetached && (
+            <button
+              type="button"
+              data-testid="commit-menu-checkout"
+              onClick={() => setStage("checkout")}
+            >
+              {t("checkoutDetached")}…
+            </button>
+          )}
           {onCompare && (
             <button
               type="button"
@@ -155,6 +170,29 @@ export function CommitMenu({
                 </button>
               )),
             )}
+        </>
+      ) : stage === "checkout" ? (
+        <>
+          <span className="ref-menu-question">
+            {t("checkoutDetachedQuestion", { commit: shortId(commit) })}
+          </span>
+          <button
+            type="button"
+            data-testid="commit-menu-confirm"
+            onClick={() => {
+              onCheckoutDetached?.();
+              onClose();
+            }}
+          >
+            {t("yes")}
+          </button>
+          <button
+            type="button"
+            data-testid="commit-menu-cancel"
+            onClick={onClose}
+          >
+            {t("cancel")}
+          </button>
         </>
       ) : (
         <form

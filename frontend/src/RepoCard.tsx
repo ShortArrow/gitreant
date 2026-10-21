@@ -10,6 +10,7 @@ import { CommitHash } from "./CommitHash";
 import { CommitMenu } from "./CommitMenu";
 import {
   checkoutRef,
+  checkoutDetached,
   createBranch,
   createTag,
   deleteTag,
@@ -686,6 +687,15 @@ export function RepoCard({
               : undefined
           }
           onGoTo={select}
+          onCheckoutDetached={
+            commitMenu.refs
+              ? () =>
+                  runBranchOp(
+                    (repoId) => checkoutDetached(repoId, commitMenu.commit),
+                    commitMenu.commit,
+                  )
+              : undefined
+          }
           onCompare={
             commitMenu.refs &&
             selected !== null &&

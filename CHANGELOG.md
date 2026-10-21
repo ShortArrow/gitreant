@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Hovering a graph node fades every row, node and edge off its
+  first-parent chain
+  ([ADR 0035](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0035-graph-node-navigation.md)).
+- The keyboard moves the selection in the focused pane: `↑` / `↓` to the
+  row above or below, `→` to the first parent, `←` to a child, `Enter`
+  opens every file's diff and `Esc` clears the selection. A setting adds
+  `hjkl`.
+- The commit menu goes to a commit's parents and children, compares the
+  commit with the selected one, and checks it out with a detached HEAD
+  after a confirmation.
+
+### Changed
+
+- Hovering a branch badge fades the graph's nodes and edges with the rows.
+
 ## [0.3.0] - 2026-10-21
 
 ### Added

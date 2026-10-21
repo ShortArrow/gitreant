@@ -2379,6 +2379,45 @@ test.describe.serial("gitreant UI", () => {
     await expect(row("main-1")).toHaveClass(/selected/);
   });
 
+  test("the commit menu checks a commit out detached after a confirmation", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await page.locator('[data-repo-name="repoA"]').click();
+    const rows = page.getByTestId("commit-row");
+    await expect(rows).toHaveCount(5);
+    const row = (summary: string) => rows.filter({ hasText: summary });
+    const menu = page.getByTestId("commit-menu");
+
+    // Cancel leaves HEAD where it was.
+    await row("main-1").click({ button: "right" });
+    await menu.getByTestId("commit-menu-checkout").click();
+    await expect(menu.locator(".ref-menu-question")).toContainText("detached");
+    await menu.getByTestId("commit-menu-cancel").click();
+    await expect(menu).toHaveCount(0);
+    await expect(row("main-1").locator(".badge-head")).toHaveCount(0);
+
+    try {
+      await row("main-1").click({ button: "right" });
+      await menu.getByTestId("commit-menu-checkout").click();
+      await menu.getByTestId("commit-menu-confirm").click();
+      await expect(row("main-1").locator(".badge-head")).toBeVisible({
+        timeout: 15_000,
+      });
+      // No branch is checked out: HEAD names the commit itself.
+      const branch = execFileSync(
+        "git",
+        ["rev-parse", "--abbrev-ref", "HEAD"],
+        { cwd: fixtures.repoA, encoding: "utf8" },
+      ).trim();
+      expect(branch).toBe("HEAD");
+    } finally {
+      git(fixtures.repoA, ["switch", "-q", "main"]);
+      await page.request.post("/api/refresh");
+    }
+    await expect(row("merge feature").locator(".badge-head")).toBeVisible();
+  });
+
   test("graph nodes show their hash on hover and open the commit menu", async ({
     page,
   }) => {

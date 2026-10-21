@@ -934,6 +934,32 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
         log.contains("merge --no-edit main"),
         "merge not logged: {log}"
     );
+
+    // A commit id checks out detached, and is logged like the others.
+    let head_of = |rev: &str| {
+        let out = Command::new("git")
+            .current_dir(dir)
+            .args(["rev-parse", rev])
+            .output()
+            .unwrap();
+        String::from_utf8(out.stdout).unwrap().trim().to_string()
+    };
+    let m2 = head_of("main");
+    let body = format!("{{\"repo\":{id:?},\"reference\":{m2:?}}}");
+    let resp = tokio::task::spawn_blocking(move || {
+        http_post_json(port, "/api/checkout-detached", &body)
+    })
+    .await
+    .unwrap();
+    assert!(resp.contains("\"ok\":true"), "response: {resp}");
+    assert_eq!(head_of("HEAD"), m2);
+    let log = tokio::task::spawn_blocking(move || http_get(port, "/api/log"))
+        .await
+        .unwrap();
+    assert!(
+        log.contains(&format!("switch --detach {m2}")),
+        "detached checkout not logged: {log}"
+    );
     let resp = tokio::task::spawn_blocking(move || {
         http_post_json(
             port,

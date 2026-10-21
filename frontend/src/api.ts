@@ -200,6 +200,15 @@ export function checkoutRef(
   return branchOp("/api/checkout", repoId, reference);
 }
 
+/** Check out a commit with a detached HEAD (server-side
+ * `git switch --detach`, ADR 0035). */
+export function checkoutDetached(
+  repoId: string,
+  commit: string,
+): Promise<BranchOpResult> {
+  return branchOp("/api/checkout-detached", repoId, commit);
+}
+
 /** Merge a reference into the checked-out branch (server-side `git merge`). */
 export function mergeRef(
   repoId: string,
