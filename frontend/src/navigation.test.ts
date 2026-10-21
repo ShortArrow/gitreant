@@ -3,6 +3,7 @@ import type { CommitView } from "./api";
 import {
   childrenOf,
   compareRange,
+  edgeRow,
   keyMove,
   laneStep,
   parentsOf,
@@ -90,6 +91,24 @@ test("keyMove maps the arrows, and hjkl only when vim keys are on", () => {
   expect(keyMove("h", true)).toBe("left");
   expect(keyMove("ArrowUp", true)).toBe("up");
   expect(keyMove("x", true)).toBeNull();
+});
+
+test("keyMove jumps to the ends with Home/End, and gg/G with vim keys", () => {
+  expect(keyMove("Home", false)).toBe("top");
+  expect(keyMove("End", false)).toBe("bottom");
+  expect(keyMove("G", false)).toBeNull();
+  expect(keyMove("G", true)).toBe("bottom");
+  // A single g waits for the second.
+  expect(keyMove("g", true)).toBeNull();
+  expect(keyMove("g", true, "g")).toBe("top");
+  expect(keyMove("g", true, "j")).toBeNull();
+  expect(keyMove("g", false, "g")).toBeNull();
+});
+
+test("edgeRow picks the first or last loaded row", () => {
+  expect(edgeRow(commits, "top")).toBe("merge");
+  expect(edgeRow(commits, "bottom")).toBe("root");
+  expect(edgeRow([], "top")).toBeNull();
 });
 
 test("compareRange bases a comparison on the ancestor, else the selection", () => {

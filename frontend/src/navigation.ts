@@ -2,13 +2,23 @@ import type { CommitView } from "./api";
 import { reachableFrom } from "./graph";
 
 /** A move of the selection, from a key (ADR 0035). */
-export type KeyMove = "up" | "down" | "left" | "right" | "diff" | "clear";
+export type KeyMove =
+  | "up"
+  | "down"
+  | "left"
+  | "right"
+  | "top"
+  | "bottom"
+  | "diff"
+  | "clear";
 
 const ARROWS: Record<string, KeyMove> = {
   ArrowUp: "up",
   ArrowDown: "down",
   ArrowLeft: "left",
   ArrowRight: "right",
+  Home: "top",
+  End: "bottom",
   Enter: "diff",
   Escape: "clear",
 };
@@ -18,11 +28,27 @@ const VIM: Record<string, KeyMove> = {
   j: "down",
   h: "left",
   l: "right",
+  G: "bottom",
 };
 
-/** The move a key stands for; `hjkl` count only with vim keys on. */
-export function keyMove(key: string, vimKeys: boolean): KeyMove | null {
+/** The move a key stands for, given the key pressed just before it;
+ * `hjkl`, `G` and `gg` count only with vim keys on. */
+export function keyMove(
+  key: string,
+  vimKeys: boolean,
+  previous: string | null = null,
+): KeyMove | null {
+  if (vimKeys && key === "g" && previous === "g") return "top";
   return ARROWS[key] ?? (vimKeys ? VIM[key] : undefined) ?? null;
+}
+
+/** The first or last loaded row; null when no row. */
+export function edgeRow(
+  commits: CommitView[],
+  edge: "top" | "bottom",
+): string | null {
+  const commit = edge === "top" ? commits[0] : commits[commits.length - 1];
+  return commit?.id ?? null;
 }
 
 /** The commit `delta` rows from `selected`, held at the first and last

@@ -15,8 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([ADR 0035](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0035-graph-node-navigation.md)).
 - The keyboard moves the selection in the focused pane: `↑` / `↓` to the
   row above or below, `←` / `→` to the nearest commit in the next lane
-  over, `Enter` opens every file's diff and `Esc` clears the selection or
-  closes the diff. A setting adds `hjkl`.
+  over, `Home` / `End` to the first or last row, `Enter` opens every
+  file's diff and `Esc` clears the selection or closes the diff. A setting
+  adds `hjkl` and `gg` / `G`.
 - The commit menu goes to a commit's parents and children, compares the
   commit with the selected one, and checks it out with a detached HEAD
   after a confirmation. A comparison lists both commits and the files

@@ -34,19 +34,21 @@ selection and gets none of them.
 - **Selection by keyboard.** In the focused pane, while no text field,
   menu, dialog or palette has the keyboard:
   - `↑` / `↓` move the selection to the row above or below. With nothing
-    selected, any of the four moves selects the first row.
+    selected, any of the six moves selects the first row.
   - `←` / `→` move it to the nearest commit in the closest lane to the
     left or right: the nearest row, the upper one on a tie. With no lane
     that way, the selection stays. Parents and children are reached from
     the menu: in a straight stretch of history they are the rows above and
     below, so keys for them would only repeat `↑` / `↓`.
+  - `Home` / `End` move it to the first or last loaded row.
   - `Enter` opens the diff of every file, as "Diff all" does.
   - `Esc` clears the selection.
 
   While the diff pane replaces the graph, the arrows rest and `Esc` clears
   the diff's line selection, or with none closes the pane. The selected
   row is scrolled into view. A setting, off by default, adds
-  `k` / `j` / `h` / `l` for the four moves; the arrows keep working.
+  `k` / `j` / `h` / `l` for the four moves and `gg` / `G` for the first
+  and last rows; the arrows, `Home` and `End` keep working.
 - **Parent and child in the menu.** The commit menu lists "Parent" and
   "Child" entries for the loaded ones, each by short id and summary;
   choosing one selects it. A commit with none has no entry. Only loaded
@@ -77,5 +79,5 @@ selection and gets none of them.
 - Two commits on unrelated lines compare from the selected one; swapping
   base and target means selecting the other first.
 - Keys reach the graph only when nothing else in the pane takes them, so a
-  later shortcut has to be checked against these six (and the optional
-  four).
+  later shortcut has to be checked against these eight (and the
+  optional six).

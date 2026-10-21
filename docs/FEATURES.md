@@ -126,9 +126,10 @@ quietly disappear. `gitreant doctor` reports which are available.
   repositories, fetch, reload, toggle the theme and display settings, check
   out a branch, and more, from the keyboard.
 - **Moving the selection.** In the focused pane, `↑` / `↓` select the row
-  above or below and `←` / `→` the nearest commit in the next lane over;
+  above or below, `←` / `→` the nearest commit in the next lane over and
+  `Home` / `End` the first or last row;
   `Enter` opens every file's diff, and `Esc` clears the selection or
-  closes the diff. A setting adds `k` / `j` / `h` / `l`.
+  closes the diff. A setting adds `k` / `j` / `h` / `l` and `gg` / `G`.
 - **Settings dialog.** The UI language (auto, English, Japanese), the
   timestamp format (ISO, locale, relative), how action buttons render (icon,
   icon with label, label), and the graph's optional layers (squash links,

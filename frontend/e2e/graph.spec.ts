@@ -2340,6 +2340,18 @@ test.describe.serial("gitreant UI", () => {
     await page.keyboard.press("l");
     await expect(row("feature-1")).toHaveClass(/selected/);
 
+    // G and gg jump to the last and first rows, as End and Home do.
+    await page.keyboard.press("G");
+    await expect(rows.nth(4)).toHaveClass(/selected/);
+    await page.keyboard.press("g");
+    await expect(rows.nth(4)).toHaveClass(/selected/);
+    await page.keyboard.press("g");
+    await expect(rows.nth(0)).toHaveClass(/selected/);
+    await page.keyboard.press("End");
+    await expect(rows.nth(4)).toHaveClass(/selected/);
+    await page.keyboard.press("Home");
+    await expect(rows.nth(0)).toHaveClass(/selected/);
+
     // Esc clears the selection.
     await page.keyboard.press("Escape");
     await expect(selected).toHaveCount(0);

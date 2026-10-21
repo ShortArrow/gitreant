@@ -66,6 +66,7 @@ import { keyboardTaken } from "./keyboard";
 import {
   childrenOf,
   compareRange,
+  edgeRow,
   keyMove,
   laneStep,
   parentsOf,
@@ -482,10 +483,12 @@ export function RepoCard({
   const vimKeys = useVimKeys();
   useEffect(() => {
     if (!focused || diffTarget !== null) return;
+    let previous: string | null = null;
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
       if (keyboardTaken()) return;
-      const move = keyMove(e.key, vimKeys);
+      const move = keyMove(e.key, vimKeys, previous);
+      previous = move === "top" ? null : e.key;
       if (move === null) return;
       if ((move === "diff" || move === "clear") && selected === null) return;
       e.preventDefault();
@@ -499,6 +502,9 @@ export function RepoCard({
           return select(laneStep(commits, selected, -1));
         case "right":
           return select(laneStep(commits, selected, 1));
+        case "top":
+        case "bottom":
+          return select(edgeRow(commits, move));
         case "diff":
           return setDiffTarget({ kind: "all" });
         case "clear":
