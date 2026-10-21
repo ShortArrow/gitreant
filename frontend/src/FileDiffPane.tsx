@@ -3,6 +3,7 @@ import type { FileDiff } from "./api";
 import { InlineIcon, LineMenuIcon, SplitIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { useT } from "./settings";
+import { keyboardTaken } from "./keyboard";
 import { shortId } from "./graph";
 import {
   eolChange,
@@ -94,13 +95,17 @@ export function FileDiffPane({
     );
   };
 
+  // Esc clears a line selection first, then closes the pane (ADR 0035);
+  // an open menu or dialog takes it instead.
   useEffect(() => {
-    const clear = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelection(null);
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || keyboardTaken()) return;
+      if (selection) setSelection(null);
+      else onClose();
     };
-    window.addEventListener("keydown", clear);
-    return () => window.removeEventListener("keydown", clear);
-  }, []);
+    window.addEventListener("keydown", onEscape);
+    return () => window.removeEventListener("keydown", onEscape);
+  }, [selection, onClose]);
 
   return (
     <div className="diff-pane" data-testid="diff-pane">
@@ -226,7 +231,11 @@ function FileSection({
   const anchorSide = selection?.side ?? "new";
 
   return (
-    <section className="diff-file-section" data-testid="diff-file-section">
+    <section
+      className="diff-file-section"
+      data-testid="diff-file-section"
+      data-diff-path={diff.path}
+    >
       <div className="diff-file-head">
         <span className={`file-status file-status-${diff.status}`}>
           {diff.status}

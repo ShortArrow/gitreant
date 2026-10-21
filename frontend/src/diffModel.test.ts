@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import {
+  diffCounts,
   eolChange,
   inlineCells,
   intralineSegments,
@@ -207,4 +208,15 @@ test("eolChange names a whole-file conversion and nothing else", () => {
   expect(eolChange(parseUnified("@@ -1 +1 @@\n-a\n+b\r\n"))).toBeNull();
   expect(eolChange(parseUnified("@@ -1 +1,2 @@\n-a\n+a\r\n+c\r\n"))).toBeNull();
   expect(eolChange(parseUnified(""))).toBeNull();
+});
+
+test("diffCounts counts the added and removed lines of a unified diff", () => {
+  const text = "@@ -1,3 +1,3 @@\n one\n-two\n+TWO\n+three\n-four\n";
+  expect(diffCounts(text)).toEqual({ additions: 2, deletions: 2 });
+  // Lines before the first hunk header are not part of any hunk.
+  expect(diffCounts("--- a\n+++ b\n@@ -0,0 +1 @@\n+x\n")).toEqual({
+    additions: 1,
+    deletions: 0,
+  });
+  expect(diffCounts("")).toEqual({ additions: 0, deletions: 0 });
 });

@@ -61,11 +61,13 @@ import {
 import { absoluteTime } from "./time";
 import { CommitDetailPanel } from "./CommitDetailPanel";
 import { FileDiffPane } from "./FileDiffPane";
+import { CompareDetailPanel } from "./CompareDetailPanel";
+import { keyboardTaken } from "./keyboard";
 import {
   childrenOf,
-  childToSelect,
   compareRange,
   keyMove,
+  laneStep,
   parentsOf,
   rowStep,
 } from "./navigation";
@@ -371,6 +373,7 @@ export function RepoCard({
   // ADR 0023 paging: ask for the next rows when the scroll approaches the
   // end of a prefix view — or when the prefix cannot even fill the pane.
   const scrollRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLElement>(null);
   const requestedAt = useRef(0);
   const maybeLoadMore = () => {
     const el = scrollRef.current;
@@ -492,18 +495,10 @@ export function RepoCard({
           return select(rowStep(commits, selected, -1));
         case "down":
           return select(rowStep(commits, selected, 1));
-        case "parent":
-          return select(
-            selected === null
-              ? rowStep(commits, null, 1)
-              : (parentsOf(commits, selected)[0]?.id ?? null),
-          );
-        case "child":
-          return select(
-            selected === null
-              ? rowStep(commits, null, 1)
-              : childToSelect(commits, selected),
-          );
+        case "left":
+          return select(laneStep(commits, selected, -1));
+        case "right":
+          return select(laneStep(commits, selected, 1));
         case "diff":
           return setDiffTarget({ kind: "all" });
         case "clear":
@@ -622,9 +617,14 @@ export function RepoCard({
   const selectedCommit = selected
     ? repo.commits.find((c) => c.id === selected)
     : undefined;
+  const commitOf = (id: string) => view.commits.find((c) => c.id === id);
+  const compareBase =
+    diffTarget?.kind === "range" ? commitOf(diffTarget.base) : undefined;
+  const compareTarget =
+    diffTarget?.kind === "range" ? commitOf(diffTarget.target) : undefined;
 
   return (
-    <section className="repo">
+    <section className="repo" ref={cardRef}>
       <header className="repo-header">
         <h2>{repo.name}</h2>
         <span className="repo-path">{repo.path}</span>
@@ -1138,7 +1138,20 @@ export function RepoCard({
       </div>
       )}
 
-      {selected && (
+      {compareBase && compareTarget ? (
+        <CompareDetailPanel
+          base={compareBase}
+          target={compareTarget}
+          files={diffFiles}
+          error={diffError}
+          onSelectFile={(path) =>
+            cardRef.current
+              ?.querySelector(`[data-diff-path="${CSS.escape(path)}"]`)
+              ?.scrollIntoView({ block: "start" })
+          }
+          onClose={() => setDiffTarget(null)}
+        />
+      ) : selected && (
         <CommitDetailPanel
           detail={detail}
           error={detailError}
@@ -1164,19 +1177,4 @@ export function RepoCard({
       </div>
     </section>
   );
-}
-
-/** Whether something other than the graph has the keyboard: a text field
- * has focus, or a menu, dialog or palette is open. */
-function keyboardTaken(): boolean {
-  const active = document.activeElement;
-  if (
-    active instanceof HTMLInputElement ||
-    active instanceof HTMLTextAreaElement ||
-    active instanceof HTMLSelectElement ||
-    (active instanceof HTMLElement && active.isContentEditable)
-  ) {
-    return true;
-  }
-  return document.querySelector(".ctx-menu, .modal-backdrop") !== null;
 }

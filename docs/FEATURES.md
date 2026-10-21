@@ -69,7 +69,8 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 - **Comparing two commits.** With a commit selected, another commit's
   context menu compares the two: the diff pane shows every file that
   differs, from the older (ancestor) commit to the newer, headed
-  `base..target`. See [ADR 0035](adr/0035-graph-node-navigation.md).
+  `base..target`, and the detail pane lists both commits and the files
+  with their line counts. See [ADR 0035](adr/0035-graph-node-navigation.md).
 - **Line-ending changes.** A file whose only change is its line endings
   (LF against CRLF) is labelled "Line endings only"; its diff marks the
   changed line ends and the header names the direction (`LF → CRLF` and so
@@ -125,9 +126,9 @@ quietly disappear. `gitreant doctor` reports which are available.
   repositories, fetch, reload, toggle the theme and display settings, check
   out a branch, and more, from the keyboard.
 - **Moving the selection.** In the focused pane, `↑` / `↓` select the row
-  above or below, `→` the first parent and `←` a child; `Enter` opens every
-  file's diff and `Esc` clears the selection. A setting adds `k` / `j` /
-  `l` / `h`.
+  above or below and `←` / `→` the nearest commit in the next lane over;
+  `Enter` opens every file's diff, and `Esc` clears the selection or
+  closes the diff. A setting adds `k` / `j` / `h` / `l`.
 - **Settings dialog.** The UI language (auto, English, Japanese), the
   timestamp format (ISO, locale, relative), how action buttons render (icon,
   icon with label, label), and the graph's optional layers (squash links,

@@ -2,13 +2,13 @@ import type { CommitView } from "./api";
 import { reachableFrom } from "./graph";
 
 /** A move of the selection, from a key (ADR 0035). */
-export type KeyMove = "up" | "down" | "parent" | "child" | "diff" | "clear";
+export type KeyMove = "up" | "down" | "left" | "right" | "diff" | "clear";
 
 const ARROWS: Record<string, KeyMove> = {
   ArrowUp: "up",
   ArrowDown: "down",
-  ArrowRight: "parent",
-  ArrowLeft: "child",
+  ArrowLeft: "left",
+  ArrowRight: "right",
   Enter: "diff",
   Escape: "clear",
 };
@@ -16,8 +16,8 @@ const ARROWS: Record<string, KeyMove> = {
 const VIM: Record<string, KeyMove> = {
   k: "up",
   j: "down",
-  l: "parent",
-  h: "child",
+  h: "left",
+  l: "right",
 };
 
 /** The move a key stands for; `hjkl` count only with vim keys on. */
@@ -38,6 +38,33 @@ export function rowStep(
   return commits[next].id;
 }
 
+/** The commit nearest `selected` in the closest lane to its left
+ * (`direction` -1) or right (1): the nearest lane first, then the nearest
+ * row, the upper one on a tie. `selected` itself when no lane lies that
+ * way; the first row when nothing loaded is selected. */
+export function laneStep(
+  commits: CommitView[],
+  selected: string | null,
+  direction: -1 | 1,
+): string | null {
+  const from = commits.find((commit) => commit.id === selected);
+  if (!from) return commits[0]?.id ?? null;
+  const distance = (commit: CommitView) => [
+    (commit.lane - from.lane) * direction,
+    Math.abs(commit.row - from.row),
+    commit.row,
+  ];
+  const best = commits
+    .filter((commit) => (commit.lane - from.lane) * direction > 0)
+    .reduce<CommitView | null>((nearest, commit) => {
+      if (!nearest) return commit;
+      const [a, b] = [distance(commit), distance(nearest)];
+      const i = a.findIndex((value, k) => value !== b[k]);
+      return i >= 0 && a[i] < b[i] ? commit : nearest;
+    }, null);
+  return (best ?? from).id;
+}
+
 /** The loaded parents of `id`, in git's order. */
 export function parentsOf(commits: CommitView[], id: string): CommitView[] {
   const byId = new Map(commits.map((commit) => [commit.id, commit]));
@@ -51,17 +78,6 @@ export function childrenOf(commits: CommitView[], id: string): CommitView[] {
   return commits
     .filter((commit) => commit.parents.includes(id))
     .sort((a, b) => b.row - a.row);
-}
-
-/** The child `←` selects: among those whose first parent is `id` if any,
- * otherwise among all, the nearest row. */
-export function childToSelect(
-  commits: CommitView[],
-  id: string,
-): string | null {
-  const children = childrenOf(commits, id);
-  const line = children.filter((child) => child.parents[0] === id);
-  return (line[0] ?? children[0])?.id ?? null;
 }
 
 /** Which of a comparison's two commits is the base: the one the other

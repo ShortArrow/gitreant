@@ -142,6 +142,24 @@ export function permalinkFragment(
   return end > start ? `#L${start}-L${end}` : `#L${start}`;
 }
 
+/** How many lines a unified diff adds and removes, counting only lines
+ * inside its hunks. */
+export function diffCounts(text: string): {
+  additions: number;
+  deletions: number;
+} {
+  let additions = 0;
+  let deletions = 0;
+  let inHunk = false;
+  for (const line of text.split("\n")) {
+    if (line.startsWith("@@")) inHunk = true;
+    else if (!inHunk) continue;
+    else if (line.startsWith("+")) additions++;
+    else if (line.startsWith("-")) deletions++;
+  }
+  return { additions, deletions };
+}
+
 export function parseUnified(text: string): DiffHunk[] {
   const hunks: DiffHunk[] = [];
   let current: DiffHunk | null = null;

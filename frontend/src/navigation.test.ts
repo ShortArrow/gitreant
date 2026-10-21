@@ -2,18 +2,23 @@ import { expect, test } from "vitest";
 import type { CommitView } from "./api";
 import {
   childrenOf,
-  childToSelect,
   compareRange,
   keyMove,
+  laneStep,
   parentsOf,
   rowStep,
 } from "./navigation";
 
 // merge ← (main-2, feature-1); main-2 ← main-1; feature-1 ← main-1 ← root
-const c = (id: string, row: number, parents: string[]): CommitView => ({
+const c = (
+  id: string,
+  row: number,
+  parents: string[],
+  lane = 0,
+): CommitView => ({
   id,
   row,
-  lane: 0,
+  lane,
   color: 0,
   parents,
   summary: id,
@@ -23,7 +28,7 @@ const c = (id: string, row: number, parents: string[]): CommitView => ({
 const commits = [
   c("merge", 0, ["main-2", "feature-1"]),
   c("main-2", 1, ["main-1"]),
-  c("feature-1", 2, ["main-1"]),
+  c("feature-1", 2, ["main-1"], 1),
   c("main-1", 3, ["root"]),
   c("root", 4, []),
 ];
@@ -55,34 +60,34 @@ test("childrenOf lists the loaded children, nearest row first", () => {
   expect(ids(childrenOf(commits, "merge"))).toEqual([]);
 });
 
-test("childToSelect prefers a child that continues the first-parent line", () => {
-  // feature-1 is merge's second parent, but merge is its only child.
-  expect(childToSelect(commits, "feature-1")).toBe("merge");
-  // Both main-2 and feature-1 have main-1 first; feature-1 is nearer.
-  expect(childToSelect(commits, "main-1")).toBe("feature-1");
-  const second = [
-    c("side", 0, ["other", "base"]),
-    c("next", 1, ["base"]),
-    c("other", 2, []),
-    c("base", 3, []),
-  ];
-  // "side" is nearer, but only through its second parent.
-  expect(childToSelect(second, "base")).toBe("next");
-  expect(childToSelect(commits, "merge")).toBeNull();
+test("laneStep moves to the nearest commit in the next lane over", () => {
+  expect(laneStep(commits, "main-2", 1)).toBe("feature-1");
+  // main-2 and main-1 are both one row from feature-1: the upper one wins.
+  expect(laneStep(commits, "feature-1", -1)).toBe("main-2");
+  // Nothing further left or right: the selection stays.
+  expect(laneStep(commits, "main-2", -1)).toBe("main-2");
+  expect(laneStep(commits, "feature-1", 1)).toBe("feature-1");
+  expect(laneStep(commits, null, 1)).toBe("merge");
+});
+
+test("laneStep skips an empty lane to the nearest one beyond it", () => {
+  const spread = [c("a", 0, [], 0), c("far", 0, [], 3), c("near", 5, [], 2)];
+  expect(laneStep(spread, "a", 1)).toBe("near");
+  expect(laneStep(spread, "near", 1)).toBe("far");
 });
 
 test("keyMove maps the arrows, and hjkl only when vim keys are on", () => {
   expect(keyMove("ArrowUp", false)).toBe("up");
   expect(keyMove("ArrowDown", false)).toBe("down");
-  expect(keyMove("ArrowRight", false)).toBe("parent");
-  expect(keyMove("ArrowLeft", false)).toBe("child");
+  expect(keyMove("ArrowRight", false)).toBe("right");
+  expect(keyMove("ArrowLeft", false)).toBe("left");
   expect(keyMove("Enter", false)).toBe("diff");
   expect(keyMove("Escape", false)).toBe("clear");
   expect(keyMove("k", false)).toBeNull();
   expect(keyMove("k", true)).toBe("up");
   expect(keyMove("j", true)).toBe("down");
-  expect(keyMove("l", true)).toBe("parent");
-  expect(keyMove("h", true)).toBe("child");
+  expect(keyMove("l", true)).toBe("right");
+  expect(keyMove("h", true)).toBe("left");
   expect(keyMove("ArrowUp", true)).toBe("up");
   expect(keyMove("x", true)).toBeNull();
 });

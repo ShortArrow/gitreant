@@ -1666,9 +1666,11 @@ test.describe.serial("gitreant UI", () => {
       /^https:\/\/github\.com\/example\/repoK\/blob\/[0-9a-f]{40}\/list\.txt#L3-L5$/,
     );
 
-    // Escape clears the selection and the trigger with it.
+    // Escape clears the selection and the trigger with it; the pane stays
+    // until a second Escape.
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("line-menu-trigger")).toHaveCount(0);
+    await expect(page.getByTestId("diff-pane")).toBeVisible();
 
     // Split view: selecting on the old (left) side permalinks the parent
     // commit's file with old-side line numbers.
@@ -2295,12 +2297,16 @@ test.describe.serial("gitreant UI", () => {
     await page.keyboard.press("ArrowUp");
     await expect(rows.nth(0)).toHaveClass(/selected/);
 
-    // → follows the first parent: the merge's is main-2, then main-1.
+    // → and ← cross lanes: feature-1 is the only commit off main's lane,
+    // and nothing lies further right.
     await expect(row("merge feature")).toHaveClass(/selected/);
     await page.keyboard.press("ArrowRight");
-    await expect(row("main-2")).toHaveClass(/selected/);
+    await expect(row("feature-1")).toHaveClass(/selected/);
     await page.keyboard.press("ArrowRight");
-    await expect(row("main-1")).toHaveClass(/selected/);
+    await expect(row("feature-1")).toHaveClass(/selected/);
+    await page.keyboard.press("ArrowLeft");
+    await expect(row("feature-1")).not.toHaveClass(/selected/);
+    await expect(selected).toHaveCount(1);
 
     // The menu lists both of the merge's parents; picking one selects it.
     await row("merge feature").click({ button: "right" });
@@ -2311,19 +2317,16 @@ test.describe.serial("gitreant UI", () => {
     await expect(menu).toHaveCount(0);
     await expect(row("feature-1")).toHaveClass(/selected/);
 
-    // ← goes back up to the merge, feature-1's only child.
-    await page.keyboard.press("ArrowLeft");
-    await expect(row("merge feature")).toHaveClass(/selected/);
-
     // Enter opens every file's diff in place of the graph; while it shows,
-    // the keys leave the selection alone.
+    // the arrows leave the selection alone and Esc returns to the graph.
     await page.keyboard.press("Enter");
     const diff = page.getByTestId("diff-pane");
     await expect(diff).toBeVisible();
     await page.keyboard.press("ArrowDown");
     await expect(diff).toBeVisible();
-    await page.getByTestId("diff-close").click();
-    await expect(row("merge feature")).toHaveClass(/selected/);
+    await page.keyboard.press("Escape");
+    await expect(diff).toHaveCount(0);
+    await expect(row("feature-1")).toHaveClass(/selected/);
     await page.getByTestId("detail-close").click();
 
     // hjkl move only once the setting is on.
@@ -2335,7 +2338,7 @@ test.describe.serial("gitreant UI", () => {
     await page.keyboard.press("j");
     await expect(rows.nth(0)).toHaveClass(/selected/);
     await page.keyboard.press("l");
-    await expect(row("main-2")).toHaveClass(/selected/);
+    await expect(row("feature-1")).toHaveClass(/selected/);
 
     // Esc clears the selection.
     await page.keyboard.press("Escape");
@@ -2373,9 +2376,27 @@ test.describe.serial("gitreant UI", () => {
     // main-2 and feature-1 both changed files since main-1.
     await expect(diff.locator(".diff-title")).toContainText("files");
 
-    // Closing the pane ends the comparison and keeps the selection.
-    await page.getByTestId("diff-close").click();
-    await expect(page.getByTestId("diff-range")).toHaveCount(0);
+    // The side pane shows both commits and the files between them.
+    const side = page.getByTestId("compare-detail");
+    await expect(side.getByTestId("compare-base")).toContainText("main-1");
+    await expect(side.getByTestId("compare-target")).toContainText(
+      "merge feature",
+    );
+    const files = side.getByTestId("compare-file");
+    expect(await files.count()).toBeGreaterThan(1);
+    await expect(files.first()).toContainText(/\+\d+ −\d+/);
+    const last = files.last();
+    const path = (await last.locator(".file-path").textContent()) ?? "";
+    await last.click();
+    await expect(
+      diff.locator(`[data-diff-path="${path}"]`),
+    ).toBeInViewport();
+
+    // Closing it ends the comparison: the selection's own details return.
+    await page.getByTestId("compare-close").click();
+    await expect(diff).toHaveCount(0);
+    await expect(side).toHaveCount(0);
+    await expect(page.getByTestId("commit-detail")).toBeVisible();
     await expect(row("main-1")).toHaveClass(/selected/);
   });
 
