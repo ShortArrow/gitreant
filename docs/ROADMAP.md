@@ -33,7 +33,7 @@ line endings no longer shows identical removed and added lines
 
 ## 0.3.0 — around the graph and packaging (released)
 
-Released on 2026-10-20. The node features planned as its theme moved to
+Released on 2026-10-21. The node features planned as its theme moved to
 0.4.0; what shipped is work around the graph and the release packaging.
 
 - Hovering a branch badge fades the rows its tip cannot reach
