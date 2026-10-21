@@ -65,9 +65,9 @@ more.
   first)
   - cherry-pick, revert, reset to this commit
 
-Which of these go into 0.4.0 is narrowed when work starts, once the UI
-behaviour (how selection starts and clears, how it relates to the panes)
-is settled.
+0.4.0 takes the read-only items and the detached checkout; how each
+behaves is settled in [ADR 0035](adr/0035-graph-node-navigation.md). The
+new writes stay for later.
 
 ## Forge support (GitHub / GitLab / Codeberg …)
 

@@ -42,3 +42,4 @@ are canonical; the files below are their English translations.
 | [0032](0032-static-crt-on-windows.md) | Link the C runtime statically on Windows | Accepted |
 | [0033](0033-diff-attribute.md) | Decide binary diffs by the diff attribute, as git diff does | Accepted |
 | [0034](0034-debian-packages.md) | Ship Debian packages for the shared APT registry | Accepted |
+| [0035](0035-graph-node-navigation.md) | Navigate, compare and check out from graph nodes | Accepted |

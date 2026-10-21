@@ -50,7 +50,7 @@
 - **リポジトリに書き込む新しい操作**（QUALITY.jp.md の改訂と ADR が先に要る）
   - cherry-pick、revert、このコミットまで reset
 
-どれを 0.4.0 に入れるかは、着手時に UI の振る舞い（選択と解除の仕方、ペインとの関係）を決めてから絞る。
+0.4.0 には読み取りだけで済む項目と detached でのチェックアウトを入れ、それぞれの振る舞いは [ADR 0035](adr/0035-graph-node-navigation.jp.md) で決めた。新しい書き込み操作は後に回す。
 
 ## フォージ対応（GitHub / GitLab / Codeberg …）
 
