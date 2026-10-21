@@ -45,7 +45,20 @@ $ gitreant ../foo ../bar   # 複数リポジトリをまとめて表示
 
 ## インストール / ビルド
 
-要件: Rust (stable), Node.js + pnpm。
+Debian 12 か Ubuntu 22.04 以降（amd64、arm64）では、`pkg.shortarrow.jp` の APT リポジトリから入れられる（[ADR 0034](adr/0034-debian-packages.jp.md)）。
+
+```console
+$ sudo curl -fsSL https://pkg.shortarrow.jp/apt/shortarrow-archive-keyring.gpg -o /usr/share/keyrings/shortarrow-archive-keyring.gpg
+$ echo "deb [signed-by=/usr/share/keyrings/shortarrow-archive-keyring.gpg] https://pkg.shortarrow.jp/apt stable main" | sudo tee /etc/apt/sources.list.d/shortarrow.list
+$ sudo apt update
+$ sudo apt install shortarrow-archive-keyring gitreant
+```
+
+`shortarrow-archive-keyring` を名前で入れておくと、gitreant を消してもリポジトリを検証する鍵が残り、新しい鍵は `apt upgrade` で届く。入ったかどうかは `gitreant --version` で確かめられる。GitHub Release の `.deb` は `shortarrow-archive-keyring` に依存するので、単体では入らない。
+
+各 GitHub Release には、Windows、macOS、Linux、Termux 向けのバイナリと `SHA256SUMS` も付いている。
+
+ソースからビルドするときの要件: Rust (stable), Node.js + pnpm。
 
 ```console
 $ make build     # frontend をビルドして release バイナリに埋め込む
