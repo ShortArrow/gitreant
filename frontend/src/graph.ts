@@ -135,6 +135,28 @@ export function reachableFrom(
   return reached;
 }
 
+/** The commits on `tip`'s first-parent chain, `tip` included, among the
+ * loaded `commits`; the chain ends at a root or at a parent beyond them.
+ * Empty when `tip` is not loaded. */
+export function firstParentChain(
+  commits: CommitView[],
+  tip: string,
+): Set<string> {
+  const byId = new Map(commits.map((c) => [c.id, c]));
+  const chain = new Set<string>();
+  let commit = byId.get(tip);
+  while (commit && !chain.has(commit.id)) {
+    chain.add(commit.id);
+    commit = byId.get(commit.parents[0]);
+  }
+  return chain;
+}
+
+/** Whether both ends of `edge` are among `kept`. */
+export function edgeWithin(edge: GraphEdge, kept: Set<string>): boolean {
+  return kept.has(edge.from) && kept.has(edge.to);
+}
+
 export function shortId(id: string): string {
   return id.slice(0, 7);
 }

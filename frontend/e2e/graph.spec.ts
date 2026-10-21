@@ -2207,10 +2207,15 @@ test.describe.serial("gitreant UI", () => {
     await expect(rows.filter({ hasText: "feature-1" })).not.toHaveClass(
       /commit-faded/,
     );
+    // The graph fades with the rows: their two nodes, and the edges that
+    // touch either of them.
+    await expect(page.locator(".graph .node.faded")).toHaveCount(2);
+    await expect(page.locator(".graph path.faded").first()).toBeAttached();
 
-    // Leaving the badge restores every row.
+    // Leaving the badge restores every row and the graph.
     await page.mouse.move(0, 0);
     await expect(faded).toHaveCount(0);
+    await expect(page.locator(".graph .faded")).toHaveCount(0);
 
     // A reload that moves the hovered badge to another row unmounts it
     // before the pointer leaves; the fade must not outlive it.
@@ -2232,6 +2237,44 @@ test.describe.serial("gitreant UI", () => {
       git(fixtures.repoA, ["branch", "-f", "feature", featureTip]);
       await page.request.post("/api/refresh");
     }
+  });
+
+  test("hovering a node fades everything off its first-parent chain", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const rows = page.getByTestId("commit-row");
+    await expect(rows).toHaveCount(5);
+    const nodes = page.getByTestId("graph-node");
+    const faded = page.locator(".commit-faded");
+    const nodeOf = async (summary: string) => {
+      const texts = await rows.allTextContents();
+      return nodes.nth(texts.findIndex((text) => text.includes(summary)));
+    };
+
+    // The merge's first parent is main-2, so only feature-1 is off its
+    // chain, although the merge reaches it through its second parent.
+    await (await nodeOf("merge feature")).hover();
+    await expect(faded).toHaveCount(1);
+    await expect(rows.filter({ hasText: "feature-1" })).toHaveClass(
+      /commit-faded/,
+    );
+    await expect(page.locator(".graph .node.faded")).toHaveCount(1);
+
+    // feature-1's chain runs down to main-1 and root; the later main
+    // commits fade.
+    await (await nodeOf("feature-1")).hover();
+    await expect(faded).toHaveCount(2);
+    await expect(rows.filter({ hasText: "main-2" })).toHaveClass(
+      /commit-faded/,
+    );
+    await expect(rows.filter({ hasText: "merge feature" })).toHaveClass(
+      /commit-faded/,
+    );
+
+    await page.mouse.move(0, 0);
+    await expect(faded).toHaveCount(0);
+    await expect(page.locator(".graph .faded")).toHaveCount(0);
   });
 
   test("graph nodes show their hash on hover and open the commit menu", async ({

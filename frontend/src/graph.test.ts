@@ -19,6 +19,8 @@ import {
   submoduleRegions,
   COLLAPSED_REGION_WIDTH,
   reachableFrom,
+  firstParentChain,
+  edgeWithin,
 } from "./graph";
 
 function edge(fromLane: number, toLane: number, fork = false): GraphEdge {
@@ -543,4 +545,37 @@ test("reachableFrom follows every parent from a tip", () => {
     new Set(["tip"]),
   );
   expect(reachableFrom(commits, "gone")).toEqual(new Set());
+});
+
+test("firstParentChain follows only the first parent from a tip", () => {
+  // merge ← (main-2, feature-1); main-2 ← main-1; feature-1 ← main-1 ← root
+  const c = (id: string, parents: string[]) => ({
+    ...commit(id, 0, 0, 0),
+    parents,
+  });
+  const commits = [
+    c("merge", ["main-2", "feature-1"]),
+    c("main-2", ["main-1"]),
+    c("feature-1", ["main-1"]),
+    c("main-1", ["root"]),
+    c("root", []),
+  ];
+
+  expect(firstParentChain(commits, "merge")).toEqual(
+    new Set(["merge", "main-2", "main-1", "root"]),
+  );
+  expect(firstParentChain(commits, "feature-1")).toEqual(
+    new Set(["feature-1", "main-1", "root"]),
+  );
+  expect(firstParentChain([c("tip", ["unloaded"])], "tip")).toEqual(
+    new Set(["tip"]),
+  );
+  expect(firstParentChain(commits, "gone")).toEqual(new Set());
+});
+
+test("edgeWithin keeps an edge only when both of its ends are kept", () => {
+  const kept = new Set(["child", "parent"]);
+  expect(edgeWithin(edge(0, 0), kept)).toBe(true);
+  expect(edgeWithin(edge(0, 0), new Set(["child"]))).toBe(false);
+  expect(edgeWithin(edge(0, 0), new Set(["parent"]))).toBe(false);
 });

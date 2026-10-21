@@ -939,7 +939,20 @@ body {
   font-size: 11px;
 }
 
-/* Rows a hovered branch cannot reach (#17). */
+/* Graph parts outside a hovered branch's reach (#17) or a hovered node's
+   first-parent chain (ADR 0035). */
+.graph .node,
+.graph path,
+.graph g {
+  transition: opacity 0.12s;
+}
+
+.graph .faded {
+  opacity: 0.25;
+}
+
+/* Rows a hovered branch cannot reach (#17), or off a hovered node's
+   first-parent chain (ADR 0035). */
 .commits .commit > * {
   transition: opacity 0.12s;
 }

@@ -24,6 +24,7 @@ import {
   type CommitDetail,
   type CommitView,
   type FileDiff,
+  type GraphEdge,
   type MergedPullRequestView,
   type PrLookupView,
   type PullRequestView,
@@ -65,6 +66,8 @@ import {
   nodeX,
   nodeY,
   reachableFrom,
+  firstParentChain,
+  edgeWithin,
   rowIndex,
   ROW_HEIGHT,
   NODE_RADIUS,
@@ -210,12 +213,24 @@ export function RepoCard({
   );
   const rowOf = useMemo(() => rowIndex(view.commits), [view.commits]);
   // While a branch badge is hovered, the commits its tip reaches (#17);
-  // every other row fades.
-  const [focusTip, setFocusTip] = useState<string | null>(null);
-  const reached = useMemo(
-    () => (focusTip ? reachableFrom(view.commits, focusTip) : null),
-    [view.commits, focusTip],
+  // while a node is hovered, its first-parent chain (ADR 0035). Every other
+  // row, node and edge fades.
+  const [focus, setFocus] = useState<{
+    tip: string;
+    lineage: boolean;
+  } | null>(null);
+  const kept = useMemo(
+    () =>
+      focus === null
+        ? null
+        : focus.lineage
+          ? firstParentChain(view.commits, focus.tip)
+          : reachableFrom(view.commits, focus.tip),
+    [view.commits, focus],
   );
+  const fadedNode = (id: string) => (kept && !kept.has(id) ? " faded" : "");
+  const fadedEdge = (edge: GraphEdge) =>
+    kept && !edgeWithin(edge, kept) ? "faded" : undefined;
   const refMap = useMemo(() => refsByCommit(repo), [repo.refs]);
   // Which other worktree has each local branch checked out: its badge gets
   // a marker, and its menu cannot check it out here.
@@ -384,9 +399,14 @@ export function RepoCard({
     "data-testid": "graph-node",
     onClick: () => toggleSelected(commit.id),
     onContextMenu: (e: React.MouseEvent) => openCommitMenu(e, commit),
-    onMouseEnter: (e: React.MouseEvent) =>
-      setHoverNode({ x: e.clientX, y: e.clientY, label: nodeLabel(commit) }),
-    onMouseLeave: () => setHoverNode(null),
+    onMouseEnter: (e: React.MouseEvent) => {
+      setHoverNode({ x: e.clientX, y: e.clientY, label: nodeLabel(commit) });
+      setFocus({ tip: commit.id, lineage: true });
+    },
+    onMouseLeave: () => {
+      setHoverNode(null);
+      setFocus(null);
+    },
   });
   // A submodule's nodes name and offer their commit the same way, from the
   // submodule's own view; they have no row to select.
@@ -430,7 +450,7 @@ export function RepoCard({
   // leaves it, so its tooltip and branch focus go with the old view.
   useEffect(() => {
     setHoverNode(null);
-    setFocusTip(null);
+    setFocus(null);
   }, [view.commits]);
   // Commits are immutable, the working tree is not: while the changes row
   // is selected, every reload re-reads its files and diffs.
@@ -726,7 +746,7 @@ export function RepoCard({
               return (
                 <path
                   key={`e${i}`}
-                  className="edge-uncommitted"
+                  className={`edge-uncommitted${fadedNode(UNCOMMITTED_ID)}`}
                   d={edgePath(edge, rowOf)}
                   fill="none"
                   stroke={laneColor(edge.color)}
@@ -737,22 +757,24 @@ export function RepoCard({
             }
             if (edge.dashed && childRow !== undefined && parentRow !== undefined) {
               return (
-                <DraggableDashed
-                  key={`e${i}`}
-                  testId="stash-edge"
-                  d={edgePath(edge, rowOf)}
-                  x1={nodeX(edge.from_lane)}
-                  y1={nodeY(childRow)}
-                  x2={nodeX(edge.to_lane)}
-                  y2={nodeY(parentRow)}
-                  stroke={laneColor(edge.color)}
-                  strokeWidth={2}
-                />
+                <g key={`e${i}`} className={fadedEdge(edge)}>
+                  <DraggableDashed
+                    testId="stash-edge"
+                    d={edgePath(edge, rowOf)}
+                    x1={nodeX(edge.from_lane)}
+                    y1={nodeY(childRow)}
+                    x2={nodeX(edge.to_lane)}
+                    y2={nodeY(parentRow)}
+                    stroke={laneColor(edge.color)}
+                    strokeWidth={2}
+                  />
+                </g>
               );
             }
             return (
               <path
                 key={`e${i}`}
+                className={fadedEdge(edge)}
                 d={edgePath(edge, rowOf)}
                 fill="none"
                 stroke={laneColor(edge.color)}
@@ -764,17 +786,18 @@ export function RepoCard({
             // A squash-merged PR's branch has no ancestry line to the commit
             // it landed as; the dashed link comes from GitHub's PR data and
             // runs through its own virtual lane so it crosses nothing.
-            <DraggableDashed
-              key={`q${i}`}
-              testId="squash-edge"
-              d={linkPath(link)}
-              x1={nodeX(link.fromLane)}
-              y1={nodeY(link.fromRow)}
-              x2={nodeX(link.toLane)}
-              y2={nodeY(link.toRow)}
-              stroke={laneColor(link.color)}
-              strokeWidth={2}
-            />
+            <g key={`q${i}`} className={kept ? "faded" : undefined}>
+              <DraggableDashed
+                testId="squash-edge"
+                d={linkPath(link)}
+                x1={nodeX(link.fromLane)}
+                y1={nodeY(link.fromRow)}
+                x2={nodeX(link.toLane)}
+                y2={nodeY(link.toRow)}
+                stroke={laneColor(link.color)}
+                strokeWidth={2}
+              />
+            </g>
           ))}
           {view.commits.map((commit) =>
             commit.uncommitted !== undefined ? (
@@ -782,7 +805,7 @@ export function RepoCard({
               // commit-to-be rather than a commit.
               <circle
                 key={commit.id}
-                className="node node-uncommitted"
+                className={`node node-uncommitted${fadedNode(commit.id)}`}
                 cx={nodeX(commit.lane)}
                 cy={nodeY(commit.row)}
                 r={NODE_RADIUS}
@@ -797,7 +820,7 @@ export function RepoCard({
               // .node CSS, while a `fill` attribute would not resolve it.
               <circle
                 key={commit.id}
-                className="node node-head"
+                className={`node node-head${fadedNode(commit.id)}`}
                 cx={nodeX(commit.lane)}
                 cy={nodeY(commit.row)}
                 r={NODE_RADIUS}
@@ -807,7 +830,7 @@ export function RepoCard({
             ) : (
               <circle
                 key={commit.id}
-                className="node"
+                className={`node${fadedNode(commit.id)}`}
                 cx={nodeX(commit.lane)}
                 cy={nodeY(commit.row)}
                 r={NODE_RADIUS}
@@ -838,7 +861,7 @@ export function RepoCard({
                 key={commit.id}
                 className={`commit${commit.id === selected ? " selected" : ""}${
                   uncommitted !== undefined ? " commit-uncommitted" : ""
-                }${reached && !reached.has(commit.id) ? " commit-faded" : ""}`}
+                }${kept && !kept.has(commit.id) ? " commit-faded" : ""}`}
                 data-testid="commit-row"
                 style={{ height: ROW_HEIGHT }}
                 onClick={() => toggleSelected(commit.id)}
@@ -862,10 +885,12 @@ export function RepoCard({
                         ref.remote ? " badge-remote" : ""
                       }`}
                       onMouseEnter={
-                        isBranch ? () => setFocusTip(commit.id) : undefined
+                        isBranch
+                          ? () => setFocus({ tip: commit.id, lineage: false })
+                          : undefined
                       }
                       onMouseLeave={
-                        isBranch ? () => setFocusTip(null) : undefined
+                        isBranch ? () => setFocus(null) : undefined
                       }
                       onContextMenu={(e) => {
                         // Branches get checkout/merge, tags get delete; the

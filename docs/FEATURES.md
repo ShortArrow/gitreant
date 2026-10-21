@@ -35,14 +35,14 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   merges come back from the right. A branch keeps its colour end to end.
 - **HEAD and merges.** The HEAD commit is a hollow ring; merge commit
   messages are dimmed.
-- **Nodes.** Hovering a node shows its hash and clicking selects the
-  commit. Its context menu is the commit row's: copy the full id, create a
+- **Nodes.** Hovering a node shows its hash and fades the rows, nodes and
+  edges off its first-parent chain; clicking selects the commit. Its context menu is the commit row's: copy the full id, create a
   tag or a branch, and, when the origin is on github.com or gitlab.com, copy
   or open the commit's web page. Clicking a hash copies the full id.
 - **Badges.** Branches, tags and the stash render as distinct badges. Remote
   branches, and tags pushed to a remote, carry the remote's name as a
-  separate segment. Hovering a branch badge fades the rows its tip cannot
-  reach, among the loaded commits.
+  separate segment. Hovering a branch badge fades the rows, nodes and edges
+  its tip cannot reach, among the loaded commits.
 - **Stashes.** A stash folds to one node. A setting reveals its index and
   untracked-files commits, linked by dashed lines.
 - **Submodule graphs.** For a repository with submodules, each submodule's
