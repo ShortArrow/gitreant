@@ -19,6 +19,7 @@ export function CommitMenu({
   parents = [],
   children = [],
   onGoTo,
+  onCompare,
   onClose,
 }: {
   x: number;
@@ -36,6 +37,9 @@ export function CommitMenu({
   children?: CommitView[];
   /** Selects the parent or child picked. */
   onGoTo?: (id: string) => void;
+  /** Compares this commit with the selected one; absent when there is no
+   * other commit selected. */
+  onCompare?: () => void;
   onClose: () => void;
 }) {
   const t = useT();
@@ -113,6 +117,18 @@ export function CommitMenu({
               onClick={() => setStage("branch")}
             >
               {t("createBranch")}…
+            </button>
+          )}
+          {onCompare && (
+            <button
+              type="button"
+              data-testid="commit-menu-compare"
+              onClick={() => {
+                onCompare();
+                onClose();
+              }}
+            >
+              {t("compareWithSelected")}
             </button>
           )}
           {onGoTo &&

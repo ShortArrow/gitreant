@@ -621,6 +621,25 @@ async fn diff_endpoint_returns_unified_hunks() {
     assert!(resp.contains("200 OK"), "response: {resp}");
     assert!(resp.contains("notes.txt"), "file missing: {resp}");
     assert!(resp.contains("+hello"), "hunk missing: {resp}");
+
+    // Two commits compare as the changes from the base to the target.
+    let root = gitreant::git::read_repo(dir).unwrap().commits[1].id.clone();
+    let request =
+        format!("{{\"repo\": {repo_id:?}, \"base\": {root:?}, \"target\": {head:?}}}");
+    let resp =
+        tokio::task::spawn_blocking(move || http_post_json(port, "/api/range-diff", &request))
+            .await
+            .unwrap();
+    assert!(resp.contains("200 OK"), "response: {resp}");
+    assert!(resp.contains("notes.txt"), "file missing: {resp}");
+    assert!(resp.contains("+hello"), "hunk missing: {resp}");
+
+    // An id that names no commit -> 404.
+    let bad = format!("{{\"repo\": {repo_id:?}, \"base\": {root:?}, \"target\": \"{}\"}}", "0".repeat(40));
+    let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/range-diff", &bad))
+        .await
+        .unwrap();
+    assert!(resp.contains("404"), "expected 404 for unknown commit: {resp}");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -20,7 +20,8 @@ pub use branch::{
     checkout, checkout_command, create_branch, create_branch_command, merge, merge_command,
 };
 pub use detail::{
-    read_commit, read_commit_diff, read_file_diff, CommitDetail, FileChange, FileDiff,
+    read_commit, read_commit_diff, read_file_diff, read_range_diff, CommitDetail, FileChange,
+    FileDiff,
 };
 pub use fetch::{fetch_command, fetch_remotes, tag_remotes, RemoteTagList};
 pub use prs::{

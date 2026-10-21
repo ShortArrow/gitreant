@@ -7,7 +7,7 @@ use std::process::Command;
 
 use gitreant::domain::layout;
 use gitreant::git::{
-    gitlink_updates, read_commit, read_commit_diff, read_file_diff, read_repo,
+    gitlink_updates, read_commit, read_commit_diff, read_file_diff, read_range_diff, read_repo,
     read_repo_with_progress, read_status, read_submodules, read_uncommitted,
     read_uncommitted_diff, read_uncommitted_diffs, read_worktrees, uncommitted_paths,
     FileChange, UNCOMMITTED_ID,
@@ -408,6 +408,55 @@ fn reads_the_whole_commit_diff_at_once() {
         "added line missing: {}",
         diffs[1].text
     );
+}
+
+#[test]
+fn diffs_two_commits_against_each_other() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    std::fs::write(dir.join("a.txt"), "one
+").unwrap();
+    std::fs::write(dir.join("gone.txt"), "bye
+").unwrap();
+    std::fs::write(dir.join("same.txt"), "kept
+").unwrap();
+    git(dir, &["add", "."]);
+    commit(dir, "base", 1000);
+    std::fs::write(dir.join("a.txt"), "one
+two
+").unwrap();
+    git(dir, &["add", "."]);
+    commit(dir, "middle", 1001);
+    std::fs::remove_file(dir.join("gone.txt")).unwrap();
+    std::fs::write(dir.join("new.txt"), "hi
+").unwrap();
+    git(dir, &["add", "-A"]);
+    commit(dir, "target", 1002);
+
+    let repo = read_repo(dir).expect("read repo");
+    let target = &repo.commits[0].id;
+    let base = &repo.commits[2].id;
+
+    // Both steps at once, skipping the commit between; unchanged files stay out.
+    let diffs: HashMap<String, (String, String)> = read_range_diff(dir, base, target)
+        .expect("range diff")
+        .into_iter()
+        .map(|d| (d.path, (d.status, d.text)))
+        .collect();
+    assert_eq!(diffs.len(), 3, "{diffs:?}");
+    assert_eq!(diffs["a.txt"].0, "M");
+    assert!(diffs["a.txt"].1.contains("+two"), "{:?}", diffs["a.txt"]);
+    assert_eq!(diffs["gone.txt"].0, "D");
+    assert_eq!(diffs["new.txt"].0, "A");
+
+    // Swapped, the same changes run the other way.
+    let reversed = read_range_diff(dir, target, base).expect("reversed");
+    let gone = reversed.iter().find(|d| d.path == "gone.txt").unwrap();
+    assert_eq!(gone.status, "A");
+
+    assert!(read_range_diff(dir, base, "0000000000000000000000000000000000000000").is_err());
 }
 
 #[test]

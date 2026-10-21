@@ -66,6 +66,10 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 - **The diff pane.** Clicking a file opens its diff, inline or side by
   side, with the changed part of each line highlighted. "Diff all" opens
   every file's diff at once, and pressed again closes it.
+- **Comparing two commits.** With a commit selected, another commit's
+  context menu compares the two: the diff pane shows every file that
+  differs, from the older (ancestor) commit to the newer, headed
+  `base..target`. See [ADR 0035](adr/0035-graph-node-navigation.md).
 - **Line-ending changes.** A file whose only change is its line endings
   (LF against CRLF) is labelled "Line endings only"; its diff marks the
   changed line ends and the header names the direction (`LF → CRLF` and so

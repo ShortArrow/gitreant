@@ -15,6 +15,7 @@ import {
   deleteTag,
   fetchCommitDetail,
   fetchCommitDiff,
+  fetchRangeDiff,
   fetchFileDiff,
   fetchPrs,
   fetchSubmoduleGraphs,
@@ -62,6 +63,7 @@ import { FileDiffPane } from "./FileDiffPane";
 import {
   childrenOf,
   childToSelect,
+  compareRange,
   keyMove,
   parentsOf,
   rowStep,
@@ -150,7 +152,11 @@ function webUrlOf(view: RepoView, commit: string): string | undefined {
   return view.commit_url_base && `${view.commit_url_base}${commit}`;
 }
 
-export type DiffTarget = { kind: "file"; path: string } | { kind: "all" };
+export type DiffTarget =
+  | { kind: "file"; path: string }
+  | { kind: "all" }
+  /** Two commits compared from the selection's menu (ADR 0035). */
+  | { kind: "range"; base: string; target: string };
 
 /** Badge for a signed commit, following GitHub's wording: "Verified" only
  * when gpg actually validated the signature, "Unverified" when it judged it
@@ -190,6 +196,7 @@ export function RepoCard({
   loadDetail = fetchCommitDetail,
   loadDiff = fetchFileDiff,
   loadCommitDiff = fetchCommitDiff,
+  loadRangeDiff = fetchRangeDiff,
   loadPrs = fetchPrs,
   loadSubmodules = fetchSubmoduleGraphs,
 }: {
@@ -206,6 +213,11 @@ export function RepoCard({
     path: string,
   ) => Promise<FileDiff>;
   loadCommitDiff?: (repoId: string, commitId: string) => Promise<FileDiff[]>;
+  loadRangeDiff?: (
+    repoId: string,
+    base: string,
+    target: string,
+  ) => Promise<FileDiff[]>;
   loadPrs?: (repoId: string) => Promise<PrLookupView>;
   loadSubmodules?: (repoId: string) => Promise<SubmoduleGraph[]>;
 }) {
@@ -555,7 +567,9 @@ export function RepoCard({
     const load =
       diffTarget.kind === "file"
         ? loadDiff(repo.id, selected, diffTarget.path).then((d) => [d])
-        : loadCommitDiff(repo.id, selected);
+        : diffTarget.kind === "range"
+          ? loadRangeDiff(repo.id, diffTarget.base, diffTarget.target)
+          : loadCommitDiff(repo.id, selected);
     load
       .then((data) => {
         if (!stale) setDiffFiles(data);
@@ -572,6 +586,7 @@ export function RepoCard({
     repo.id,
     loadDiff,
     loadCommitDiff,
+    loadRangeDiff,
     uncommittedGeneration,
   ]);
 
@@ -671,6 +686,18 @@ export function RepoCard({
               : undefined
           }
           onGoTo={select}
+          onCompare={
+            commitMenu.refs &&
+            selected !== null &&
+            selected !== UNCOMMITTED_ID &&
+            selected !== commitMenu.commit
+              ? () =>
+                  setDiffTarget({
+                    kind: "range",
+                    ...compareRange(view.commits, selected, commitMenu.commit),
+                  })
+              : undefined
+          }
           onClose={() => setCommitMenu(null)}
         />
       )}
@@ -681,11 +708,18 @@ export function RepoCard({
           files={diffFiles}
           error={diffError}
           commitId={
-            selectedCommit && selectedCommit.uncommitted === undefined
-              ? selected
-              : undefined
+            diffTarget.kind === "range"
+              ? diffTarget.target
+              : selectedCommit && selectedCommit.uncommitted === undefined
+                ? selected
+                : undefined
           }
-          parentId={selectedCommit?.parents[0]}
+          parentId={
+            diffTarget.kind === "range"
+              ? diffTarget.base
+              : selectedCommit?.parents[0]
+          }
+          range={diffTarget.kind === "range" ? diffTarget : undefined}
           githubUrl={repo.github_url}
           onClose={() => setDiffTarget(null)}
         />

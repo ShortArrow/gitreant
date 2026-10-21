@@ -54,6 +54,9 @@ pub fn read_commit(path: &Path, id: &str) -> Result<CommitDetail, String> {
         .parent_ids()
         .map(|p| p.detach().to_string())
         .collect();
+    let tree = commit.tree().map_err(|e| format!("tree: {e}"))?;
+    let parent_tree = first_parent_tree(&repo, &commit)?;
+    let files = changed_files(&repo, &parent_tree, &tree)?;
 
     Ok(CommitDetail {
         id: commit.id().detach().to_string(),
@@ -63,7 +66,7 @@ pub fn read_commit(path: &Path, id: &str) -> Result<CommitDetail, String> {
         time,
         parents,
         signature: signature_kind(&commit),
-        files: changed_files(&repo, &commit)?,
+        files,
     })
 }
 
@@ -113,12 +116,33 @@ pub fn read_commit_diff(path: &Path, id: &str) -> Result<Vec<FileDiff>, String> 
     let commit = find_commit(&repo, id)?;
     let tree = commit.tree().map_err(|e| format!("tree: {e}"))?;
     let parent_tree = first_parent_tree(&repo, &commit)?;
-    let mut attributes = DiffAttributes::of(&repo);
+    diff_trees(&repo, &parent_tree, &tree)
+}
 
-    changed_files(&repo, &commit)?
+/// Diff every file that differs between commits `base` and `target`, as
+/// changes from `base` to `target` (ADR 0035).
+pub fn read_range_diff(path: &Path, base: &str, target: &str) -> Result<Vec<FileDiff>, String> {
+    let repo = gix::discover(path).map_err(|e| format!("open {path:?}: {e}"))?;
+    let old = find_commit(&repo, base)?
+        .tree()
+        .map_err(|e| format!("tree: {e}"))?;
+    let new = find_commit(&repo, target)?
+        .tree()
+        .map_err(|e| format!("tree: {e}"))?;
+    diff_trees(&repo, &old, &new)
+}
+
+/// Diff every file that differs between two trees, in one pass.
+fn diff_trees(
+    repo: &gix::Repository,
+    old: &gix::Tree<'_>,
+    new: &gix::Tree<'_>,
+) -> Result<Vec<FileDiff>, String> {
+    let mut attributes = DiffAttributes::of(repo);
+    changed_files(repo, old, new)?
         .into_iter()
         .map(|file| {
-            diff_blobs(&mut attributes, &repo, &parent_tree, &tree, &file.path)?
+            diff_blobs(&mut attributes, repo, old, new, &file.path)?
                 .ok_or_else(|| format!("{} vanished while diffing", file.path))
         })
         .collect()
@@ -261,17 +285,18 @@ pub(super) fn unified(old: &[u8], new: &[u8]) -> String {
     .unwrap_or_default()
 }
 
-/// Diff the commit's tree against its first parent (or the empty tree).
-fn changed_files(repo: &gix::Repository, commit: &gix::Commit) -> Result<Vec<FileChange>, String> {
-    let tree = commit.tree().map_err(|e| format!("tree: {e}"))?;
-    let parent_tree = first_parent_tree(repo, commit)?;
+/// The files that differ from tree `old` to tree `new`, with line counts.
+fn changed_files(
+    repo: &gix::Repository,
+    old: &gix::Tree<'_>,
+    new: &gix::Tree<'_>,
+) -> Result<Vec<FileChange>, String> {
     let mut attributes = DiffAttributes::of(repo);
 
     let mut files = Vec::new();
-    parent_tree
-        .changes()
+    old.changes()
         .map_err(|e| format!("diff: {e}"))?
-        .for_each_to_obtain_tree(&tree, |change| {
+        .for_each_to_obtain_tree(new, |change| {
             if let Some(file) = file_change(&mut attributes, repo, change) {
                 files.push(file);
             }

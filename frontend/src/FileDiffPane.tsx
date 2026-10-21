@@ -3,6 +3,7 @@ import type { FileDiff } from "./api";
 import { InlineIcon, LineMenuIcon, SplitIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { useT } from "./settings";
+import { shortId } from "./graph";
 import {
   eolChange,
   inlineCells,
@@ -42,6 +43,7 @@ export function FileDiffPane({
   error,
   commitId,
   parentId,
+  range,
   githubUrl,
   onClose,
 }: {
@@ -53,6 +55,9 @@ export function FileDiffPane({
   commitId?: string;
   /** Its first parent; old-side permalinks address it. */
   parentId?: string;
+  /** Two compared commits, named in the header as `base..target`; the
+   * permalinks then use `base` for the old side and `target` for the new. */
+  range?: { base: string; target: string };
   /** Web URL of the repository on GitHub, when it has such a remote. */
   githubUrl?: string;
   onClose: () => void;
@@ -101,6 +106,11 @@ export function FileDiffPane({
     <div className="diff-pane" data-testid="diff-pane">
       <header className="diff-head">
         <span className="diff-title">
+          {range && (
+            <code className="diff-range" data-testid="diff-range">
+              {shortId(range.base)}..{shortId(range.target)}
+            </code>
+          )}
           {files && files.length === 1 && files[0].path}
           {files && files.length > 1 && `${files.length} files`}
         </span>

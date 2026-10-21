@@ -339,6 +339,26 @@ export async function fetchCommitDiff(
   return response.json();
 }
 
+/** Load the unified diffs of every file that differs between two commits,
+ * as changes from `base` to `target` (ADR 0035). */
+export async function fetchRangeDiff(
+  repoId: string,
+  base: string,
+  target: string,
+): Promise<FileDiff[]> {
+  const response = await fetch("/api/range-diff", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo: repoId, base, target }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || `range diff failed: ${response.status}`,
+    );
+  }
+  return response.json();
+}
+
 /** Load one commit's details on demand (ids are paths, hence a JSON body). */
 export async function fetchCommitDetail(
   repoId: string,

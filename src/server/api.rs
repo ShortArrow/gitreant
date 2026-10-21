@@ -374,6 +374,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/commit", post(commit_detail))
         .route("/api/diff", post(file_diff))
         .route("/api/commit-diff", post(commit_diff))
+        .route("/api/range-diff", post(range_diff))
         .route("/api/fetch", post(fetch_remotes))
         .route("/api/checkout", post(checkout))
         .route("/api/merge", post(merge))
@@ -864,6 +865,36 @@ async fn commit_diff(
     .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .map_err(|message| (StatusCode::NOT_FOUND, message))?;
+    Ok(Json(diffs.into_iter().map(Into::into).collect()))
+}
+
+#[derive(Deserialize)]
+struct RangeDiffRequest {
+    repo: String,
+    /// The commit the changes are read from.
+    base: String,
+    /// The commit the changes are read to.
+    target: String,
+}
+
+/// The unified diffs of every file that differs between two commits, from
+/// the base to the target, for comparing two graph nodes (ADR 0035).
+async fn range_diff(
+    State(state): State<AppState>,
+    Json(req): Json<RangeDiffRequest>,
+) -> Result<Json<Vec<FileDiffView>>, (StatusCode, String)> {
+    let Some(repo) = state.repo_path(&req.repo) else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ));
+    };
+    let diffs = tokio::task::spawn_blocking(move || {
+        crate::git::read_range_diff(&repo, &req.base, &req.target)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(|message| (StatusCode::NOT_FOUND, message))?;
     Ok(Json(diffs.into_iter().map(Into::into).collect()))
 }
 

@@ -1799,3 +1799,8 @@ mark.intra.eol-mark {
   color: var(--danger);
   word-break: break-word;
 }
+
+/* The two compared commits, ahead of the file count (ADR 0035). */
+.diff-range {
+  margin-right: 8px;
+}

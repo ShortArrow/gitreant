@@ -2343,6 +2343,42 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("commit-detail")).toHaveCount(0);
   });
 
+  test("the commit menu compares another commit with the selected one", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const rows = page.getByTestId("commit-row");
+    await expect(rows).toHaveCount(5);
+    const row = (summary: string) => rows.filter({ hasText: summary });
+    const hash = async (summary: string) =>
+      (await row(summary).getByTestId("commit-hash").textContent()) ?? "";
+    const menu = page.getByTestId("commit-menu");
+
+    // Nothing selected, or the selected commit's own menu: nothing to compare.
+    await row("merge feature").click({ button: "right" });
+    await expect(menu.getByTestId("commit-menu-compare")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await row("main-1").click();
+    await row("main-1").click({ button: "right" });
+    await expect(menu.getByTestId("commit-menu-compare")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+
+    // From the merge's menu: main-1 is its ancestor, so it is the base.
+    const range = `${await hash("main-1")}..${await hash("merge feature")}`;
+    await row("merge feature").click({ button: "right" });
+    await menu.getByTestId("commit-menu-compare").click();
+    const diff = page.getByTestId("diff-pane");
+    await expect(diff).toBeVisible();
+    await expect(page.getByTestId("diff-range")).toHaveText(range);
+    // main-2 and feature-1 both changed files since main-1.
+    await expect(diff.locator(".diff-title")).toContainText("files");
+
+    // Closing the pane ends the comparison and keeps the selection.
+    await page.getByTestId("diff-close").click();
+    await expect(page.getByTestId("diff-range")).toHaveCount(0);
+    await expect(row("main-1")).toHaveClass(/selected/);
+  });
+
   test("graph nodes show their hash on hover and open the commit menu", async ({
     page,
   }) => {
