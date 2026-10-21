@@ -68,6 +68,7 @@ export const StashInternals: Story = {
           stashInternals: true,
           avatars: true,
           submoduleLinks: true,
+          vimKeys: false,
         }}
       >
         <Story />

@@ -92,6 +92,26 @@ export function storeSquashLinks(on: boolean) {
   }
 }
 
+export const VIM_KEYS_KEY = "gitreant-vim-keys";
+
+/** Whether `hjkl` move the graph selection besides the arrows (default
+ * off, ADR 0035). */
+export function storedVimKeys(): boolean {
+  try {
+    return localStorage.getItem(VIM_KEYS_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
+export function storeVimKeys(on: boolean) {
+  try {
+    localStorage.setItem(VIM_KEYS_KEY, on ? "on" : "off");
+  } catch {
+    // localStorage may be unavailable; the state change alone is enough.
+  }
+}
+
 export const STASH_INTERNALS_KEY = "gitreant-stash-internals";
 
 /** Whether a stash's index/untracked internals are revealed with dashed
@@ -228,6 +248,7 @@ export const SettingsContext = createContext<{
   stashInternals: boolean;
   avatars: boolean;
   submoduleLinks: boolean;
+  vimKeys: boolean;
 }>({
   buttonStyle: "icon-label",
   lang: "en",
@@ -236,6 +257,7 @@ export const SettingsContext = createContext<{
   stashInternals: false,
   avatars: true,
   submoduleLinks: true,
+  vimKeys: false,
 });
 
 /** Renders a Unix-second timestamp in the chosen format. Callers pair it
@@ -264,6 +286,11 @@ export function useAvatars(): boolean {
 /** Whether submodule graph regions and their dashed links are drawn. */
 export function useSubmoduleLinks(): boolean {
   return useContext(SettingsContext).submoduleLinks;
+}
+
+/** Whether `hjkl` move the graph selection besides the arrows. */
+export function useVimKeys(): boolean {
+  return useContext(SettingsContext).vimKeys;
 }
 
 export function useButtonStyle(): ButtonStyle {

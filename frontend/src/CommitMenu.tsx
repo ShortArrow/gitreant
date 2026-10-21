@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
+import type { CommitView } from "./api";
 import { shortId } from "./graph";
 import { useT } from "./settings";
 
 /**
  * Context menu on a commit row or node: a list of actions first (copy the
- * id, copy or open the commit's web page, create tag, create branch), and a
- * name input once a ref is to be created — so further commands can slot in
- * without fighting an always-open input.
+ * id, copy or open the commit's web page, create tag, create branch, go to
+ * a parent or child), and a name input once a ref is to be created — so
+ * further commands can slot in without fighting an always-open input.
  */
 export function CommitMenu({
   x,
@@ -15,6 +16,9 @@ export function CommitMenu({
   webUrl,
   onCreateTag,
   onCreateBranch,
+  parents = [],
+  children = [],
+  onGoTo,
   onClose,
 }: {
   x: number;
@@ -27,6 +31,11 @@ export function CommitMenu({
   onCreateTag?: (name: string) => void;
   /** Absent when branches cannot be created here. */
   onCreateBranch?: (name: string) => void;
+  /** The commit's loaded parents and children, each offered as a move. */
+  parents?: CommitView[];
+  children?: CommitView[];
+  /** Selects the parent or child picked. */
+  onGoTo?: (id: string) => void;
   onClose: () => void;
 }) {
   const t = useT();
@@ -106,6 +115,30 @@ export function CommitMenu({
               {t("createBranch")}…
             </button>
           )}
+          {onGoTo &&
+            (
+              [
+                ["parent", parents],
+                ["child", children],
+              ] as const
+            ).flatMap(([relation, commits]) =>
+              commits.map((related) => (
+                <button
+                  key={`${relation}:${related.id}`}
+                  type="button"
+                  data-testid={`commit-menu-${relation}`}
+                  className="commit-menu-related"
+                  title={related.summary}
+                  onClick={() => {
+                    onGoTo(related.id);
+                    onClose();
+                  }}
+                >
+                  {t(relation === "parent" ? "goToParent" : "goToChild")}{" "}
+                  <code>{shortId(related.id)}</code> {related.summary}
+                </button>
+              )),
+            )}
         </>
       ) : (
         <form

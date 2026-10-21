@@ -2277,6 +2277,72 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator(".graph .faded")).toHaveCount(0);
   });
 
+  test("the keyboard and the commit menu move the selection", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const rows = page.getByTestId("commit-row");
+    await expect(rows).toHaveCount(5);
+    const selected = page.locator(".commit.selected");
+    const row = (summary: string) => rows.filter({ hasText: summary });
+
+    // With nothing selected, a move starts at the first row.
+    await page.keyboard.press("ArrowDown");
+    await expect(rows.nth(0)).toHaveClass(/selected/);
+    await expect(page.getByTestId("commit-detail")).toBeVisible();
+    await page.keyboard.press("ArrowDown");
+    await expect(rows.nth(1)).toHaveClass(/selected/);
+    await page.keyboard.press("ArrowUp");
+    await expect(rows.nth(0)).toHaveClass(/selected/);
+
+    // → follows the first parent: the merge's is main-2, then main-1.
+    await expect(row("merge feature")).toHaveClass(/selected/);
+    await page.keyboard.press("ArrowRight");
+    await expect(row("main-2")).toHaveClass(/selected/);
+    await page.keyboard.press("ArrowRight");
+    await expect(row("main-1")).toHaveClass(/selected/);
+
+    // The menu lists both of the merge's parents; picking one selects it.
+    await row("merge feature").click({ button: "right" });
+    const menu = page.getByTestId("commit-menu");
+    await expect(menu.getByTestId("commit-menu-parent")).toHaveCount(2);
+    await expect(menu.getByTestId("commit-menu-child")).toHaveCount(0);
+    await menu.getByTestId("commit-menu-parent").filter({ hasText: "feature-1" }).click();
+    await expect(menu).toHaveCount(0);
+    await expect(row("feature-1")).toHaveClass(/selected/);
+
+    // ← goes back up to the merge, feature-1's only child.
+    await page.keyboard.press("ArrowLeft");
+    await expect(row("merge feature")).toHaveClass(/selected/);
+
+    // Enter opens every file's diff in place of the graph; while it shows,
+    // the keys leave the selection alone.
+    await page.keyboard.press("Enter");
+    const diff = page.getByTestId("diff-pane");
+    await expect(diff).toBeVisible();
+    await page.keyboard.press("ArrowDown");
+    await expect(diff).toBeVisible();
+    await page.getByTestId("diff-close").click();
+    await expect(row("merge feature")).toHaveClass(/selected/);
+    await page.getByTestId("detail-close").click();
+
+    // hjkl move only once the setting is on.
+    await page.keyboard.press("j");
+    await expect(selected).toHaveCount(0);
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("vim-keys-toggle").check();
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("j");
+    await expect(rows.nth(0)).toHaveClass(/selected/);
+    await page.keyboard.press("l");
+    await expect(row("main-2")).toHaveClass(/selected/);
+
+    // Esc clears the selection.
+    await page.keyboard.press("Escape");
+    await expect(selected).toHaveCount(0);
+    await expect(page.getByTestId("commit-detail")).toHaveCount(0);
+  });
+
   test("graph nodes show their hash on hover and open the commit menu", async ({
     page,
   }) => {

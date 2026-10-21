@@ -37,8 +37,8 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   messages are dimmed.
 - **Nodes.** Hovering a node shows its hash and fades the rows, nodes and
   edges off its first-parent chain; clicking selects the commit. Its context menu is the commit row's: copy the full id, create a
-  tag or a branch, and, when the origin is on github.com or gitlab.com, copy
-  or open the commit's web page. Clicking a hash copies the full id.
+  tag or a branch, go to a parent or child, and, when the origin is on
+  github.com or gitlab.com, copy or open the commit's web page. Clicking a hash copies the full id.
 - **Badges.** Branches, tags and the stash render as distinct badges. Remote
   branches, and tags pushed to a remote, carry the remote's name as a
   separate segment. Hovering a branch badge fades the rows, nodes and edges
@@ -119,10 +119,15 @@ quietly disappear. `gitreant doctor` reports which are available.
 - **Command palette.** Ctrl+K (Cmd+K on macOS) opens it: switch
   repositories, fetch, reload, toggle the theme and display settings, check
   out a branch, and more, from the keyboard.
+- **Moving the selection.** In the focused pane, `↑` / `↓` select the row
+  above or below, `→` the first parent and `←` a child; `Enter` opens every
+  file's diff and `Esc` clears the selection. A setting adds `k` / `j` /
+  `l` / `h`.
 - **Settings dialog.** The UI language (auto, English, Japanese), the
   timestamp format (ISO, locale, relative), how action buttons render (icon,
   icon with label, label), and the graph's optional layers (squash links,
-  stash internals, author avatars, submodule graphs).
+  stash internals, author avatars, submodule graphs), and `hjkl` for moving
+  the selection.
 - **Theme.** Dark or light.
 - **Environment info.** The Info dialog gathers the CLI and page versions,
   the server and the browser, ready to copy in one go.

@@ -45,6 +45,8 @@ import {
   storedLangSetting,
   storeSquashLinks,
   storedSquashLinks,
+  storeVimKeys,
+  storedVimKeys,
   storeStashInternals,
   storedStashInternals,
   storeAvatars,
@@ -372,6 +374,11 @@ export function App() {
     setSubmoduleLinks(on);
     storeSubmoduleLinks(on);
   };
+  const [vimKeys, setVimKeys] = useState<boolean>(storedVimKeys);
+  const changeVimKeys = (on: boolean) => {
+    setVimKeys(on);
+    storeVimKeys(on);
+  };
   const [dateFormat, setDateFormat] = useState<DateFormat>(storedDateFormat);
   const changeDateFormat = (next: DateFormat) => {
     setDateFormat(next);
@@ -387,6 +394,7 @@ export function App() {
       stashInternals,
       avatars,
       submoduleLinks,
+      vimKeys,
     }),
     [
       buttonStyle,
@@ -396,6 +404,7 @@ export function App() {
       stashInternals,
       avatars,
       submoduleLinks,
+      vimKeys,
     ],
   );
   const t = (key: keyof typeof MESSAGES.en, params?: Record<string, string | number>) =>
@@ -683,6 +692,15 @@ export function App() {
                     onChange={(e) => changeSubmoduleLinks(e.target.checked)}
                   />
                   {t("submoduleLinksSetting")}
+                </label>
+                <label className="settings-option">
+                  <input
+                    type="checkbox"
+                    data-testid="vim-keys-toggle"
+                    checked={vimKeys}
+                    onChange={(e) => changeVimKeys(e.target.checked)}
+                  />
+                  {t("vimKeysSetting")}
                 </label>
               </fieldset>
               <fieldset className="settings-group">

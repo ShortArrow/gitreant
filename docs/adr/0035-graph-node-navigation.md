@@ -33,15 +33,16 @@ selection and gets none of them.
   way, not only rows.
 - **Selection by keyboard.** In the focused pane, while no text field,
   menu, dialog or palette has the keyboard:
-  - `↑` / `↓` move the selection to the row above or below; with nothing
-    selected, either selects the first row.
+  - `↑` / `↓` move the selection to the row above or below. With nothing
+    selected, any of the four moves selects the first row.
   - `→` selects the first parent.
   - `←` selects a child: one whose first parent is the selected commit if
     there is one, the nearest row above among them.
   - `Enter` opens the diff of every file, as "Diff all" does.
   - `Esc` clears the selection.
 
-  The selected row is scrolled into view. A setting, off by default, adds
+  The keys rest while the diff pane replaces the graph. The selected row
+  is scrolled into view. A setting, off by default, adds
   `k` / `j` / `l` / `h` for the same four moves; the arrows keep working.
   Only loaded commits count as parents and children; a move to one that is
   not loaded does nothing.

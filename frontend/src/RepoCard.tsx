@@ -50,6 +50,7 @@ import {
   storedCollapsedSubmodules,
   useAvatars,
   useSquashLinks,
+  useVimKeys,
   useStashInternals,
   useSubmoduleLinks,
   useT,
@@ -58,6 +59,13 @@ import {
 import { absoluteTime } from "./time";
 import { CommitDetailPanel } from "./CommitDetailPanel";
 import { FileDiffPane } from "./FileDiffPane";
+import {
+  childrenOf,
+  childToSelect,
+  keyMove,
+  parentsOf,
+  rowStep,
+} from "./navigation";
 import {
   edgePath,
   graphHeight,
@@ -370,6 +378,22 @@ export function RepoCard({
     setSelected((s) => (s === id ? null : id));
     setDiffTarget(null);
   };
+  // A selection moved from the keyboard or the menu, whose row is brought
+  // into view once it renders.
+  const [revealed, setRevealed] = useState<string | null>(null);
+  const select = (id: string | null) => {
+    if (id === null) return;
+    setSelected(id);
+    setDiffTarget(null);
+    setRevealed(id);
+  };
+  useEffect(() => {
+    if (revealed === null) return;
+    scrollRef.current
+      ?.querySelector(".commits .commit.selected")
+      ?.scrollIntoView({ block: "nearest" });
+    setRevealed(null);
+  }, [revealed]);
   // The graph node under the pointer, whose hash shows in a tooltip.
   const [hoverNode, setHoverNode] = useState<{
     x: number;
@@ -435,6 +459,47 @@ export function RepoCard({
   const [diffTarget, setDiffTarget] = useState<DiffTarget | null>(null);
   const [diffFiles, setDiffFiles] = useState<FileDiff[] | null>(null);
   const [diffError, setDiffError] = useState<string | null>(null);
+
+  // The focused pane's graph takes the selection keys (ADR 0035) while the
+  // graph is shown and nothing else has the keyboard: no text field, no
+  // menu, no dialog or palette.
+  const vimKeys = useVimKeys();
+  useEffect(() => {
+    if (!focused || diffTarget !== null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (keyboardTaken()) return;
+      const move = keyMove(e.key, vimKeys);
+      if (move === null) return;
+      if ((move === "diff" || move === "clear") && selected === null) return;
+      e.preventDefault();
+      const commits = view.commits;
+      switch (move) {
+        case "up":
+          return select(rowStep(commits, selected, -1));
+        case "down":
+          return select(rowStep(commits, selected, 1));
+        case "parent":
+          return select(
+            selected === null
+              ? rowStep(commits, null, 1)
+              : (parentsOf(commits, selected)[0]?.id ?? null),
+          );
+        case "child":
+          return select(
+            selected === null
+              ? rowStep(commits, null, 1)
+              : childToSelect(commits, selected),
+          );
+        case "diff":
+          return setDiffTarget({ kind: "all" });
+        case "clear":
+          return setSelected(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focused, diffTarget, vimKeys, selected, view.commits]);
 
   // A reload can drop the selected row (the tree became clean, or the
   // history was rewritten): nothing may keep showing a commit that is gone.
@@ -595,6 +660,17 @@ export function RepoCard({
                   )
               : undefined
           }
+          parents={
+            commitMenu.refs
+              ? parentsOf(view.commits, commitMenu.commit)
+              : undefined
+          }
+          children={
+            commitMenu.refs
+              ? childrenOf(view.commits, commitMenu.commit)
+              : undefined
+          }
+          onGoTo={select}
           onClose={() => setCommitMenu(null)}
         />
       )}
@@ -1044,4 +1120,19 @@ export function RepoCard({
       </div>
     </section>
   );
+}
+
+/** Whether something other than the graph has the keyboard: a text field
+ * has focus, or a menu, dialog or palette is open. */
+function keyboardTaken(): boolean {
+  const active = document.activeElement;
+  if (
+    active instanceof HTMLInputElement ||
+    active instanceof HTMLTextAreaElement ||
+    active instanceof HTMLSelectElement ||
+    (active instanceof HTMLElement && active.isContentEditable)
+  ) {
+    return true;
+  }
+  return document.querySelector(".ctx-menu, .modal-backdrop") !== null;
 }
