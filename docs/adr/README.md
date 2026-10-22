@@ -46,3 +46,4 @@ are canonical; the files below are their English translations.
 | [0036](0036-stash-node.md) | Draw a stash apart from the line it sits on | Accepted |
 | [0037](0037-deferred-signature-check.md) | Show the graph first and check signatures after it | Accepted |
 | [0038](0038-loopback-request-guard.md) | Answer only requests addressed to the loopback server from its own page | Accepted |
+| [0039](0039-server-records.md) | Keep a record of each running server and let the CLI find it | Accepted |
