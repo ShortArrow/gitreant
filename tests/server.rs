@@ -1335,3 +1335,117 @@ async fn listing_carries_linked_worktrees_with_their_branches() {
         .await
         .unwrap();
 }
+
+/// Give the tip of the repository at `dir` a gpgsig header nothing can
+/// verify, so a read finds one signed commit with no verdict yet.
+fn sign_tip_with_a_fake_signature(dir: &Path) {
+    let out = |args: &[&str], input: Option<&str>| -> String {
+        let mut child = Command::new("git")
+            .current_dir(dir)
+            .args(args)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        if let Some(input) = input {
+            child
+                .stdin
+                .take()
+                .unwrap()
+                .write_all(input.as_bytes())
+                .unwrap();
+        }
+        let output = child.wait_with_output().unwrap();
+        assert!(output.status.success(), "git {args:?} failed");
+        String::from_utf8(output.stdout).unwrap().trim().to_string()
+    };
+    let tree = out(&["rev-parse", "HEAD^{tree}"], None);
+    let parent = out(&["rev-parse", "HEAD"], None);
+    let raw = [
+        format!("tree {tree}"),
+        format!("parent {parent}"),
+        "author T <t@e.com> 1700000100 +0000".to_string(),
+        "committer T <t@e.com> 1700000100 +0000".to_string(),
+        "gpgsig -----BEGIN PGP SIGNATURE-----".to_string(),
+        " fake".to_string(),
+        " -----END PGP SIGNATURE-----".to_string(),
+        String::new(),
+        "signed tip".to_string(),
+        String::new(),
+    ]
+    .join("\n");
+    let tip = out(
+        &["hash-object", "-w", "-t", "commit", "--literally", "--stdin"],
+        Some(&raw),
+    );
+    out(&["update-ref", "refs/heads/main", &tip], None);
+}
+
+/// A view answers before its signatures are checked (ADR 0037): the signed
+/// commit comes back `verifying`, a `verified` event naming the repository
+/// follows once the check ran, and the next read carries the verdict.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn signatures_are_checked_after_the_view_answers() {
+    if !gitreant::git::gpg_available() {
+        eprintln!("skipping: gpg is not on the PATH");
+        return;
+    }
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+    sign_tip_with_a_fake_signature(tmp.path());
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    let mut session = Session::new();
+    session.add(tmp.path()).unwrap();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(session)).await.unwrap();
+    });
+    let (first, stream_text, second) = tokio::task::spawn_blocking(move || {
+        assert!((0..50).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            ping(port)
+        }));
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_millis(200)))
+            .unwrap();
+        write!(
+            stream,
+            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/event-stream\r\n\r\n"
+        )
+        .unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        let first = http_first_view(port);
+
+        let mut buf = Vec::new();
+        let mut chunk = [0u8; 4096];
+        let start = std::time::Instant::now();
+        while start.elapsed() < std::time::Duration::from_secs(20) {
+            match stream.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                Err(_) => {}
+            }
+            if String::from_utf8_lossy(&buf).contains("event: verified") {
+                break;
+            }
+        }
+        let second = http_first_view(port);
+        (first, String::from_utf8_lossy(&buf).into_owned(), second)
+    })
+    .await
+    .unwrap();
+
+    assert!(first.contains("\"verifying\":true"), "{first}");
+    let after = stream_text
+        .split("event: verified")
+        .nth(1)
+        .unwrap_or_else(|| panic!("no verified event in {stream_text:?}"));
+    let id = after
+        .lines()
+        .find_map(|line| line.strip_prefix("data: "))
+        .expect("verified data line");
+    assert!(first.contains(&serde_json::to_string(id).unwrap()), "{id}");
+    assert!(!second.contains("\"verifying\""), "{second}");
+}

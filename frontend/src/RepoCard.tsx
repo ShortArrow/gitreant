@@ -165,12 +165,23 @@ export type DiffTarget =
 
 /** Badge for a signed commit, following GitHub's wording: "Verified" only
  * when gpg actually validated the signature, "Unverified" when it judged it
- * invalid, and a plain "Signed" when it could not be checked. */
-export function signatureBadge(verified?: boolean): {
+ * invalid, and a plain "Signed" when it could not be checked. While the
+ * check still runs (ADR 0037), a pulsing skeleton of the badge. */
+export function signatureBadge(
+  verified?: boolean,
+  verifying = false,
+): {
   label: string;
   className: string;
   title: string;
 } {
+  if (verifying) {
+    return {
+      label: "Signed",
+      className: "badge badge-signed badge-checking",
+      title: "Checking the signature…",
+    };
+  }
   if (verified === true) {
     return {
       label: "Verified",
@@ -1120,7 +1131,7 @@ export function RepoCard({
                 <span className="commit-meta">
                   {commit.signature &&
                     (() => {
-                      const badge = signatureBadge(commit.verified);
+                      const badge = signatureBadge(commit.verified, commit.verifying);
                       return (
                         <span
                           className={badge.className}
@@ -1184,6 +1195,7 @@ export function RepoCard({
           error={detailError}
           repoPath={repo.path}
           verified={selectedCommit?.verified}
+          verifying={selectedCommit?.verifying}
           signatureKey={selectedCommit?.signature_key}
           onSelectFile={(path) => setDiffTarget({ kind: "file", path })}
           onOpenFile={(path) => {

@@ -39,6 +39,15 @@ test("signatureBadge maps the verification verdict to a label", () => {
   });
 });
 
+test("signatureBadge stands a pulsing skeleton in while the check runs", () => {
+  // The label keeps the badge's width; the skeleton hides it.
+  expect(signatureBadge(undefined, true)).toMatchObject({
+    label: "Signed",
+    className: "badge badge-signed badge-checking",
+    title: "Checking the signature…",
+  });
+});
+
 test("splitMessage separates the summary from the body", () => {
   expect(splitMessage("subject\n\nbody line\nmore")).toEqual({
     summary: "subject",

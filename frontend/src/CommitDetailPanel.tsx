@@ -102,6 +102,7 @@ export function CommitDetailPanel({
   error,
   repoPath,
   verified,
+  verifying,
   signatureKey,
   onSelectFile,
   onOpenFile,
@@ -116,6 +117,8 @@ export function CommitDetailPanel({
   repoPath: string;
   /** Verification verdict from the graph view, when gpg checked it. */
   verified?: boolean;
+  /** The graph view's check of this signature is still running. */
+  verifying?: boolean;
   /** Signing key id from the graph view, when gpg attributed one. */
   signatureKey?: string;
   /** Called with the repository-relative path of a clicked file. */
@@ -192,6 +195,7 @@ export function CommitDetailPanel({
             key={detail.id}
             detail={detail}
             verified={verified}
+            verifying={verifying}
             signatureKey={signatureKey}
             view={view}
             bodyOpen={bodyOpen}
@@ -241,6 +245,7 @@ export function CommitDetailPanel({
 function DetailBody({
   detail,
   verified,
+  verifying,
   signatureKey,
   view,
   bodyOpen,
@@ -253,6 +258,7 @@ function DetailBody({
 }: {
   detail: CommitDetail;
   verified?: boolean;
+  verifying?: boolean;
   signatureKey?: string;
   view: FilesView;
   bodyOpen: boolean;
@@ -358,6 +364,7 @@ function DetailBody({
           {signatureLabel(detail.signature)}
           {verified === true && " — Verified"}
           {verified === false && " — Unverified"}
+          {verifying && " — Checking…"}
           {signatureKey && (
             <>
               {" "}

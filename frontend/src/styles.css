@@ -1242,6 +1242,21 @@ body {
   background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
+/* A signature still being checked (ADR 0037): a skeleton of the badge,
+   its label kept only for the width. */
+.badge-checking {
+  color: transparent;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--muted) 25%, transparent);
+  animation: repo-pending-pulse 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-checking {
+    animation: none;
+  }
+}
+
 /* ---- Commit detail panel ---- */
 .commit-detail {
   flex: none;

@@ -14,6 +14,9 @@ export interface CommitView {
   verified?: boolean;
   /** Signing key id, when gpg could attribute one. */
   signature_key?: string;
+  /** A signed commit whose signature the server is still checking
+   *  (ADR 0037); a `verified` event announces the verdicts. */
+  verifying?: boolean;
   /** A `git stash` entry; its color is its own, not the line below it. */
   stash?: boolean;
   /** A stash's index/untracked helper commit; hidden unless the stash

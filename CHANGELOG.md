@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A stash's node is a ring around a dot, in a color of its own rather
   than the color of the branch it sits on
   ([ADR 0036](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0036-stash-node.md)).
+- A repository's graph shows as soon as its history is read; signatures
+  are checked after it, and a pulsing placeholder stands in for each badge
+  until its verdict arrives
+  ([ADR 0037](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0037-deferred-signature-check.md)).
 
 ## [0.3.0] - 2026-10-21
 

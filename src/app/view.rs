@@ -35,6 +35,9 @@ pub struct CommitView {
     /// Signing key id, when gpg could attribute one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signature_key: Option<String>,
+    /// A signed commit whose signature is still being checked (ADR 0037).
+    #[serde(skip_serializing_if = "is_false")]
+    pub verifying: bool,
     /// A `git stash` entry, drawn apart from the commits of a branch.
     #[serde(skip_serializing_if = "is_false")]
     pub stash: bool,
@@ -284,6 +287,7 @@ pub fn build_view(id: &Path, data: &RepoData, uncommitted: usize) -> RepoView {
             signature: None,
             verified: None,
             signature_key: None,
+            verifying: false,
             stash: false,
             stash_internal: false,
             uncommitted: Some(uncommitted),
@@ -305,6 +309,7 @@ pub fn build_view(id: &Path, data: &RepoData, uncommitted: usize) -> RepoView {
         signature: meta.signature.clone(),
         verified: meta.verified,
         signature_key: meta.signature_key.clone(),
+        verifying: false,
         stash: node.stash,
         stash_internal: node.stash_internal,
         uncommitted: None,

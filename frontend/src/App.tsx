@@ -172,6 +172,11 @@ export function App() {
     const events = new EventSource("/api/events");
     reload();
     events.addEventListener("update", () => reload());
+    // A batch of signatures was checked (ADR 0037): read that one
+    // repository again for its verdicts.
+    events.addEventListener("verified", (e) => {
+      loadView((e as MessageEvent<string>).data, fetchSeq.current);
+    });
     // Routine reads finish in milliseconds; a read only surfaces after
     // 300ms so the indicator never flickers. Parallel reads each keep
     // their own counter and reveal timer, keyed by repository id.
@@ -213,7 +218,7 @@ export function App() {
       timers.forEach((timer) => window.clearTimeout(timer));
       events.close();
     };
-  }, [reload]);
+  }, [reload, loadView]);
 
   // Keep tabs/selection consistent when the repo set changes.
   useEffect(() => {

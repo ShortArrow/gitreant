@@ -67,10 +67,17 @@ enum ServerEvent {
     Analyzing(AnalyzeProgress),
     /// This repository's read finished; its indicator can clear.
     Analyzed(String),
+    /// A batch of this repository's signatures was checked (ADR 0037);
+    /// clients read its view again.
+    Verified(String),
 }
 
 /// How often per-repository read progress is streamed at most.
 const ANALYZE_THROTTLE: Duration = Duration::from_millis(200);
+
+/// How many signatures one background check covers before the clients hear
+/// about it (ADR 0037).
+const VERIFY_BATCH: usize = 256;
 
 /// Shared, cloneable server state.
 #[derive(Clone)]
@@ -94,6 +101,8 @@ pub struct AppState {
     /// Emails a `gh` avatar search was already attempted for, so each email is
     /// queried at most once per session (whether or not it matched).
     avatar_started: Arc<Mutex<std::collections::HashSet<String>>>,
+    /// Repositories whose signatures a background check is going through.
+    verifying: Arc<Mutex<std::collections::HashSet<String>>>,
 }
 
 impl AppState {
@@ -110,7 +119,45 @@ impl AppState {
             tag_refresh_started: Arc::new(Mutex::new(std::collections::HashSet::new())),
             avatars: Arc::new(Mutex::new(HashMap::new())),
             avatar_started: Arc::new(Mutex::new(std::collections::HashSet::new())),
+            verifying: Arc::new(Mutex::new(std::collections::HashSet::new())),
         }
+    }
+
+    /// Check `pending` signatures of the repository at `path` in the
+    /// background, a batch at a time, unless a check of it already runs
+    /// (ADR 0037). Each batch is logged and announced; the run leaves the
+    /// running set before its last announcement, so the read that follows
+    /// starts a new run for any commit it did not cover.
+    fn ensure_verified(&self, id: String, path: PathBuf, pending: Vec<String>) {
+        if pending.is_empty() {
+            return;
+        }
+        if !self
+            .verifying
+            .lock()
+            .expect("verifying mutex")
+            .insert(id.clone())
+        {
+            return;
+        }
+        let state = self.clone();
+        std::thread::spawn(move || {
+            let batches: Vec<&[String]> = pending.chunks(VERIFY_BATCH).collect();
+            for (index, batch) in batches.iter().enumerate() {
+                let command = crate::app::verify_batch(&state.session, &path, batch);
+                state.push_log(CommandLogEntry {
+                    time: epoch_now(),
+                    repo: command.repo,
+                    command: command.command,
+                    ok: command.ok,
+                    message: command.message,
+                });
+                if index + 1 == batches.len() {
+                    state.verifying.lock().expect("verifying mutex").remove(&id);
+                }
+                let _ = state.updates.send(ServerEvent::Verified(id.clone()));
+            }
+        });
     }
 
     /// Learn which remote each tag was pushed to for any repository not yet
@@ -226,8 +273,8 @@ impl AppState {
     }
 
     /// Read one repository's view, streaming its analyzing counter to SSE
-    /// listeners, logging any external command the read ran (signature
-    /// verification) and marking tags known to exist on origin.
+    /// listeners, starting the check of its unchecked signatures and
+    /// marking tags known to exist on origin.
     fn read_one(&self, path: &std::path::Path) -> RepoView {
         let id = path.to_string_lossy().into_owned();
         // Stream the walk's running commit count. The first update goes out
@@ -236,7 +283,7 @@ impl AppState {
         let mut last_sent: Option<Instant> = None;
         let mut sent_count: Option<usize> = None;
         let mut last_count = 0;
-        let (mut view, executed) = crate::app::read_view(&self.session, path, |commits| {
+        let (mut view, pending) = crate::app::read_view(&self.session, path, |commits| {
             last_count = commits;
             if last_sent.is_some_and(|at| at.elapsed() < ANALYZE_THROTTLE) {
                 return;
@@ -256,16 +303,8 @@ impl AppState {
                 commits: last_count,
             }));
         }
-        let _ = self.updates.send(ServerEvent::Analyzed(id));
-        if let Some(command) = executed {
-            self.push_log(CommandLogEntry {
-                time: epoch_now(),
-                repo: command.repo,
-                command: command.command,
-                ok: command.ok,
-                message: command.message,
-            });
-        }
+        let _ = self.updates.send(ServerEvent::Analyzed(id.clone()));
+        self.ensure_verified(id, path.to_path_buf(), pending);
         {
             let remote_tags = self.remote_tags.lock().expect("remote tags mutex");
             if let Some(tag_remotes) = remote_tags.get(&view.id) {
@@ -1302,6 +1341,7 @@ async fn events(
                 .event("analyzing")
                 .data(serde_json::to_string(&progress).unwrap_or_default()),
             Ok(ServerEvent::Analyzed(id)) => Event::default().event("analyzed").data(id),
+            Ok(ServerEvent::Verified(id)) => Event::default().event("verified").data(id),
         })
     });
     Sse::new(stream).keep_alive(KeepAlive::default())

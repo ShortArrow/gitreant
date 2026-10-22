@@ -114,7 +114,9 @@ each delegated to the git command. What it never does is listed in
   exists gets a dashed link to the commit its pull request landed as (a
   setting turns it off).
 - **Signatures.** Signed commits carry a badge: Verified or Unverified when
-  a local gpg can check the signature, plain Signed otherwise. After adding
+  a local gpg can check the signature, plain Signed otherwise. The graph
+  shows before the check ends; until then a pulsing placeholder stands in
+  for the badge. After adding
   a key to gpg, re-verify from the settings dialog or with
   `gitreant refresh`.
 

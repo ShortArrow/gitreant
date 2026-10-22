@@ -1,6 +1,6 @@
 //! The set of repositories currently on display.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -12,7 +12,7 @@ use crate::git::{
 
 use super::view::{build_view, RepoView};
 
-/// An external command a view read had to run, so the server can log it.
+/// An external command a signature check ran, so the server can log it.
 #[derive(Debug, Clone)]
 pub struct ExecutedCommand {
     /// The repository id (canonical path) the command ran in.
@@ -32,6 +32,9 @@ pub struct Session {
     /// immutable, so a verdict never has to be re-checked (a keyring change
     /// needs a server restart).
     verify_cache: HashMap<String, SignatureCheck>,
+    /// Bumped whenever the cache is cleared, so a check that started
+    /// before cannot store verdicts from the old keyring.
+    verify_generation: u64,
 }
 
 impl Session {
@@ -78,21 +81,61 @@ impl Session {
     /// them again — e.g. after the local gpg keyring gained a missing key.
     pub fn clear_verify_cache(&mut self) {
         self.verify_cache.clear();
+        self.verify_generation += 1;
+    }
+
+    /// The cache's current generation, taken before a check starts.
+    pub fn verify_generation(&self) -> u64 {
+        self.verify_generation
+    }
+
+    /// Cache the verdicts a check that began at `generation` found for
+    /// `ids`; an id it found nothing for is settled as "no verdict", so a
+    /// broken gpg setup does not re-run (and re-log) the check on every
+    /// read. Stores nothing, and returns false, when the cache was cleared
+    /// since.
+    pub fn store_verdicts(
+        &mut self,
+        generation: u64,
+        ids: &[String],
+        mut verdicts: HashMap<String, SignatureCheck>,
+    ) -> bool {
+        if generation != self.verify_generation {
+            return false;
+        }
+        for id in ids {
+            let verdict = verdicts.remove(id).unwrap_or(('?', None));
+            self.verify_cache.insert(id.clone(), verdict);
+        }
+        true
     }
 }
 
 /// Read one repository and build its view, reporting the running commit
-/// count while the walk proceeds. Also returns the external command the
-/// read ran (signature verification), for the server's command log.
+/// count while the walk proceeds. Signatures are not checked here
+/// (ADR 0037): the view carries the verdicts already cached, and the signed
+/// commits still to check come back, in display order, for
+/// [`verify_batch`].
 ///
 /// The session is locked only around its shared caches — never across the
-/// repository read or a verification subprocess — so commit-detail and
-/// diff requests stay responsive while a large repository is analyzed.
+/// repository read — so commit-detail and diff requests stay responsive
+/// while a large repository is analyzed.
 pub fn read_view(
     session: &Mutex<Session>,
     path: &Path,
+    on_commits: impl FnMut(usize),
+) -> (RepoView, Vec<String>) {
+    read_view_with(session, path, gpg_available(), on_commits)
+}
+
+/// [`read_view`], told whether signatures can be checked at all; with
+/// `can_verify` false nothing is left pending.
+fn read_view_with(
+    session: &Mutex<Session>,
+    path: &Path,
+    can_verify: bool,
     mut on_commits: impl FnMut(usize),
-) -> (RepoView, Option<ExecutedCommand>) {
+) -> (RepoView, Vec<String>) {
     // Forward the walk's running count sparsely: the server throttles by
     // time on top, this only bounds the callback overhead. 64 is
     // fine-grained enough that even a medium repository surfaces a moving
@@ -104,75 +147,61 @@ pub fn read_view(
     });
     match walked {
         Ok(mut data) => {
-            // The walk is done: report its true total now, before the
-            // (possibly slow) signature verification, so the counter never
-            // lags at a stale value while gpg runs.
             on_commits(data.commits.len());
-            let command = annotate_verification(session, path, &mut data);
+            let pending = stamp_verdicts(session, &mut data, can_verify);
             // Whatever the working tree holds against HEAD rides above it
             // as one synthetic row; the count is all the view needs.
             let uncommitted = uncommitted_paths(path).len();
-            (build_view(path, &data, uncommitted), command)
+            let mut view = build_view(path, &data, uncommitted);
+            let waiting: HashSet<&str> = pending.iter().map(String::as_str).collect();
+            for commit in &mut view.commits {
+                commit.verifying = waiting.contains(commit.id.as_str());
+            }
+            (view, pending)
         }
-        Err(message) => (RepoView::error(path, message), None),
+        Err(message) => (RepoView::error(path, message), Vec::new()),
     }
 }
 
-/// Verify the signatures of any signed commits not seen before, via the
-/// git/gpg CLI, and stamp every signed commit with its cached verdict.
-/// Returns the executed command when one actually ran.
-fn annotate_verification(
-    session: &Mutex<Session>,
-    path: &Path,
-    data: &mut RepoData,
-) -> Option<ExecutedCommand> {
-    let pending: Vec<String> = {
-        let session = session.lock().expect("session mutex");
-        data.commits
-            .iter()
-            .filter(|c| c.signature.is_some() && !session.verify_cache.contains_key(&c.id))
-            .map(|c| c.id.clone())
-            .collect()
-    };
-
-    let command = if !pending.is_empty() && gpg_available() {
-        let result = verify_signatures(path, &pending);
-        let mut session = session.lock().expect("session mutex");
-        let (ok, message) = match &result {
-            Ok(statuses) => {
-                session.verify_cache.extend(statuses.clone());
-                (true, String::new())
-            }
-            Err(message) => (false, message.clone()),
-        };
-        // Cache failures as "unknown" so a broken gpg setup does not
-        // re-run (and re-log) the check on every view read.
-        for id in &pending {
-            session
-                .verify_cache
-                .entry(id.clone())
-                .or_insert(('?', None));
-        }
-        Some(ExecutedCommand {
-            repo: path.to_string_lossy().into_owned(),
-            command: verify_command(path, &pending),
-            ok,
-            message,
-        })
-    } else {
-        None
-    };
-
+/// Stamp every signed commit with its cached verdict and return the signed
+/// commits with none yet, in display order — none when `can_verify` is
+/// false.
+fn stamp_verdicts(session: &Mutex<Session>, data: &mut RepoData, can_verify: bool) -> Vec<String> {
     let session = session.lock().expect("session mutex");
-    for commit in &mut data.commits {
-        if commit.signature.is_some() {
-            if let Some((status, key)) = session.verify_cache.get(&commit.id) {
+    let mut pending = Vec::new();
+    for commit in data.commits.iter_mut().filter(|c| c.signature.is_some()) {
+        match session.verify_cache.get(&commit.id) {
+            Some((status, key)) => {
                 commit.verified = verification_state(*status);
                 commit.signature_key = key.clone();
             }
+            None if can_verify => pending.push(commit.id.clone()),
+            None => {}
         }
     }
-    command
+    pending
+}
+
+/// Check the signatures of `ids` via the git/gpg CLI (ADR 0011) and cache
+/// the verdicts, unless the cache was cleared while the check ran. Returns
+/// the command, for the server's command log.
+pub fn verify_batch(session: &Mutex<Session>, path: &Path, ids: &[String]) -> ExecutedCommand {
+    let generation = session.lock().expect("session mutex").verify_generation();
+    let result = verify_signatures(path, ids);
+    let (verdicts, ok, message) = match result {
+        Ok(verdicts) => (verdicts, true, String::new()),
+        Err(message) => (HashMap::new(), false, message),
+    };
+    session
+        .lock()
+        .expect("session mutex")
+        .store_verdicts(generation, ids, verdicts);
+    ExecutedCommand {
+        repo: path.to_string_lossy().into_owned(),
+        command: verify_command(path, ids),
+        ok,
+        message,
+    }
 }
 
 /// Best-effort canonical form for de-duplication and display; falls back to
@@ -271,10 +300,135 @@ mod tests {
         session.add(tmp.path()).unwrap();
         let path = session.paths()[0].clone();
 
-        let (view, executed) = read_view(&Mutex::new(session), &path, |_| {});
+        let (view, pending) = read_view(&Mutex::new(session), &path, |_| {});
         assert!(view.error.is_none());
         assert_eq!(view.commits.len(), 0);
-        assert!(executed.is_none());
+        assert!(pending.is_empty());
+    }
+
+    /// A repository with an unsigned root and a tip carrying a gpgsig header
+    /// nothing can verify; returns its path and the tip's id.
+    fn fake_signed_repo(dir: &Path) -> (PathBuf, String) {
+        let git = |args: &[&str], input: Option<&str>| -> String {
+            let mut child = Command::new("git")
+                .current_dir(dir)
+                .args(args)
+                .env("GIT_AUTHOR_NAME", "T")
+                .env("GIT_AUTHOR_EMAIL", "t@e.com")
+                .env("GIT_COMMITTER_NAME", "T")
+                .env("GIT_COMMITTER_EMAIL", "t@e.com")
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .spawn()
+                .unwrap();
+            if let Some(input) = input {
+                use std::io::Write;
+                child
+                    .stdin
+                    .take()
+                    .unwrap()
+                    .write_all(input.as_bytes())
+                    .unwrap();
+            }
+            let out = child.wait_with_output().unwrap();
+            assert!(out.status.success(), "git {args:?} failed");
+            String::from_utf8(out.stdout).unwrap().trim().to_string()
+        };
+        git(&["init", "-q", "-b", "main"], None);
+        git(
+            &[
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-q",
+                "--allow-empty",
+                "-m",
+                "base",
+            ],
+            None,
+        );
+        let tree = git(&["rev-parse", "HEAD^{tree}"], None);
+        let parent = git(&["rev-parse", "HEAD"], None);
+        let raw = [
+            format!("tree {tree}"),
+            format!("parent {parent}"),
+            "author T <t@e.com> 1700000100 +0000".to_string(),
+            "committer T <t@e.com> 1700000100 +0000".to_string(),
+            "gpgsig -----BEGIN PGP SIGNATURE-----".to_string(),
+            " fake".to_string(),
+            " -----END PGP SIGNATURE-----".to_string(),
+            String::new(),
+            "signed tip".to_string(),
+            String::new(),
+        ]
+        .join("\n");
+        let tip = git(
+            &[
+                "hash-object",
+                "-w",
+                "-t",
+                "commit",
+                "--literally",
+                "--stdin",
+            ],
+            Some(&raw),
+        );
+        git(&["update-ref", "refs/heads/main", &tip], None);
+        (canonical(dir), tip)
+    }
+
+    #[test]
+    fn a_read_leaves_unchecked_signatures_pending_for_later() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (path, tip) = fake_signed_repo(tmp.path());
+        let session = Mutex::new(Session::new());
+
+        let (view, pending) = read_view_with(&session, &path, true, |_| {});
+        assert_eq!(pending, vec![tip.clone()]);
+        let verifying =
+            |view: &RepoView, id: &str| view.commits.iter().find(|c| c.id == id).unwrap().verifying;
+        assert!(verifying(&view, &tip));
+        assert_eq!(view.commits.iter().filter(|c| c.verifying).count(), 1);
+
+        // Without gpg nothing can be checked, so nothing waits.
+        let (view, pending) = read_view_with(&session, &path, false, |_| {});
+        assert!(pending.is_empty());
+        assert!(!verifying(&view, &tip));
+    }
+
+    #[test]
+    fn a_cached_verdict_is_stamped_and_no_longer_pending() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (path, tip) = fake_signed_repo(tmp.path());
+        let session = Mutex::new(Session::new());
+        {
+            let mut session = session.lock().unwrap();
+            let generation = session.verify_generation();
+            let verdicts = HashMap::from([(tip.clone(), ('G', Some("ABCD1234".to_string())))]);
+            assert!(session.store_verdicts(generation, std::slice::from_ref(&tip), verdicts));
+        }
+
+        let (view, pending) = read_view_with(&session, &path, true, |_| {});
+        assert!(pending.is_empty());
+        let commit = view.commits.iter().find(|c| c.id == tip).unwrap();
+        assert_eq!(commit.verified, Some(true));
+        assert_eq!(commit.signature_key.as_deref(), Some("ABCD1234"));
+        assert!(!commit.verifying);
+    }
+
+    #[test]
+    fn verdicts_from_before_a_cleared_cache_are_dropped() {
+        let mut session = Session::new();
+        let generation = session.verify_generation();
+        session.clear_verify_cache();
+        let ids = vec!["a".repeat(40)];
+        assert!(!session.store_verdicts(generation, &ids, HashMap::new()));
+        assert!(session.verify_cache.is_empty());
+
+        // A run that misses a commit still settles it, as "no verdict".
+        let generation = session.verify_generation();
+        assert!(session.store_verdicts(generation, &ids, HashMap::new()));
+        assert_eq!(session.verify_cache.get(&ids[0]), Some(&('?', None)));
     }
 
     #[test]
@@ -363,21 +517,23 @@ mod tests {
         let path = session.paths()[0].clone();
         let session = Mutex::new(session);
 
-        let (view, executed) = read_view(&session, &path, |_| {});
+        // The read itself waits for nothing; the check runs as a batch.
+        let (view, pending) = read_view(&session, &path, |_| {});
         assert_eq!(view.commits[0].signature.as_deref(), Some("openpgp"));
+        assert_eq!(view.commits[0].verified, None);
+        assert!(view.commits[0].verifying);
+        let executed = verify_batch(&session, &path, &pending);
+        assert!(executed.command.contains("%H %G?"));
+        assert!(executed.ok);
+
+        let (view, pending) = read_view(&session, &path, |_| {});
+        assert!(pending.is_empty());
+        assert!(!view.commits[0].verifying);
         assert_eq!(view.commits[0].verified, Some(true));
         let key = view.commits[0].signature_key.as_deref().unwrap_or("");
         assert!(
             key.len() >= 8 && key.chars().all(|c| c.is_ascii_hexdigit()),
             "expected a hex key id, got {key:?}"
         );
-        let executed = executed.expect("a verification command ran");
-        assert!(executed.command.contains("%H %G?"));
-        assert!(executed.ok);
-
-        // The verdict is cached: a second read runs nothing new.
-        let (view, executed) = read_view(&session, &path, |_| {});
-        assert_eq!(view.commits[0].verified, Some(true));
-        assert!(executed.is_none());
     }
 }
