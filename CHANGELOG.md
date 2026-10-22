@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   commit with the selected one, and checks it out with a detached HEAD
   after a confirmation. A comparison lists both commits and the files
   between them beside the diff.
+- `gitreant list` shows the running servers, and `--shutdown`, `restart`
+  and `refresh` find the only one without `--port`; `--shutdown --all`
+  stops every one
+  ([ADR 0039](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0039-server-records.md)).
 
 ### Changed
 

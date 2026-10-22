@@ -97,13 +97,15 @@ and Termux, with a `SHA256SUMS`. To build from source, see
 
 ```
 gitreant [PATH...]
-  -p, --port <PORT>   port to listen on / connect to (default 4000)
+  -p, --port <PORT>   port to listen on / connect to (default 4000); left out,
+                      --shutdown, restart and refresh find the running server
       --no-open       do not open the browser automatically
       --app           open in a chromeless window instead of a tab (needs a
                       Chromium-based browser; falls back to the ordinary
                       browser without one, and --no-open outranks it)
       --foreground    run the server in the current terminal instead of detaching
       --shutdown      stop the running gitreant server and exit
+      --all           with --shutdown, stop every running gitreant server
 
 gitreant doctor       check the environment: git (required), gh and gpg
                       (optional feature enablers), and whether a server is
@@ -114,6 +116,8 @@ gitreant restart      restart the running server, keeping the repositories it
                       picks up a rebuilt binary
 gitreant refresh      re-verify commit signatures in place, without restarting
                       (use after adding a key to your gpg keyring)
+gitreant list         list the running servers: URL, pid, start time, version
+                      and the repositories each shows
 ```
 
 ## Contributing

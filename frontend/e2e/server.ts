@@ -50,7 +50,14 @@ export async function buildAndServe(
   const server = spawn(
     binary,
     ["--foreground", "--no-open", "--port", String(port), ...repoPaths],
-    { stdio: "ignore" },
+    // Keep its record (ADR 0039) out of the user's own directory.
+    {
+      stdio: "ignore",
+      env: {
+        ...process.env,
+        GITREANT_STATE_DIR: path.join(frontendDir, "e2e", ".tmp", "servers"),
+      },
+    },
   );
   await waitForServer(port, 15_000);
   return server;

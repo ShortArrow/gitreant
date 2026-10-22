@@ -148,5 +148,7 @@ quietly disappear. `gitreant doctor` reports which are available.
   runtime dependencies.
 - **Detaches from the terminal.** It runs in the background by default;
   `gitreant --shutdown` stops it, and `--foreground` keeps it attached.
+  `gitreant list` shows the running servers, and `--shutdown`, `restart`
+  and `refresh` find the only one without `--port`.
 - **A dedicated window.** `--app` opens it as a window without an address
   bar (needs a Chromium-based browser).

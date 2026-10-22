@@ -18,6 +18,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use gitreant::app::{canonical, Session};
 use gitreant::doctor;
 use gitreant::git::discover_repo;
+use gitreant::records::{self, Record, Target};
 #[cfg(not(target_os = "android"))]
 use gitreant::launch;
 use gitreant::server::{
@@ -37,9 +38,10 @@ struct Cli {
     /// Repository paths to display (defaults to the current directory).
     paths: Vec<PathBuf>,
 
-    /// Port to serve on / connect to.
-    #[arg(short, long, default_value_t = 4000, global = true)]
-    port: u16,
+    /// Port to serve on / connect to (default 4000). Commands that talk to
+    /// a running server find it when this is left out.
+    #[arg(short, long, global = true)]
+    port: Option<u16>,
 
     /// Do not open a browser window.
     #[arg(long)]
@@ -56,6 +58,34 @@ struct Cli {
     /// Stop the running gitreant server and exit.
     #[arg(long)]
     shutdown: bool,
+
+    /// With --shutdown, stop every running gitreant server.
+    #[arg(long, requires = "shutdown")]
+    all: bool,
+}
+
+/// The port a server starts on when none is given.
+const DEFAULT_PORT: u16 = 4000;
+
+impl Cli {
+    /// The port to start a server on or hand repositories to.
+    fn port(&self) -> u16 {
+        self.port.unwrap_or(DEFAULT_PORT)
+    }
+
+    /// The port of the running server a command acts on: the one given,
+    /// else the only one running (ADR 0039). Several running and none
+    /// given is an error that lists them.
+    fn running_port(&self) -> Result<u16, String> {
+        let running = running_servers();
+        match records::target(self.port, &running, DEFAULT_PORT) {
+            Target::Port(port) => Ok(port),
+            Target::Many(many) => Err(format!(
+                "several gitreant servers are running; pick one with --port:\n{}",
+                describe(&many)
+            )),
+        }
+    }
 }
 
 #[derive(Subcommand)]
@@ -66,6 +96,8 @@ enum Command {
     Restart,
     /// Re-verify commit signatures in place, without restarting.
     Refresh,
+    /// List the running gitreant servers.
+    List,
 }
 
 fn main() -> ExitCode {
@@ -74,10 +106,15 @@ fn main() -> ExitCode {
         Some(Command::Doctor) => return run_doctor(&cli),
         Some(Command::Restart) => return restart(&cli),
         Some(Command::Refresh) => return refresh(&cli),
+        Some(Command::List) => return list(),
         None => {}
     }
     if cli.shutdown {
-        return shutdown_running(&cli);
+        return if cli.all {
+            shutdown_all()
+        } else {
+            shutdown_running(&cli)
+        };
     }
     if cli.paths.is_empty() && discover_repo(Path::new(".")).is_err() {
         return print_usage();
@@ -88,12 +125,12 @@ fn main() -> ExitCode {
         cli.paths.clone()
     };
 
-    if ping(cli.port) {
+    if ping(cli.port()) {
         forward_to_running(&cli, &paths)
     } else if cli.foreground {
         run_server(&cli, &paths)
     } else {
-        start_background(&cli, &paths, true)
+        start_background(&cli, cli.port(), &paths, true)
     }
 }
 
@@ -110,7 +147,7 @@ fn print_usage() -> ExitCode {
 /// required tool is missing so scripts can gate on the exit code.
 fn run_doctor(cli: &Cli) -> ExitCode {
     let reports = doctor::run_checks();
-    println!("{}", doctor::render(&reports, ping(cli.port), cli.port));
+    println!("{}", doctor::render(&reports, ping(cli.port()), cli.port()));
     if doctor::all_required_present(&reports) {
         ExitCode::SUCCESS
     } else {
@@ -124,23 +161,30 @@ fn run_doctor(cli: &Cli) -> ExitCode {
 /// a rebuilt binary. The browser tab reconnects on the same port, so none is
 /// opened.
 fn restart(cli: &Cli) -> ExitCode {
+    let port = match cli.running_port() {
+        Ok(port) => port,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
     let mut paths: Vec<PathBuf> = cli.paths.clone();
-    if ping(cli.port) {
-        match get_repo_paths(cli.port) {
+    if ping(port) {
+        match get_repo_paths(port) {
             Ok(existing) => paths.extend(existing.into_iter().map(PathBuf::from)),
             Err(e) => {
                 eprintln!("could not read the running server's repositories: {e}");
                 return ExitCode::FAILURE;
             }
         }
-        if let Err(e) = post_shutdown(cli.port) {
+        if let Err(e) = post_shutdown(port) {
             eprintln!("failed to stop the running server: {e}");
             return ExitCode::FAILURE;
         }
         // Wait for the old server to release the port before rebinding it.
         let mut stopped = false;
         for _ in 0..100 {
-            if !ping(cli.port) {
+            if !ping(port) {
                 stopped = true;
                 break;
             }
@@ -165,19 +209,26 @@ fn restart(cli: &Cli) -> ExitCode {
     if unique.is_empty() {
         unique.push(PathBuf::from("."));
     }
-    start_background(cli, &unique, false)
+    start_background(cli, port, &unique, false)
 }
 
 /// Ask the running server to re-verify signatures in place (drop the cached
 /// verdicts). Cheaper than a restart when only the verification is stale.
 fn refresh(cli: &Cli) -> ExitCode {
-    if !ping(cli.port) {
-        eprintln!("no gitreant running on port {}", cli.port);
+    let port = match cli.running_port() {
+        Ok(port) => port,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if !ping(port) {
+        eprintln!("no gitreant running on port {port}");
         return ExitCode::FAILURE;
     }
-    match post_refresh(cli.port) {
+    match post_refresh(port) {
         Ok(()) => {
-            println!("re-verifying signatures on port {}", cli.port);
+            println!("re-verifying signatures on port {port}");
             ExitCode::SUCCESS
         }
         Err(e) => {
@@ -189,22 +240,86 @@ fn refresh(cli: &Cli) -> ExitCode {
 
 /// Ask the running server to stop, mirroring `mo --shutdown`.
 fn shutdown_running(cli: &Cli) -> ExitCode {
-    match post_shutdown(cli.port) {
-        Ok(()) => {
-            println!("gitreant on port {} shut down", cli.port);
-            ExitCode::SUCCESS
-        }
+    match cli.running_port() {
+        Ok(port) => shutdown_port(port),
         Err(e) => {
-            eprintln!("no gitreant to shut down on port {}: {e}", cli.port);
+            eprintln!("{e}");
             ExitCode::FAILURE
         }
     }
 }
 
+fn shutdown_port(port: u16) -> ExitCode {
+    match post_shutdown(port) {
+        Ok(()) => {
+            println!("gitreant on port {port} shut down");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("no gitreant to shut down on port {port}: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// Stop every running server that left a record (ADR 0039).
+fn shutdown_all() -> ExitCode {
+    let running = running_servers();
+    if running.is_empty() {
+        println!("no gitreant server is running");
+    }
+    let mut code = ExitCode::SUCCESS;
+    for record in running {
+        if shutdown_port(record.port) == ExitCode::FAILURE {
+            code = ExitCode::FAILURE;
+        }
+    }
+    code
+}
+
+/// Print the running servers, or that none runs (ADR 0039).
+fn list() -> ExitCode {
+    let running = running_servers();
+    if running.is_empty() {
+        println!("no gitreant server is running");
+    } else {
+        println!("{}", describe(&running));
+    }
+    ExitCode::SUCCESS
+}
+
+/// The servers whose records still answer as a gitreant.
+fn running_servers() -> Vec<Record> {
+    records::dir().map_or_else(Vec::new, |dir| records::running(&dir, ping))
+}
+
+/// One block per server: its URL, pid, start time and version, then the
+/// repositories it shows, asked of it.
+fn describe(servers: &[Record]) -> String {
+    servers
+        .iter()
+        .map(|record| {
+            let repos = get_repo_paths(record.port).unwrap_or_default();
+            let mut block = format!(
+                "http://127.0.0.1:{}  pid {}  started {}  v{}",
+                record.port,
+                record.pid,
+                started_at(record.started),
+                record.version
+            );
+            for repo in repos {
+                block.push_str(&format!("\n  {repo}"));
+            }
+            block
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Spawn a detached copy of ourselves as the server, wait until it answers,
 /// then (when `open`) open the browser and return control to the shell
 /// (mirroring `mo`).
-fn start_background(cli: &Cli, paths: &[PathBuf], open: bool) -> ExitCode {
+fn start_background(cli: &Cli, port: u16, paths: &[PathBuf], open: bool) -> ExitCode {
     let exe = match std::env::current_exe() {
         Ok(exe) => exe,
         Err(e) => {
@@ -219,7 +334,7 @@ fn start_background(cli: &Cli, paths: &[PathBuf], open: bool) -> ExitCode {
     command
         .arg("--foreground")
         .arg("--no-open")
-        .args(["--port", &cli.port.to_string()])
+        .args(["--port", &port.to_string()])
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
@@ -233,10 +348,10 @@ fn start_background(cli: &Cli, paths: &[PathBuf], open: bool) -> ExitCode {
         }
     };
     for _ in 0..100 {
-        if ping(cli.port) {
+        if ping(port) {
             println!(
                 "gitreant serving on http://127.0.0.1:{} (pid {}, stop with `gitreant --shutdown`)",
-                cli.port,
+                port,
                 child.id()
             );
             if open {
@@ -252,7 +367,7 @@ fn start_background(cli: &Cli, paths: &[PathBuf], open: bool) -> ExitCode {
         }
         std::thread::sleep(std::time::Duration::from_millis(150));
     }
-    eprintln!("server did not come up on port {} in time", cli.port);
+    eprintln!("server did not come up on port {port} in time");
     ExitCode::FAILURE
 }
 
@@ -275,12 +390,12 @@ fn detach(command: &mut std::process::Command) {
 fn forward_to_running(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
     for path in paths {
         let absolute = canonical(path);
-        match post_repo(cli.port, &absolute.to_string_lossy()) {
+        match post_repo(cli.port(), &absolute.to_string_lossy()) {
             Ok(()) => println!("added {} to running gitreant", absolute.display()),
             Err(e) => eprintln!("failed to add {}: {e}", absolute.display()),
         }
     }
-    println!("already serving on http://127.0.0.1:{}", cli.port);
+    println!("already serving on http://127.0.0.1:{}", cli.port());
     ExitCode::SUCCESS
 }
 
@@ -306,7 +421,7 @@ fn run_server(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
     };
 
     runtime.block_on(async move {
-        let (listener, addr) = match bind(cli.port).await {
+        let (listener, addr) = match bind(cli.port()).await {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("{e}");
@@ -315,8 +430,24 @@ fn run_server(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
         };
         let url = format!("http://127.0.0.1:{}", addr.port());
         println!("gitreant serving on {url}");
+        let record_dir = records::dir();
+        if let Some(dir) = &record_dir {
+            let record = Record {
+                port: addr.port(),
+                pid: std::process::id(),
+                started: unix_now(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            };
+            if let Err(e) = records::write(dir, &record) {
+                eprintln!("could not record this server in {}: {e}", dir.display());
+            }
+        }
         open_browser(cli);
-        if let Err(e) = serve(listener, AppState::new(session)).await {
+        let served = serve(listener, AppState::new(session)).await;
+        if let Some(dir) = &record_dir {
+            records::remove(dir, addr.port());
+        }
+        if let Err(e) = served {
             eprintln!("server error: {e}");
             return ExitCode::FAILURE;
         }
@@ -329,7 +460,7 @@ fn open_browser(cli: &Cli) {
     if cli.no_open {
         return;
     }
-    let url = format!("http://127.0.0.1:{}", cli.port);
+    let url = format!("http://127.0.0.1:{}", cli.port());
     if cli.app && open_app_window(&url) {
         return;
     }
@@ -358,11 +489,38 @@ fn open_app_window(url: &str) -> bool {
 /// the address so the user can tap or paste it.
 #[cfg(target_os = "android")]
 fn open_browser(cli: &Cli) {
-    let url = format!("http://127.0.0.1:{}", cli.port);
+    let url = format!("http://127.0.0.1:{}", cli.port());
     if !cli.no_open {
         let _ = std::process::Command::new("termux-open-url")
             .arg(&url)
             .spawn();
     }
     println!("gitreant is serving on {url}");
+}
+
+fn unix_now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs() as i64)
+}
+
+/// A record's start time in UTC, `YYYY-MM-DD HH:MM UTC`.
+fn started_at(unix: i64) -> String {
+    let days = unix.div_euclid(86_400);
+    let seconds = unix.rem_euclid(86_400);
+    // The civil date of a day count since 1970-01-01, after Howard Hinnant.
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    format!(
+        "{year:04}-{month:02}-{day:02} {:02}:{:02} UTC",
+        seconds / 3_600,
+        seconds % 3_600 / 60
+    )
 }
