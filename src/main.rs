@@ -22,7 +22,8 @@ use gitreant::records::{self, Record, Target};
 #[cfg(not(target_os = "android"))]
 use gitreant::launch;
 use gitreant::server::{
-    bind, get_repo_paths, ping, post_refresh, post_repo, post_shutdown, serve, AppState,
+    bind, get_repo_list, get_repo_paths, ping, post_refresh, post_repo, post_shutdown, serve,
+    AppState,
 };
 
 #[derive(Parser)]
@@ -96,8 +97,15 @@ enum Command {
     Restart,
     /// Re-verify commit signatures in place, without restarting.
     Refresh,
-    /// List the running gitreant servers.
-    List,
+    /// List the running gitreant servers, one line each.
+    List {
+        /// Also list each server's repositories, with how and when each came.
+        #[arg(long)]
+        verbose: bool,
+        /// Print everything as JSON, for programs.
+        #[arg(long, conflicts_with = "verbose")]
+        json: bool,
+    },
 }
 
 fn main() -> ExitCode {
@@ -106,7 +114,7 @@ fn main() -> ExitCode {
         Some(Command::Doctor) => return run_doctor(&cli),
         Some(Command::Restart) => return restart(&cli),
         Some(Command::Refresh) => return refresh(&cli),
-        Some(Command::List) => return list(),
+        Some(Command::List { verbose, json }) => return list(verbose, json),
         None => {}
     }
     if cli.shutdown {
@@ -277,15 +285,61 @@ fn shutdown_all() -> ExitCode {
     code
 }
 
-/// Print the running servers, or that none runs (ADR 0039).
-fn list() -> ExitCode {
+/// Print the running servers, or that none runs (ADR 0039): a line each,
+/// with their repositories when `verbose`, or everything as JSON.
+fn list(verbose: bool, json: bool) -> ExitCode {
     let running = running_servers();
-    if running.is_empty() {
+    if json {
+        let servers: Vec<serde_json::Value> = running.iter().map(server_json).collect();
+        println!("{}", serde_json::Value::Array(servers));
+    } else if running.is_empty() {
         println!("no gitreant server is running");
+    } else if verbose {
+        let blocks: Vec<String> = running.iter().map(describe_verbose).collect();
+        println!("{}", blocks.join("\n"));
     } else {
         println!("{}", describe(&running));
     }
     ExitCode::SUCCESS
+}
+
+fn server_json(record: &Record) -> serde_json::Value {
+    let repos: Vec<serde_json::Value> = get_repo_list(record.port)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|entry| serde_json::json!({ "path": entry["path"], "added": entry["added"] }))
+        .collect();
+    serde_json::json!({
+        "url": format!("http://127.0.0.1:{}", record.port),
+        "port": record.port,
+        "pid": record.pid,
+        "started": record.started,
+        "version": record.version,
+        "repos": repos,
+    })
+}
+
+/// A server's line, then each repository with how and when it came.
+fn describe_verbose(record: &Record) -> String {
+    let mut block = server_line(record, None);
+    for entry in get_repo_list(record.port).unwrap_or_default() {
+        let path = entry["path"].as_str().unwrap_or_default();
+        block.push_str(&format!("\n  {path}  ({})", how_added(&entry["added"])));
+    }
+    block
+}
+
+/// How a repository came, as `GET /api/list` records it.
+fn how_added(added: &serde_json::Value) -> String {
+    let at = added["at"].as_i64().map(started_at).unwrap_or_default();
+    let how = match (added["via"].as_str(), added["reason"].as_str()) {
+        (Some("startup"), _) => "given at startup".to_string(),
+        (Some("cli"), _) => "added by the CLI".to_string(),
+        (Some("browser"), Some(reason)) => format!("added from the browser: {reason}"),
+        (Some("browser"), None) => "added from the browser".to_string(),
+        _ => return "how it came is unknown".to_string(),
+    };
+    format!("{how}, {at}")
 }
 
 /// The servers whose records still answer as a gitreant.
@@ -293,27 +347,33 @@ fn running_servers() -> Vec<Record> {
     records::dir().map_or_else(Vec::new, |dir| records::running(&dir, ping))
 }
 
-/// One block per server: its URL, pid, start time and version, then the
+/// One line per server: its URL, pid, start time, version and how many
 /// repositories it shows, asked of it.
 fn describe(servers: &[Record]) -> String {
     servers
         .iter()
         .map(|record| {
-            let repos = get_repo_paths(record.port).unwrap_or_default();
-            let mut block = format!(
-                "http://127.0.0.1:{}  pid {}  started {}  v{}",
-                record.port,
-                record.pid,
-                started_at(record.started),
-                record.version
-            );
-            for repo in repos {
-                block.push_str(&format!("\n  {repo}"));
-            }
-            block
+            let count = get_repo_paths(record.port).map_or(0, |repos| repos.len());
+            server_line(record, Some(count))
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn server_line(record: &Record, repos: Option<usize>) -> String {
+    let mut line = format!(
+        "http://127.0.0.1:{}  pid {}  started {}  v{}",
+        record.port,
+        record.pid,
+        started_at(record.started),
+        record.version
+    );
+    match repos {
+        Some(1) => line.push_str("  1 repository"),
+        Some(n) => line.push_str(&format!("  {n} repositories")),
+        None => {}
+    }
+    line
 }
 
 /// Spawn a detached copy of ourselves as the server, wait until it answers,

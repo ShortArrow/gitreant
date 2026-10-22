@@ -149,6 +149,8 @@ quietly disappear. `gitreant doctor` reports which are available.
 - **Detaches from the terminal.** It runs in the background by default;
   `gitreant --shutdown` stops it, and `--foreground` keeps it attached.
   `gitreant list` shows the running servers, and `--shutdown`, `restart`
-  and `refresh` find the only one without `--port`.
+  and `refresh` find the only one without `--port`. With `--verbose` it
+  also shows how each repository came: at startup, from the CLI or from the
+  browser.
 - **A dedicated window.** `--app` opens it as a window without an address
   bar (needs a Chromium-based browser).

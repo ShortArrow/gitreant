@@ -512,12 +512,18 @@ export interface AddRepoResponse {
   repos: RepoListEntry[];
 }
 
+/** Why the page adds a repository; the server records it (ADR 0039). */
+export type AddReason = "add" | "submodule" | "worktree";
+
 /** Add a repository. The response carries the authoritative updated repo list. */
-export async function addRepo(path: string): Promise<AddRepoResponse> {
+export async function addRepo(
+  path: string,
+  reason: AddReason,
+): Promise<AddRepoResponse> {
   const response = await fetch("/api/repos", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ path }),
+    body: JSON.stringify({ path, reason }),
   });
   if (!response.ok) {
     throw new Error((await response.text()) || `add failed: ${response.status}`);

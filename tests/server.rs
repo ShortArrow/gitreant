@@ -1532,3 +1532,68 @@ async fn requests_from_other_sites_are_refused() {
     .await
     .unwrap();
 }
+
+/// Each listed repository says how it came (ADR 0039): given at startup,
+/// handed over by a client without a page, or added from the server's own
+/// page, with the page's reason when it is one the server knows.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_list_says_how_each_repository_came() {
+    let dirs: Vec<tempfile::TempDir> = (0..4).map(|_| tempfile::tempdir().unwrap()).collect();
+    for dir in &dirs {
+        init_repo_with_commit(dir.path());
+    }
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    let mut session = Session::new();
+    session.add(dirs[0].path()).unwrap();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(session)).await.unwrap();
+    });
+    let paths: Vec<String> = dirs
+        .iter()
+        .map(|d| d.path().to_string_lossy().into_owned())
+        .collect();
+    let list = tokio::task::spawn_blocking(move || {
+        assert!((0..50).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            ping(port)
+        }));
+        post_repo(port, &paths[1]).unwrap();
+        let from_page = |path: &str, reason: &str| {
+            let body = serde_json::json!({ "path": path, "reason": reason }).to_string();
+            let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+            write!(
+                stream,
+                "POST /api/repos HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nOrigin: http://127.0.0.1:{port}\r\nConnection: close\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
+            let mut resp = String::new();
+            stream.read_to_string(&mut resp).unwrap();
+            assert!(resp.starts_with("HTTP/1.1 200"), "{resp}");
+        };
+        from_page(&paths[2], "submodule");
+        from_page(&paths[3], "anything else");
+        http_get(port, "/api/list")
+    })
+    .await
+    .unwrap();
+
+    let body = list.lines().find(|line| line.starts_with('[')).expect("list body");
+    let entries: Vec<serde_json::Value> = serde_json::from_str(body).unwrap();
+    let added = |dir: &tempfile::TempDir| {
+        let name = dir.path().file_name().unwrap().to_string_lossy().into_owned();
+        entries
+            .iter()
+            .find(|e| e["name"] == name.as_str())
+            .unwrap_or_else(|| panic!("{name} missing from {body}"))["added"]
+            .clone()
+    };
+    assert_eq!(added(&dirs[0])["via"], "startup");
+    assert_eq!(added(&dirs[1])["via"], "cli");
+    assert_eq!(added(&dirs[2])["via"], "browser");
+    assert_eq!(added(&dirs[2])["reason"], "submodule");
+    assert_eq!(added(&dirs[3])["via"], "browser");
+    assert!(added(&dirs[3]).get("reason").is_none(), "an unknown reason is dropped");
+    assert!(added(&dirs[0])["at"].as_i64().unwrap() > 1_700_000_000);
+}

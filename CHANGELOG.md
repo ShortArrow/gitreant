@@ -24,7 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   between them beside the diff.
 - `gitreant list` shows the running servers, and `--shutdown`, `restart`
   and `refresh` find the only one without `--port`; `--shutdown --all`
-  stops every one
+  stops every one. A server records how each repository came, at startup,
+  from the CLI or from the browser, which `list --verbose` and `--json`
+  show
   ([ADR 0039](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0039-server-records.md)).
 
 ### Changed

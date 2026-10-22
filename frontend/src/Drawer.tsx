@@ -1,5 +1,10 @@
 import { Fragment, useState } from "react";
-import { pickFolder, type RepoListEntry, type RepoStatus } from "./api";
+import {
+  pickFolder,
+  type AddReason,
+  type RepoListEntry,
+  type RepoStatus,
+} from "./api";
 import { ContextMenu } from "./ContextMenu";
 import {
   AddIcon,
@@ -159,7 +164,7 @@ interface DrawerProps {
   /** Reveal the repository folder in the OS file manager. */
   onReveal: (id: string) => void;
   onRemove: (id: string) => void;
-  onAdd: (path: string) => Promise<void>;
+  onAdd: (path: string, reason: AddReason) => Promise<void>;
 }
 
 export function Drawer({
@@ -201,10 +206,14 @@ export function Drawer({
   // Attaching a submodule or worktree makes it viewable; then show it in a
   // pane. Opening it on the right sits its graph beside its parent's
   // (ADR 0022).
-  const openChild = async (path: string, side: "here" | "right" = "here") => {
+  const openChild = async (
+    path: string,
+    kind: "submodule" | "worktree",
+    side: "here" | "right" = "here",
+  ) => {
     setError(null);
     try {
-      await onAdd(path);
+      await onAdd(path, kind);
       side === "right" ? onOpenRight(path) : onSelect(path);
     } catch (err) {
       setError(String(err));
@@ -224,7 +233,7 @@ export function Drawer({
     setAdding(true);
     setError(null);
     try {
-      await onAdd(value);
+      await onAdd(value, "add");
       setPath("");
     } catch (err) {
       setError(String(err));
@@ -413,8 +422,8 @@ export function Drawer({
                     role="button"
                     tabIndex={0}
                     aria-current={sub.path === activeId ? true : undefined}
-                    onClick={() => openChild(sub.path)}
-                    onKeyDown={activateOnKey(() => openChild(sub.path))}
+                    onClick={() => openChild(sub.path, "submodule")}
+                    onKeyDown={activateOnKey(() => openChild(sub.path, "submodule"))}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       setChildMenu({
@@ -446,8 +455,8 @@ export function Drawer({
                     role="button"
                     tabIndex={0}
                     aria-current={wt.path === activeId ? true : undefined}
-                    onClick={() => openChild(wt.path)}
-                    onKeyDown={activateOnKey(() => openChild(wt.path))}
+                    onClick={() => openChild(wt.path, "worktree")}
+                    onKeyDown={activateOnKey(() => openChild(wt.path, "worktree"))}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       setChildMenu({
@@ -535,12 +544,12 @@ export function Drawer({
               label: t(
                 childMenu.kind === "worktree" ? "openWorktree" : "openSubmodule",
               ),
-              run: () => openChild(childMenu.path),
+              run: () => openChild(childMenu.path, childMenu.kind),
             },
             {
               id: `${childMenu.kind}-open-right`,
               label: t("openRightPane"),
-              run: () => openChild(childMenu.path, "right"),
+              run: () => openChild(childMenu.path, childMenu.kind, "right"),
             },
             {
               id: `${childMenu.kind}-copy-path`,

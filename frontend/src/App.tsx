@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addRepo,
+  type AddReason,
   fetchCommandLog,
   fetchRemotes,
   fetchRepoList,
@@ -279,11 +280,11 @@ export function App() {
   // pending drawer entry and in the empty pane until the add resolves.
   const [pendingAdd, setPendingAdd] = useState<string | null>(null);
   const handleAdd = useCallback(
-    async (path: string) => {
+    async (path: string, reason: AddReason) => {
       recordAction(`Add repository ${path}`);
       setPendingAdd(path);
       try {
-        const { id, repos: next } = await addRepo(path);
+        const { id, repos: next } = await addRepo(path, reason);
         applyRepos(next);
         // Never yank a pane someone is reading: the new repository only
         // auto-opens when the focused pane sits empty.

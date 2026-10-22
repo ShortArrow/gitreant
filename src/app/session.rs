@@ -5,6 +5,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use serde::Serialize;
+
 use crate::git::{
     discover_repo, gpg_available, read_repo_with_progress, uncommitted_paths, verification_state,
     verify_command, verify_signatures, RepoData, SignatureCheck,
@@ -23,11 +25,52 @@ pub struct ExecutedCommand {
     pub message: String,
 }
 
+/// How a repository came to be shown (ADR 0039).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Via {
+    /// Given when the server started.
+    Startup,
+    /// Added by a request without `Origin`, such as the CLI handing a path
+    /// to a running server.
+    Cli,
+    /// Added from the server's own page.
+    Browser,
+}
+
+/// When and how a repository came to be shown.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Added {
+    pub via: Via,
+    /// Why the page added it (`add`, `submodule` or `worktree`), as the page
+    /// claims; absent for anything but a browser.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// Unix seconds.
+    pub at: i64,
+}
+
+impl Added {
+    /// Added this moment.
+    pub fn now(via: Via, reason: Option<&str>) -> Self {
+        let at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_secs() as i64);
+        Self {
+            via,
+            reason: reason.map(str::to_string),
+            at,
+        }
+    }
+}
+
 /// An ordered, de-duplicated set of repository roots. Repository contents are
 /// re-read on demand so the views always reflect the current state on disk.
 #[derive(Default)]
 pub struct Session {
     paths: Vec<PathBuf>,
+    /// How each repository in `paths` came, kept from its first add.
+    added: HashMap<PathBuf, Added>,
     /// Raw `%G?` status and `%GK` key id per commit id. Commits are
     /// immutable, so a verdict never has to be re-checked (a keyring change
     /// needs a server restart).
@@ -46,12 +89,19 @@ impl Session {
     /// added, `Ok(false)` if it was already present. Either way the returned id
     /// (canonical path string, matching `RepoView::id`) identifies the repository.
     pub fn add(&mut self, path: &Path) -> Result<(String, bool), String> {
+        self.add_from(path, Added::now(Via::Startup, None))
+    }
+
+    /// [`Session::add`], recording how the repository came; a repository
+    /// already present keeps the record of its first add.
+    pub fn add_from(&mut self, path: &Path, added: Added) -> Result<(String, bool), String> {
         let root = discover_repo(path)?;
         let key = canonical(&root);
         let id = key.to_string_lossy().into_owned();
         if self.paths.iter().any(|p| p == &key) {
             return Ok((id, false));
         }
+        self.added.insert(key.clone(), added);
         self.paths.push(key);
         Ok((id, true))
     }
@@ -61,6 +111,7 @@ impl Session {
     pub fn remove(&mut self, id: &str) -> bool {
         let before = self.paths.len();
         self.paths.retain(|p| p.to_string_lossy() != id);
+        self.added.retain(|p, _| p.to_string_lossy() != id);
         before != self.paths.len()
     }
 
@@ -71,6 +122,11 @@ impl Session {
     /// The root path of the repository identified by `id`, if displayed.
     pub fn path_of(&self, id: &str) -> Option<&PathBuf> {
         self.paths.iter().find(|p| p.to_string_lossy() == id)
+    }
+
+    /// How the repository identified by `id` came, while it is shown.
+    pub fn added_of(&self, id: &str) -> Option<&Added> {
+        self.path_of(id).and_then(|path| self.added.get(path))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -429,6 +485,31 @@ mod tests {
         let generation = session.verify_generation();
         assert!(session.store_verdicts(generation, &ids, HashMap::new()));
         assert_eq!(session.verify_cache.get(&ids[0]), Some(&('?', None)));
+    }
+
+    #[test]
+    fn a_repository_remembers_how_it_came() {
+        let tmp = tempfile::tempdir().unwrap();
+        init_repo(tmp.path());
+        let mut session = Session::new();
+
+        let (id, _) = session.add(tmp.path()).unwrap();
+        assert_eq!(session.added_of(&id).unwrap().via, Via::Startup);
+        // Adding it again keeps the first record.
+        session
+            .add_from(tmp.path(), Added::now(Via::Browser, Some("add")))
+            .unwrap();
+        assert_eq!(session.added_of(&id).unwrap().via, Via::Startup);
+
+        session.remove(&id);
+        assert!(session.added_of(&id).is_none());
+        session
+            .add_from(tmp.path(), Added::now(Via::Browser, Some("submodule")))
+            .unwrap();
+        let added = session.added_of(&id).unwrap();
+        assert_eq!(added.via, Via::Browser);
+        assert_eq!(added.reason.as_deref(), Some("submodule"));
+        assert!(added.at > 1_700_000_000);
     }
 
     #[test]

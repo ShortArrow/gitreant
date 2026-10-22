@@ -83,8 +83,11 @@ gitreant [PATH...]
       --shutdown      稼働中の gitreant サーバを停止して終了
       --all           --shutdown と使い、稼働中のサーバをすべて停止
 
-gitreant list         稼働中のサーバを一覧表示（URL・pid・起動時刻・版・
-                      表示中のリポジトリ）
+gitreant list         稼働中のサーバを 1 行ずつ表示（URL・pid・起動時刻・版・
+                      表示中のリポジトリの数）
+  --verbose           各サーバのリポジトリと、それぞれがいつどう加わったか
+                      （起動時・CLI・ブラウザ）も表示
+  --json              すべてを JSON で出力
 ```
 
 ## コントリビュート

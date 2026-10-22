@@ -51,15 +51,17 @@ pub fn post_refresh(port: u16) -> Result<(), String> {
 /// The repository paths a running server currently displays, so a restart
 /// can bring the same set back up.
 pub fn get_repo_paths(port: u16) -> Result<Vec<String>, String> {
+    Ok(get_repo_list(port)?
+        .into_iter()
+        .filter_map(|e| e.get("path").and_then(|p| p.as_str()).map(str::to_string))
+        .collect())
+}
+
+/// The entries of a running server's `GET /api/list`, each with its path
+/// and how it came (ADR 0039).
+pub fn get_repo_list(port: u16) -> Result<Vec<serde_json::Value>, String> {
     match request(port, "GET", "/api/list", None, REQUEST_TIMEOUT)? {
-        (200, body) => {
-            let list: Vec<serde_json::Value> =
-                serde_json::from_str(&body).map_err(|e| format!("parse repo list: {e}"))?;
-            Ok(list
-                .into_iter()
-                .filter_map(|e| e.get("path").and_then(|p| p.as_str()).map(str::to_string))
-                .collect())
-        }
+        (200, body) => serde_json::from_str(&body).map_err(|e| format!("parse repo list: {e}")),
         (status, body) => Err(format!("server returned {status}: {body}")),
     }
 }

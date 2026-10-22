@@ -358,12 +358,12 @@ impl AppState {
     /// Add a repository; returns whether it was newly added. Notifies SSE
     /// listeners on a successful, non-duplicate add. Returns the repository id
     /// and whether it was newly added.
-    fn add_repo(&self, path: &str) -> Result<(String, bool), String> {
+    fn add_repo(&self, path: &str, how: crate::app::Added) -> Result<(String, bool), String> {
         let (id, added) = self
             .session
             .lock()
             .expect("session mutex")
-            .add(&PathBuf::from(path))?;
+            .add_from(&PathBuf::from(path), how)?;
         if added {
             let _ = self.updates.send(ServerEvent::Update);
         }
@@ -467,6 +467,9 @@ struct RepoListEntry {
     /// worktree under its main one and open either as its own view.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     worktrees: Vec<WorktreeEntry>,
+    /// How and when the repository came to be shown (ADR 0039).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    added: Option<crate::app::Added>,
 }
 
 /// Another worktree of a listed repository, as the drawer consumes it.
@@ -504,6 +507,12 @@ fn light_list(state: &AppState) -> Vec<RepoListEntry> {
         .repo_paths()
         .into_iter()
         .map(|(id, path)| RepoListEntry {
+            added: state
+                .session
+                .lock()
+                .expect("session mutex")
+                .added_of(&id)
+                .cloned(),
             name: path
                 .file_name()
                 .map(|s| s.to_string_lossy().into_owned())
@@ -771,6 +780,23 @@ async fn reveal(
 #[derive(Deserialize)]
 struct AddRepoRequest {
     path: String,
+    /// Why the page adds it; kept only from a page, and only when known.
+    reason: Option<String>,
+}
+
+/// The reasons a page may give for adding a repository (ADR 0039).
+const ADD_REASONS: [&str; 3] = ["add", "submodule", "worktree"];
+
+/// How a request to add a repository came: from a page when it carries
+/// `Origin` (which the guard lets through only from the server's own page,
+/// ADR 0038), else from a client such as the CLI.
+fn added_by(headers: &axum::http::HeaderMap, reason: Option<&str>) -> crate::app::Added {
+    use crate::app::{Added, Via};
+    if headers.contains_key(axum::http::header::ORIGIN) {
+        Added::now(Via::Browser, reason.filter(|r| ADD_REASONS.contains(r)))
+    } else {
+        Added::now(Via::Cli, None)
+    }
 }
 
 #[derive(Serialize)]
@@ -783,12 +809,14 @@ struct AddRepoResponse {
 
 async fn add_repo(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Json(req): Json<AddRepoRequest>,
 ) -> Result<Json<AddRepoResponse>, (StatusCode, String)> {
     let adder = state.clone();
+    let added = added_by(&headers, req.reason.as_deref());
     // Registering is quick (repository discovery only); the graph loads
     // through POST /api/view like everywhere else.
-    let result = tokio::task::spawn_blocking(move || adder.add_repo(&req.path))
+    let result = tokio::task::spawn_blocking(move || adder.add_repo(&req.path, added))
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     match result {

@@ -116,8 +116,11 @@ gitreant restart      restart the running server, keeping the repositories it
                       picks up a rebuilt binary
 gitreant refresh      re-verify commit signatures in place, without restarting
                       (use after adding a key to your gpg keyring)
-gitreant list         list the running servers: URL, pid, start time, version
-                      and the repositories each shows
+gitreant list         list the running servers, one line each: URL, pid, start
+                      time, version and how many repositories each shows
+  --verbose           also list each server's repositories, with how and when
+                      each came (at startup, from the CLI or from the browser)
+  --json              print all of it as JSON
 ```
 
 ## Contributing

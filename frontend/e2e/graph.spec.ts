@@ -1954,6 +1954,16 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-tab-name="sub"]')).toBeVisible();
     await expect(page.getByTestId("graph").first()).toBeVisible();
 
+    // The server records that the page opened it as a submodule, and that
+    // repoO came through the drawer's input (ADR 0039).
+    const list = (await (await page.request.get("/api/list")).json()) as {
+      name: string;
+      added?: { via: string; reason?: string };
+    }[];
+    const added = (name: string) => list.find((e) => e.name === name)?.added;
+    expect(added("sub")).toMatchObject({ via: "browser", reason: "submodule" });
+    expect(added("repoO")).toMatchObject({ via: "browser", reason: "add" });
+
     // The opened submodule stays an accordion child: no duplicate top-level
     // row appears in the drawer.
     await expect(

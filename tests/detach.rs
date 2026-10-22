@@ -239,16 +239,38 @@ fn the_cli_finds_running_servers_without_a_port() {
     let listed = gitreant(&["list"]);
     assert!(listed.status.success());
     assert!(text(&listed).contains("no gitreant server is running"), "{}", text(&listed));
+    assert_eq!(gitreant(&["list", "--json"]).stdout.trim_ascii(), b"[]");
 
     let (first, second) = (free_port(), free_port());
     start(first);
     start(second);
+    // One line per server by default; the repositories only on request.
     let listed = text(&gitreant(&["list"]));
     let repo_name = repo.path().file_name().unwrap().to_string_lossy().into_owned();
     for port in [first, second] {
         assert!(listed.contains(&format!("http://127.0.0.1:{port}")), "{listed}");
     }
-    assert!(listed.contains(&repo_name), "{listed}");
+    assert_eq!(listed.trim().lines().count(), 2, "{listed}");
+    assert!(listed.contains("1 repository"), "{listed}");
+    assert!(!listed.contains(&repo_name), "{listed}");
+    let verbose = text(&gitreant(&["list", "--verbose"]));
+    assert!(verbose.contains(&repo_name), "{verbose}");
+    assert!(verbose.contains("at startup"), "{verbose}");
+    let json = gitreant(&["list", "--json"]);
+    let servers: serde_json::Value = serde_json::from_slice(&json.stdout).unwrap();
+    let ports: Vec<u64> = servers
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["port"].as_u64().unwrap())
+        .collect();
+    assert_eq!(ports, {
+        let mut both = vec![u64::from(first), u64::from(second)];
+        both.sort();
+        both
+    });
+    assert_eq!(servers[0]["repos"][0]["added"]["via"], "startup");
+    assert!(servers[0]["pid"].as_u64().is_some());
 
     // Two run: a bare --shutdown names them and stops neither.
     let refused = gitreant(&["--shutdown"]);
