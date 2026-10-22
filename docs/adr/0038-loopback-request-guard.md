@@ -33,8 +33,10 @@ The JSON endpoints were safe from other sites only because a JSON
   request, so its absence means a client such as the gitreant CLI, which
   could reach the port directly anyway.
 - **The development proxy.** `pnpm dev` serves the SPA from its own port
-  and proxies the API; the proxy rewrites `Origin` to the backend's, as
-  if the page were served by gitreant.
+  and proxies the API. When a request's `Origin` is the dev server's own,
+  the proxy rewrites it to the backend's, as if gitreant served the page;
+  any other `Origin` passes unchanged and the backend refuses it, so the
+  proxy does not open the guard to other sites while it runs.
 
 ## Consequences
 

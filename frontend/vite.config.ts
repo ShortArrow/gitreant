@@ -16,6 +16,9 @@ try {
   // A source tree without git still builds.
 }
 
+/** The gitreant backend `pnpm dev` proxies the API to. */
+const BACKEND = "http://127.0.0.1:4000";
+
 // Assets are served from the Rust binary at the site root; relative base keeps
 // them working regardless of the mount path.
 export default defineConfig({
@@ -31,8 +34,21 @@ export default defineConfig({
   },
   server: {
     // `pnpm dev` proxies the API to a locally running gitreant backend.
+    // The backend changes state only for its own origin (ADR 0038), so a
+    // request from this dev page is passed on as if gitreant served it;
+    // any other origin goes through unchanged and is refused there.
     proxy: {
-      "/api": "http://127.0.0.1:4000",
+      "/api": {
+        target: BACKEND,
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            const { origin, host } = req.headers;
+            if (origin !== undefined && origin === `http://${host}`) {
+              proxyReq.setHeader("origin", BACKEND);
+            }
+          });
+        },
+      },
     },
   },
 });
