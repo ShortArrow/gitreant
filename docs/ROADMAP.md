@@ -122,12 +122,6 @@ keyed off the remote URL's host.
 
 ## Graph / UI
 
-- **Colors chosen by the lanes nearby** — colors are handed out in turn and
-  the palette of eight cycles, so with many branches two lanes side by side
-  can share one. Choosing, from the top row down, the lowest color no lane
-  in use there holds is optimal for lanes, which are row intervals; past
-  eight lanes at once, it needs a fallback such as differing from the
-  neighbors
 - **Blame** — add it to the diff line-selection menu (the UI foundation
   exists); backend via gix blame or git CLI delegation
 - **Hide stashes entirely** — hide the stash badge and the stash commit

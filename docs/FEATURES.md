@@ -33,7 +33,8 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 - **Lanes and colours are computed on the server.** The checked-out branch
   runs as a straight line on the left, branches fork to the right and
   merges come back from the right. A branch keeps its colour end to end;
-  a stash takes a colour of its own.
+  a stash takes a colour of its own. Each takes the lowest colour no lane
+  in use holds, so lanes side by side differ.
 - **HEAD and merges.** The HEAD commit is a hollow ring; merge commit
   messages are dimmed.
 - **Nodes.** Hovering a node shows its hash and fades the rows, nodes and

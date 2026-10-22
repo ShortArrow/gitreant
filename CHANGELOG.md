@@ -39,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are checked after it, and a pulsing placeholder stands in for each badge
   until its verdict arrives
   ([ADR 0037](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0037-deferred-signature-check.md)).
+- A lane takes the lowest color no lane in use holds, so lanes side by
+  side no longer share one, and colors no longer shift as branches are
+  added above
+  ([ADR 0040](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0040-lane-colors-by-what-is-in-use.md)).
 
 ### Security
 

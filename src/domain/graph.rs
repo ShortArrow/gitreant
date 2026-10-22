@@ -8,6 +8,10 @@
 
 use serde::Serialize;
 
+/// How many colors the frontend's palette holds; every color the layout
+/// hands out is below it.
+pub const PALETTE_SIZE: usize = 8;
+
 /// A commit reduced to what the layout algorithm needs: its identity and parents.
 #[derive(Debug, Clone)]
 pub struct CommitInput {
@@ -92,7 +96,7 @@ pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
     if let Some(head_id) = head.filter(|h| spine.contains(*h)) {
         // Reserve the spine's column up front so nothing else takes lane 0.
         let idx = state.alloc_after(None);
-        state.colors[idx] = state.take_color();
+        state.colors[idx] = Some(state.pick_color(idx));
         state.lanes[idx] = Some(head_id.to_string());
         // Nothing has drawn into this column yet, so the first child of the
         // head may adopt it and run straight down the left edge.
@@ -110,9 +114,9 @@ pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
         state.release_holds(&commit.id);
         let my_lane = state.lane_for(&commit.id, commit.parents.first().map(String::as_str));
         let my_color = if commit.stash {
-            state.take_color()
+            state.pick_color(my_lane)
         } else {
-            state.colors[my_lane]
+            state.color(my_lane)
         };
 
         nodes.push(GraphNode {
@@ -145,7 +149,7 @@ pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
                     color: if is_first {
                         my_color
                     } else {
-                        state.colors[target_lane]
+                        state.color(target_lane)
                     },
                     fork: is_first && target_lane != my_lane,
                     // The stash's own links to its helpers, and any edge from a
@@ -199,13 +203,13 @@ fn spine_of(commits: &[CommitInput], head: Option<&str>) -> std::collections::Ha
 ///
 /// `lanes[i]` holds the commit id currently expected next in column `i`, or
 /// `None` when the column is free. `colors[i]` is the branch color of that
-/// column. Freed columns are reused to keep the graph compact; `lanes` only ever
-/// grows, so its final length equals the maximum simultaneous width.
+/// column, kept after it frees as the color it last had (`None` until it has
+/// had one). Freed columns are reused to keep the graph compact; `lanes` only
+/// ever grows, so its final length equals the maximum simultaneous width.
 #[derive(Default)]
 struct LayoutState {
     lanes: Vec<Option<String>>,
-    colors: Vec<usize>,
-    next_color: usize,
+    colors: Vec<Option<usize>>,
     /// A pre-reserved column with no edge drawn into it yet; the first tip
     /// whose first parent is its pending commit may adopt it (and then it is
     /// no longer open).
@@ -234,7 +238,7 @@ impl LayoutState {
             }
         }
         let idx = self.alloc_after(None);
-        self.colors[idx] = self.take_color();
+        self.colors[idx] = Some(self.pick_color(idx));
         self.lanes[idx] = Some(id.to_string());
         idx
     }
@@ -275,7 +279,7 @@ impl LayoutState {
         } else {
             // Merges come back from the right: never left of the merge commit.
             let idx = self.alloc_after(Some(my_lane));
-            self.colors[idx] = self.take_color();
+            self.colors[idx] = Some(self.pick_color(idx));
             self.lanes[idx] = Some(parent.to_string());
             idx
         }
@@ -318,16 +322,32 @@ impl LayoutState {
             Some(idx) => idx,
             None => {
                 self.lanes.push(None);
-                self.colors.push(0);
+                self.colors.push(None);
                 self.lanes.len() - 1
             }
         }
     }
 
-    fn take_color(&mut self) -> usize {
-        let c = self.next_color;
-        self.next_color += 1;
-        c
+    fn color(&self, lane: usize) -> usize {
+        self.colors[lane].unwrap_or_default()
+    }
+
+    /// A color for what starts in `column` now: the lowest one that no
+    /// other column in use holds, and not the one `column` had last, so a
+    /// new branch never reads as the one that ended there. Past the palette,
+    /// the lowest one apart from the neighboring columns in use (ADR 0040).
+    fn pick_color(&self, column: usize) -> usize {
+        let live = |i: usize| i != column && self.lanes.get(i).is_some_and(Option::is_some);
+        let held = |i: usize| live(i).then(|| self.colors[i]).flatten();
+        let last = self.colors.get(column).copied().flatten();
+        let lowest_but = |taken: &[Option<usize>]| {
+            (0..PALETTE_SIZE).find(|c| last != Some(*c) && !taken.contains(&Some(*c)))
+        };
+        let in_use: Vec<_> = (0..self.lanes.len()).map(held).collect();
+        lowest_but(&in_use).unwrap_or_else(|| {
+            let neighbors = [column.checked_sub(1).and_then(held), held(column + 1)];
+            lowest_but(&neighbors).expect("a palette wider than three colors")
+        })
     }
 }
 
@@ -656,6 +676,94 @@ mod tests {
         let node = |id: &str| g.nodes.iter().find(|n| n.id == id).unwrap().clone();
         assert_ne!(node("S").color, node("Tip").color);
         assert_eq!(node("Tip").color, node("Root").color);
+    }
+
+    fn color_of(g: &Graph, id: &str) -> usize {
+        g.nodes.iter().find(|n| n.id == id).unwrap().color
+    }
+
+    #[test]
+    fn colors_stay_in_the_palette_and_apart_from_the_lanes_in_use() {
+        // The spine runs from Top to Bot while eight short branches come and
+        // go one after another beside it, each in the same freed column.
+        let mut commits = vec![ci("Top", &["Bot"])];
+        let roots: Vec<String> = (1..=8).map(|i| format!("R{i}")).collect();
+        commits.extend(roots.iter().map(|r| ci(r, &[])));
+        commits.push(ci("Bot", &[]));
+        let g = layout(&commits, Some("Top"));
+
+        let spine = color_of(&g, "Top");
+        for root in &roots {
+            let color = color_of(&g, root);
+            assert!(color < PALETTE_SIZE, "{root} left the palette: {color}");
+            assert_ne!(color, spine, "{root} shares the spine's color");
+        }
+        for pair in roots.windows(2) {
+            assert_ne!(
+                color_of(&g, &pair[0]),
+                color_of(&g, &pair[1]),
+                "{} and {} follow each other in one column with one color",
+                pair[0],
+                pair[1]
+            );
+        }
+    }
+
+    #[test]
+    fn past_the_palette_a_lane_differs_from_its_neighbors() {
+        // Nine branches fork from Bot beside the spine: ten lanes at once,
+        // more than the palette holds.
+        let mut commits = vec![ci("Top", &["Bot"])];
+        let tips: Vec<String> = (1..=9).map(|i| format!("T{i}")).collect();
+        commits.extend(tips.iter().map(|t| ci(t, &["Bot"])));
+        commits.push(ci("Bot", &[]));
+        let g = layout(&commits, Some("Top"));
+
+        let mut by_lane: Vec<_> = g
+            .nodes
+            .iter()
+            .filter(|n| n.id != "Bot")
+            .map(|n| (n.lane, n.color))
+            .collect();
+        by_lane.sort();
+        assert_eq!(by_lane.len(), 10);
+        for (lane, color) in &by_lane {
+            assert!(
+                *color < PALETTE_SIZE,
+                "lane {lane} left the palette: {color}"
+            );
+        }
+        for pair in by_lane.windows(2) {
+            assert_ne!(
+                pair[0].1, pair[1].1,
+                "lanes {} and {} match",
+                pair[0].0, pair[1].0
+            );
+        }
+    }
+
+    #[test]
+    fn a_stash_takes_a_color_no_lane_in_use_holds() {
+        //   T1 [Base], T2 [Base] beside the spine, then a stash on Head.
+        let g = layout(
+            &[
+                ci("T1", &["Base"]),
+                ci("T2", &["Base"]),
+                stash("S", &["Head"]),
+                ci("Head", &["Base"]),
+                ci("Base", &[]),
+            ],
+            Some("Head"),
+        );
+        let stash = color_of(&g, "S");
+        assert!(stash < PALETTE_SIZE);
+        for other in ["T1", "T2", "Head"] {
+            assert_ne!(
+                stash,
+                color_of(&g, other),
+                "the stash shares {other}'s color"
+            );
+        }
     }
 
     #[test]
