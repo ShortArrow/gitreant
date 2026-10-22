@@ -1449,3 +1449,86 @@ async fn signatures_are_checked_after_the_view_answers() {
     assert!(first.contains(&serde_json::to_string(id).unwrap()), "{id}");
     assert!(!second.contains("\"verifying\""), "{second}");
 }
+
+/// Send `head` (request line and headers, no blank line) with an empty
+/// body and return the raw response.
+fn http_raw(port: u16, head: &str) -> String {
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    write!(
+        stream,
+        "{head}\r\nConnection: close\r\ncontent-length: 0\r\n\r\n"
+    )
+    .unwrap();
+    let mut resp = String::new();
+    stream.read_to_string(&mut resp).unwrap();
+    resp
+}
+
+/// Only requests addressed to a loopback name, and state changes from the
+/// server's own page or from a client without a page, get through
+/// (ADR 0038).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn requests_from_other_sites_are_refused() {
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    let mut session = Session::new();
+    session.add(tmp.path()).unwrap();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(session)).await.unwrap();
+    });
+    tokio::task::spawn_blocking(move || {
+        assert!((0..50).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            ping(port)
+        }));
+        let status = |resp: &str| resp.lines().next().unwrap_or_default().to_string();
+
+        // A rebound name reaches nothing, not even a read.
+        let rebound = http_raw(
+            port,
+            &format!("GET /api/list HTTP/1.1\r\nHost: attacker.example:{port}"),
+        );
+        assert!(status(&rebound).contains("403"), "{rebound}");
+        assert!(!rebound.contains(&tmp.path().file_name().unwrap().to_string_lossy().to_string()));
+        for host in ["localhost", "[::1]", "127.0.0.1"] {
+            let resp = http_raw(
+                port,
+                &format!("GET /api/ping HTTP/1.1\r\nHost: {host}:{port}"),
+            );
+            assert!(status(&resp).contains("200"), "{host}: {resp}");
+        }
+
+        // Another site's page cannot change anything.
+        for origin in [
+            "http://attacker.example".to_string(),
+            format!("http://127.0.0.1:{}", port.wrapping_add(1)),
+            format!("https://127.0.0.1:{port}"),
+        ] {
+            let resp = http_raw(
+                port,
+                &format!("POST /api/shutdown HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nOrigin: {origin}"),
+            );
+            assert!(status(&resp).contains("403"), "{origin}: {resp}");
+        }
+        assert!(ping(port), "a refused shutdown must leave the server up");
+
+        // Its own page and a client without a page can.
+        let own = http_raw(
+            port,
+            &format!(
+                "POST /api/refresh HTTP/1.1\r\nHost: localhost:{port}\r\nOrigin: http://localhost:{port}"
+            ),
+        );
+        assert!(status(&own).contains("200"), "{own}");
+        let cli = http_raw(
+            port,
+            &format!("POST /api/refresh HTTP/1.1\r\nHost: 127.0.0.1:{port}"),
+        );
+        assert!(status(&cli).contains("200"), "{cli}");
+    })
+    .await
+    .unwrap();
+}

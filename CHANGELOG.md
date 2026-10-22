@@ -34,6 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   until its verdict arrives
   ([ADR 0037](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0037-deferred-signature-check.md)).
 
+### Security
+
+- The server refuses requests addressed to any name but a loopback one,
+  which DNS rebinding would need, and state changes from another site's
+  page, such as a shutdown sent from any open tab
+  ([ADR 0038](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0038-loopback-request-guard.md)).
+
 ## [0.3.0] - 2026-10-21
 
 ### Added

@@ -4,6 +4,7 @@
 mod api;
 mod assets;
 mod client;
+mod guard;
 
 pub use api::{router, AppState};
 pub use client::{get_repo_paths, ping, post_refresh, post_repo, post_shutdown};
@@ -28,11 +29,16 @@ pub async fn bind(port: u16) -> Result<(TcpListener, SocketAddr), String> {
 /// Serve until the process is stopped or a shutdown is requested via
 /// `POST /api/shutdown`. Long-lived connections (SSE) would keep a graceful
 /// shutdown waiting forever, so after a short grace period we stop regardless.
+/// Requests from other sites are refused before they reach the API
+/// (ADR 0038).
 pub async fn serve(listener: TcpListener, state: AppState) -> Result<(), String> {
+    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
     let graceful = state.shutdown_requested();
     let deadline = state.shutdown_requested();
-    let server =
-        axum::serve(listener, router(state)).with_graceful_shutdown(wait_shutdown(graceful));
+    let app = router(state).layer(axum::middleware::from_fn(move |request, next| {
+        guard::guard(port, request, next)
+    }));
+    let server = axum::serve(listener, app).with_graceful_shutdown(wait_shutdown(graceful));
     tokio::select! {
         result = server => result.map_err(|e| e.to_string()),
         _ = async move {

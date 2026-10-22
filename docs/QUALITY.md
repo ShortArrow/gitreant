@@ -21,7 +21,10 @@ running tests are using them.
 
 ### Trust boundary
 
-- The server binds to 127.0.0.1 only and has no authentication.
+- The server binds to 127.0.0.1 only and has no authentication. It answers
+  only requests addressed to a loopback name, and changes state only for
+  its own page or a client that is not a page
+  ([ADR 0038](adr/0038-loopback-request-guard.md)).
 - Single-user, same-machine use is assumed. Remote exposure and multi-user
   use are out of scope; safety behind a reverse proxy or similar is not
   guaranteed.
