@@ -40,3 +40,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0034](0034-debian-packages.jp.md) | 共有の APT リポジトリ向けに Debian パッケージを配る | Accepted |
 | [0035](0035-graph-node-navigation.jp.md) | グラフのノードから移動・比較・チェックアウトする | Accepted |
 | [0036](0036-stash-node.jp.md) | stash を、乗っている線と見分けて描く | Accepted |
+| [0037](0037-deferred-signature-check.jp.md) | グラフを先に出し、署名は後から確かめる | Accepted |

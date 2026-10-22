@@ -44,3 +44,4 @@ are canonical; the files below are their English translations.
 | [0034](0034-debian-packages.md) | Ship Debian packages for the shared APT registry | Accepted |
 | [0035](0035-graph-node-navigation.md) | Navigate, compare and check out from graph nodes | Accepted |
 | [0036](0036-stash-node.md) | Draw a stash apart from the line it sits on | Accepted |
+| [0037](0037-deferred-signature-check.md) | Show the graph first and check signatures after it | Accepted |
