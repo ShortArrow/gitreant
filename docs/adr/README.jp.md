@@ -41,3 +41,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0035](0035-graph-node-navigation.jp.md) | グラフのノードから移動・比較・チェックアウトする | Accepted |
 | [0036](0036-stash-node.jp.md) | stash を、乗っている線と見分けて描く | Accepted |
 | [0037](0037-deferred-signature-check.jp.md) | グラフを先に出し、署名は後から確かめる | Accepted |
+| [0038](0038-loopback-request-guard.jp.md) | ループバックのサーバ宛てで、自分のページから来たリクエストだけに応える | Accepted |
