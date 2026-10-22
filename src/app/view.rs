@@ -35,6 +35,9 @@ pub struct CommitView {
     /// Signing key id, when gpg could attribute one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signature_key: Option<String>,
+    /// A `git stash` entry, drawn apart from the commits of a branch.
+    #[serde(skip_serializing_if = "is_false")]
+    pub stash: bool,
     /// A stash's index/untracked helper commit — the frontend folds these
     /// away unless the stash-internals toggle reveals them.
     #[serde(skip_serializing_if = "is_false")]
@@ -281,6 +284,7 @@ pub fn build_view(id: &Path, data: &RepoData, uncommitted: usize) -> RepoView {
             signature: None,
             verified: None,
             signature_key: None,
+            stash: false,
             stash_internal: false,
             uncommitted: Some(uncommitted),
         });
@@ -301,6 +305,7 @@ pub fn build_view(id: &Path, data: &RepoData, uncommitted: usize) -> RepoView {
         signature: meta.signature.clone(),
         verified: meta.verified,
         signature_key: meta.signature_key.clone(),
+        stash: node.stash,
         stash_internal: node.stash_internal,
         uncommitted: None,
     }));
@@ -404,6 +409,9 @@ mod tests {
         assert!(internal("Unt"), "untracked helper must be marked");
         assert!(!internal("S"));
         assert!(!internal("Base"));
+        let stash = |id: &str| view.commits.iter().find(|c| c.id == id).unwrap().stash;
+        assert!(stash("S"), "the stash commit itself must be marked");
+        assert!(!stash("Base"));
 
         // And the flag actually serializes (skip_serializing_if must only
         // drop the false case).
@@ -411,6 +419,10 @@ mod tests {
         assert!(
             json.contains("\"stash_internal\":true"),
             "flag missing from the wire format: {json}"
+        );
+        assert!(
+            json.contains("\"stash\":true"),
+            "stash mark missing from the wire format: {json}"
         );
     }
 

@@ -43,3 +43,4 @@ are canonical; the files below are their English translations.
 | [0033](0033-diff-attribute.md) | Decide binary diffs by the diff attribute, as git diff does | Accepted |
 | [0034](0034-debian-packages.md) | Ship Debian packages for the shared APT registry | Accepted |
 | [0035](0035-graph-node-navigation.md) | Navigate, compare and check out from graph nodes | Accepted |
+| [0036](0036-stash-node.md) | Draw a stash apart from the line it sits on | Accepted |

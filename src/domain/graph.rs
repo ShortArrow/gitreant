@@ -35,6 +35,10 @@ pub struct GraphNode {
     /// Stable color index for the branch this commit sits on.
     pub color: usize,
     pub parents: Vec<String>,
+    /// This commit is a `git stash` entry. Its color is its own, never the
+    /// color of the line below it, so it does not read as part of a branch.
+    #[serde(skip_serializing_if = "is_false")]
+    pub stash: bool,
     /// A stash's index/untracked helper commit — reachable only through the
     /// stash. The frontend hides these by default so a stash reads as one node.
     #[serde(skip_serializing_if = "is_false")]
@@ -105,7 +109,11 @@ pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
         // Lanes held for fork corridors down to this commit free up now.
         state.release_holds(&commit.id);
         let my_lane = state.lane_for(&commit.id, commit.parents.first().map(String::as_str));
-        let my_color = state.colors[my_lane];
+        let my_color = if commit.stash {
+            state.take_color()
+        } else {
+            state.colors[my_lane]
+        };
 
         nodes.push(GraphNode {
             id: commit.id.clone(),
@@ -113,6 +121,7 @@ pub fn layout(commits: &[CommitInput], head: Option<&str>) -> Graph {
             lane: my_lane,
             color: my_color,
             parents: commit.parents.clone(),
+            stash: commit.stash,
             stash_internal: stash_helpers.contains(commit.id.as_str()),
         });
 
@@ -614,6 +623,39 @@ mod tests {
         assert!(edge("S", "Idx").dashed, "index helper link is dashed");
         assert!(edge("S", "Unt").dashed, "untracked helper link is dashed");
         assert!(edge("Idx", "Base").dashed, "onward helper edge is dashed");
+    }
+
+    #[test]
+    fn a_stash_takes_its_own_color_off_the_line_below_it() {
+        // Stashed on HEAD: the stash adopts the spine's column, yet its node
+        // and its line down to HEAD take a color of their own, while the
+        // spine keeps the color it had.
+        let g = layout(
+            &[
+                stash("S", &["Head"]),
+                ci("Head", &["Root"]),
+                ci("Root", &[]),
+            ],
+            Some("Head"),
+        );
+        let node = |id: &str| g.nodes.iter().find(|n| n.id == id).unwrap().clone();
+        assert!(node("S").stash);
+        assert!(!node("Head").stash);
+        assert_eq!(node("S").lane, node("Head").lane);
+        assert_ne!(node("S").color, node("Head").color);
+        assert_eq!(node("Head").color, node("Root").color);
+        let edge = g.edges.iter().find(|e| e.from == "S").unwrap();
+        assert_eq!(edge.color, node("S").color);
+
+        // Stashed on another branch's tip: that branch continues in the
+        // stash's column with a color unlike the stash's.
+        let g = layout(
+            &[stash("S", &["Tip"]), ci("Tip", &["Root"]), ci("Root", &[])],
+            None,
+        );
+        let node = |id: &str| g.nodes.iter().find(|n| n.id == id).unwrap().clone();
+        assert_ne!(node("S").color, node("Tip").color);
+        assert_eq!(node("Tip").color, node("Root").color);
     }
 
     #[test]

@@ -85,6 +85,7 @@ import {
   rowIndex,
   ROW_HEIGHT,
   NODE_RADIUS,
+  STASH_DOT_RADIUS,
   laneSpan,
   linkPath,
   loadedCommitCount,
@@ -939,6 +940,26 @@ export function RepoCard({
                 style={{ stroke: laneColor(commit.color), fill: "var(--bg-elev)" }}
                 {...nodeProps(commit)}
               />
+            ) : commit.stash ? (
+              // A stash: a ring around a dot, like vscode-git-graph, so it
+              // reads apart from the commits of the line it sits on.
+              <g key={commit.id}>
+                <circle
+                  className={`node node-stash${fadedNode(commit.id)}`}
+                  cx={nodeX(commit.lane)}
+                  cy={nodeY(commit.row)}
+                  r={NODE_RADIUS}
+                  style={{ stroke: laneColor(commit.color), fill: "var(--bg-elev)" }}
+                  {...nodeProps(commit)}
+                />
+                <circle
+                  className={`node-stash-dot${fadedNode(commit.id)}`}
+                  cx={nodeX(commit.lane)}
+                  cy={nodeY(commit.row)}
+                  r={STASH_DOT_RADIUS}
+                  style={{ fill: laneColor(commit.color) }}
+                />
+              </g>
             ) : commit.id === repo.head ? (
               // HEAD: a ring in the branch color with the center punched out
               // to the card background, like vscode-git-graph. Both colors go

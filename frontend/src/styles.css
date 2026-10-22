@@ -898,8 +898,13 @@ body {
   cursor: pointer;
 }
 
-.graph .node-head {
+.graph .node-head,
+.graph .node-stash {
   stroke-width: 2.5;
+}
+
+.graph .node-stash-dot {
+  pointer-events: none;
 }
 
 /* Collapsing and expanding a submodule region (#18). */

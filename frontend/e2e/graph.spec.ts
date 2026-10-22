@@ -1834,6 +1834,22 @@ test.describe.serial("gitreant UI", () => {
     const branch = page.locator(".badge-kind-branch", { hasText: "main" });
     await expect(branch).toBeVisible();
     await expect(branch.locator("svg")).toHaveCount(1);
+    // The stash's node is a ring around a dot, in a color of its own rather
+    // than the color of the HEAD line it sits on.
+    const ring = page.locator("circle.node-stash");
+    await expect(ring).toHaveCount(1);
+    const graph = page.locator(".graph", { has: ring });
+    await expect(graph.locator("circle.node-stash-dot")).toHaveCount(1);
+    const stashColor = await ring.evaluate((el) => getComputedStyle(el).stroke);
+    const headColor = await graph
+      .locator("circle.node-head")
+      .evaluate((el) => getComputedStyle(el).stroke);
+    expect(stashColor).not.toBe(headColor);
+    await expect(graph.locator("circle.node-stash-dot")).toHaveCSS(
+      "fill",
+      stashColor,
+    );
+
     // The stash has no operations.
     await stash.click({ button: "right" });
     await expect(page.getByTestId("ref-menu")).toHaveCount(0);

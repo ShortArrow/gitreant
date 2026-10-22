@@ -32,7 +32,8 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 
 - **Lanes and colours are computed on the server.** The checked-out branch
   runs as a straight line on the left, branches fork to the right and
-  merges come back from the right. A branch keeps its colour end to end.
+  merges come back from the right. A branch keeps its colour end to end;
+  a stash takes a colour of its own.
 - **HEAD and merges.** The HEAD commit is a hollow ring; merge commit
   messages are dimmed.
 - **Nodes.** Hovering a node shows its hash and fades the rows, nodes and
@@ -43,7 +44,7 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   branches, and tags pushed to a remote, carry the remote's name as a
   separate segment. Hovering a branch badge fades the rows, nodes and edges
   its tip cannot reach, among the loaded commits.
-- **Stashes.** A stash folds to one node. A setting reveals its index and
+- **Stashes.** A stash folds to one node, a ring around a dot. A setting reveals its index and
   untracked-files commits, linked by dashed lines.
 - **Submodule graphs.** For a repository with submodules, each submodule's
   graph sits to the left, with dashed links between the commits that moved

@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Hovering a branch badge fades the graph's nodes and edges with the rows.
+- A stash's node is a ring around a dot, in a color of its own rather
+  than the color of the branch it sits on
+  ([ADR 0036](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0036-stash-node.md)).
 
 ## [0.3.0] - 2026-10-21
 

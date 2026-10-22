@@ -11,6 +11,8 @@ export const ROW_HEIGHT = 32;
 export const LANE_WIDTH = 18;
 export const PADDING = 14;
 export const NODE_RADIUS = 5;
+/** The dot inside a stash's ring. */
+export const STASH_DOT_RADIUS = 2;
 
 /** A readable, high-contrast palette cycled by branch color index. */
 const PALETTE = [

@@ -39,3 +39,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0033](0033-diff-attribute.jp.md) | バイナリかどうかは git diff と同じく diff 属性で決める | Accepted |
 | [0034](0034-debian-packages.jp.md) | 共有の APT リポジトリ向けに Debian パッケージを配る | Accepted |
 | [0035](0035-graph-node-navigation.jp.md) | グラフのノードから移動・比較・チェックアウトする | Accepted |
+| [0036](0036-stash-node.jp.md) | stash を、乗っている線と見分けて描く | Accepted |
