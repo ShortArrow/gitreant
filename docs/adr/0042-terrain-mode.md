@@ -32,18 +32,22 @@ share the rows' layout.
   both stay readable. A commit not counted yet, and the uncommitted row,
   have no pillars.
 - **Projection.** A commit stands on the ground at its place in the rows'
-  graph. The ground turns about the vertical axis through a pivot, the
-  ground point drawn at the pane's center, by the rotation; then it tilts
-  back by the tilt, is projected straight onto the screen (orthographic,
-  no perspective) and scaled by the zoom. Turning about the pivot keeps
-  what is in the middle of the pane there. Pillars are drawn from back to
-  front. The tilt stays between 0° (from above) and 85°.
+  graph. The ground turns about the vertical axis through a pivot, a
+  ground point drawn at a fixed place in the pane, by the rotation; then it
+  tilts back by the tilt, is projected straight onto the screen
+  (orthographic, no perspective) and scaled by the zoom. Turning about the
+  pivot keeps it where it is drawn. Pillars are drawn from back to front.
+  The tilt stays between 0° (from above) and 85°.
 - **The start.** The terrain opens at a rotation of 30° and a tilt of 60°,
-  pivoted on the middle of the loaded commits and zoomed out until every
+  pivoted on the middle of the loaded commits, drawn at the pane's center,
+  and zoomed out until every
   node and pillar fits the pane, but never zoomed in past its natural size.
   It is fitted once, when it opens; counts arriving later do not move it.
 - **Moving it.** Dragging sideways rotates the terrain and dragging up or
-  down tilts it. A right drag or a Shift drag moves the ground with the
+  down tilts it, about what the drag began on: a commit's node or pillar,
+  or else the ground under the pointer. That point becomes the pivot where
+  it is drawn, so it stays under the pointer while the rest turns about
+  it; the keys turn about the same pivot. A right drag or a Shift drag moves the ground with the
   pointer. The wheel zooms about the pointer, keeping the ground under it
   in place, between 0.02 and 8 times. With the terrain focused, `←` / `→`
   rotate it by 15°, `↑` / `↓` tilt it by 5°, `+` / `-` zoom it by 1.25
