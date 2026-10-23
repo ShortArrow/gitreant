@@ -51,3 +51,4 @@ are canonical; the files below are their English translations.
 | [0041](0041-diff-stats-per-commit.md) | Show how many lines each commit adds and deletes | Accepted |
 | [0042](0042-terrain-mode.md) | Show the history as terrain, raised by lines added and deleted | Superseded by 0044 |
 | [0044](0044-graph-thickness.md) | Give the rows' graph a thickness of the lines each commit changed | Accepted |
+| [0045](0045-tilt-thickness.md) | Tilt the graph's thickness by dragging its background | Accepted |
