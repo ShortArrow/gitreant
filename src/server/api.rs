@@ -611,6 +611,7 @@ struct SubmodulesRequest {
 #[derive(Serialize)]
 struct SubmoduleGraphView {
     name: String,
+    /// Canonical, like repository ids, so the page can open its tab.
     path: String,
     view: RepoView,
     updates: Vec<GitlinkUpdateView>,
@@ -659,7 +660,9 @@ async fn submodule_graphs(
                     .collect();
                 Some(SubmoduleGraphView {
                     name: sub.name,
-                    path: sub.path.to_string_lossy().into_owned(),
+                    path: crate::app::canonical(&sub.path)
+                        .to_string_lossy()
+                        .into_owned(),
                     view,
                     updates,
                 })

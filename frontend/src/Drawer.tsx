@@ -164,7 +164,7 @@ interface DrawerProps {
   /** Reveal the repository folder in the OS file manager. */
   onReveal: (id: string) => void;
   onRemove: (id: string) => void;
-  onAdd: (path: string, reason: AddReason) => Promise<void>;
+  onAdd: (path: string, reason: AddReason) => Promise<unknown>;
   /** Attach a submodule or worktree and show it in a pane. */
   onOpenChild: OpenChild;
 }

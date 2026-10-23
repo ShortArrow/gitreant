@@ -1336,6 +1336,75 @@ async fn listing_carries_linked_worktrees_with_their_branches() {
         .unwrap();
 }
 
+#[tokio::test]
+async fn a_submodule_graph_names_its_submodule_by_its_id() {
+    // A submodule two levels down: `.gitmodules` names it with a `/`.
+    let tmp = tempfile::tempdir().unwrap();
+    let (main, upstream) = (tmp.path().join("main"), tmp.path().join("upstream"));
+    for dir in [&main, &upstream] {
+        std::fs::create_dir(dir).unwrap();
+        init_repo_with_commit(dir);
+    }
+    let git = |args: &[&str]| {
+        let status = Command::new("git")
+            .current_dir(&main)
+            .args(args)
+            .status()
+            .unwrap();
+        assert!(status.success(), "git {args:?} failed");
+    };
+    let source = upstream.to_string_lossy().into_owned();
+    git(&[
+        "-c",
+        "protocol.file.allow=always",
+        "submodule",
+        "add",
+        "-q",
+        &source,
+        "libs/sub",
+    ]);
+    git(&["commit", "-q", "-m", "add sub"]);
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    let mut session = Session::new();
+    session.add(&main).unwrap();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(session)).await.unwrap();
+    });
+    let id = gitreant::app::canonical(&main)
+        .to_string_lossy()
+        .into_owned();
+    let graphs = tokio::task::spawn_blocking(move || {
+        assert!((0..50).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            ping(port)
+        }));
+        http_post_json(
+            port,
+            "/api/submodules",
+            &serde_json::json!({ "repo": id }).to_string(),
+        )
+    })
+    .await
+    .unwrap();
+
+    let body = graphs
+        .lines()
+        .find(|l| l.starts_with('['))
+        .expect("graphs body");
+    let graphs: serde_json::Value = serde_json::from_str(body).unwrap();
+    // The id the submodule gets once added, so the page can open its tab.
+    let expected = gitreant::app::canonical(&main.join("libs").join("sub"))
+        .to_string_lossy()
+        .into_owned();
+    assert_eq!(graphs[0]["path"], expected);
+
+    let _ = tokio::task::spawn_blocking(move || post_shutdown(port))
+        .await
+        .unwrap();
+}
+
 /// Give the tip of the repository at `dir` a gpgsig header nothing can
 /// verify, so a read finds one signed commit with no verdict yet.
 fn sign_tip_with_a_fake_signature(dir: &Path) {

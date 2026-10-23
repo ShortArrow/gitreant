@@ -279,8 +279,9 @@ export function App() {
   // The path whose analysis the server is still working on; shown as a
   // pending drawer entry and in the empty pane until the add resolves.
   const [pendingAdd, setPendingAdd] = useState<string | null>(null);
+  /** Add a repository and answer the id the server gave it. */
   const handleAdd = useCallback(
-    async (path: string, reason: AddReason) => {
+    async (path: string, reason: AddReason): Promise<string> => {
       recordAction(`Add repository ${path}`);
       setPendingAdd(path);
       try {
@@ -293,6 +294,7 @@ export function App() {
             ? prev
             : paneModel.openTab(prev, id),
         );
+        return id;
       } finally {
         setPendingAdd(null);
       }
@@ -305,8 +307,8 @@ export function App() {
   // (ADR 0022).
   const openChild = useCallback<OpenChild>(
     async (path, kind, side) => {
-      await handleAdd(path, kind);
-      side === "right" ? openRight(path) : openTab(path);
+      const id = await handleAdd(path, kind);
+      side === "right" ? openRight(id) : openTab(id);
     },
     [handleAdd, openRight, openTab],
   );
