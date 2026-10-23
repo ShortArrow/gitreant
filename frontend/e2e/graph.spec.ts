@@ -729,6 +729,27 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("commit-row")).toHaveCount(5);
   });
 
+  test("each row counts the lines its commit added and deleted", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const stat = (summary: string) =>
+      page
+        .getByTestId("commit-row")
+        .filter({ has: page.locator(".commit-summary", { hasText: summary }) })
+        .getByTestId("commit-stat");
+    // Counted after the view answers, then filled in (ADR 0041).
+    await expect(stat("main-2")).toHaveText("+2 −0");
+    await expect(stat("root")).toHaveText("+1 −0");
+    // A merge counts against its first parent: the empty feature-1 brought
+    // nothing in.
+    await expect(stat("merge feature")).toHaveText("+0 −0");
+    await expect(stat("main-2")).toHaveAttribute(
+      "title",
+      "Lines added: 2, deleted: 0",
+    );
+  });
+
   test("a node's tooltip outlasts a reload that keeps the node", async ({
     page,
   }) => {
@@ -739,8 +760,8 @@ test.describe.serial("gitreant UI", () => {
     await expect(tip).toBeVisible();
     const label = await tip.textContent();
 
-    // A reload the pointer did not cause, as a batch of verdicts
-    // arriving brings (ADR 0037).
+    // A reload the pointer did not cause, as a batch of counts or
+    // verdicts arriving brings (ADR 0037, ADR 0041).
     const reread = page.waitForResponse((r) => r.url().endsWith("/api/view"));
     await page.request.post("/api/refresh");
     await reread;

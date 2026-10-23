@@ -8,11 +8,24 @@ use std::sync::Mutex;
 use serde::Serialize;
 
 use crate::git::{
-    discover_repo, gpg_available, read_repo_with_progress, uncommitted_paths, verification_state,
-    verify_command, verify_signatures, RepoData, SignatureCheck,
+    count_command, count_lines, discover_repo, gpg_available, read_repo_with_progress,
+    uncommitted_paths, verification_state, verify_command, verify_signatures, LineCount, RepoData,
+    SignatureCheck,
 };
 
-use super::view::{build_view, RepoView};
+use super::view::{build_view, CommitStat, RepoView};
+
+/// A commit to count, with its first parent (none for a root commit).
+pub type CountTarget = (String, Option<String>);
+
+/// What a view read left for the background to finish, in display order.
+#[derive(Debug, Default, PartialEq)]
+pub struct Pending {
+    /// Signed commits with no verdict yet (ADR 0037).
+    pub signatures: Vec<String>,
+    /// Commits not counted yet (ADR 0041).
+    pub counts: Vec<CountTarget>,
+}
 
 /// An external command a signature check ran, so the server can log it.
 #[derive(Debug, Clone)]
@@ -78,6 +91,9 @@ pub struct Session {
     /// Bumped whenever the cache is cleared, so a check that started
     /// before cannot store verdicts from the old keyring.
     verify_generation: u64,
+    /// Lines added and deleted per commit id, or none when the commit
+    /// could not be counted. A commit never changes, so neither does this.
+    line_counts: HashMap<String, Option<LineCount>>,
 }
 
 impl Session {
@@ -165,13 +181,23 @@ impl Session {
         }
         true
     }
+
+    /// Keep the counts a batch found for `ids`; an id it found nothing for
+    /// is settled as uncountable, so a failing count is not retried (and
+    /// re-announced) on every read.
+    pub fn store_counts(&mut self, ids: &[String], mut counts: HashMap<String, LineCount>) {
+        for id in ids {
+            self.line_counts.insert(id.clone(), counts.remove(id));
+        }
+    }
 }
 
 /// Read one repository and build its view, reporting the running commit
 /// count while the walk proceeds. Signatures are not checked here
 /// (ADR 0037): the view carries the verdicts already cached, and the signed
 /// commits still to check come back, in display order, for
-/// [`verify_batch`].
+/// [`verify_batch`]; so do the commits still to count, for
+/// [`count_batch`] (ADR 0041).
 ///
 /// The session is locked only around its shared caches — never across the
 /// repository read — so commit-detail and diff requests stay responsive
@@ -180,7 +206,7 @@ pub fn read_view(
     session: &Mutex<Session>,
     path: &Path,
     on_commits: impl FnMut(usize),
-) -> (RepoView, Vec<String>) {
+) -> (RepoView, Pending) {
     read_view_with(session, path, gpg_available(), on_commits)
 }
 
@@ -191,7 +217,7 @@ fn read_view_with(
     path: &Path,
     can_verify: bool,
     mut on_commits: impl FnMut(usize),
-) -> (RepoView, Vec<String>) {
+) -> (RepoView, Pending) {
     // Forward the walk's running count sparsely: the server throttles by
     // time on top, this only bounds the callback overhead. 64 is
     // fine-grained enough that even a medium repository surfaces a moving
@@ -204,19 +230,37 @@ fn read_view_with(
     match walked {
         Ok(mut data) => {
             on_commits(data.commits.len());
-            let pending = stamp_verdicts(session, &mut data, can_verify);
+            let signatures = stamp_verdicts(session, &mut data, can_verify);
             // Whatever the working tree holds against HEAD rides above it
             // as one synthetic row; the count is all the view needs.
             let uncommitted = uncommitted_paths(path).len();
             let mut view = build_view(path, &data, uncommitted);
-            let waiting: HashSet<&str> = pending.iter().map(String::as_str).collect();
+            let waiting: HashSet<&str> = signatures.iter().map(String::as_str).collect();
             for commit in &mut view.commits {
                 commit.verifying = waiting.contains(commit.id.as_str());
             }
-            (view, pending)
+            let counts = stamp_counts(session, &mut view);
+            (view, Pending { signatures, counts })
         }
-        Err(message) => (RepoView::error(path, message), Vec::new()),
+        Err(message) => (RepoView::error(path, message), Pending::default()),
     }
+}
+
+/// Stamp every commit with its known count and return the commits with
+/// none yet, with their first parents, in display order. The uncommitted
+/// row is no commit and is never counted.
+fn stamp_counts(session: &Mutex<Session>, view: &mut RepoView) -> Vec<CountTarget> {
+    let session = session.lock().expect("session mutex");
+    let mut pending = Vec::new();
+    for commit in view.commits.iter_mut().filter(|c| c.uncommitted.is_none()) {
+        match session.line_counts.get(&commit.id) {
+            Some(count) => {
+                commit.stat = count.map(|(added, deleted)| CommitStat { added, deleted });
+            }
+            None => pending.push((commit.id.clone(), commit.parents.first().cloned())),
+        }
+    }
+    pending
 }
 
 /// Stamp every signed commit with its cached verdict and return the signed
@@ -255,6 +299,30 @@ pub fn verify_batch(session: &Mutex<Session>, path: &Path, ids: &[String]) -> Ex
     ExecutedCommand {
         repo: path.to_string_lossy().into_owned(),
         command: verify_command(path, ids),
+        ok,
+        message,
+    }
+}
+
+/// Count the lines `commits` added and deleted via the git CLI (ADR 0041)
+/// and keep the counts. Returns the command, for the server's command log.
+pub fn count_batch(
+    session: &Mutex<Session>,
+    path: &Path,
+    commits: &[CountTarget],
+) -> ExecutedCommand {
+    let (counts, ok, message) = match count_lines(path, commits) {
+        Ok(counts) => (counts, true, String::new()),
+        Err(message) => (HashMap::new(), false, message),
+    };
+    let ids: Vec<String> = commits.iter().map(|(id, _)| id.clone()).collect();
+    session
+        .lock()
+        .expect("session mutex")
+        .store_counts(&ids, counts);
+    ExecutedCommand {
+        repo: path.to_string_lossy().into_owned(),
+        command: count_command(path, commits.len()),
         ok,
         message,
     }
@@ -359,7 +427,7 @@ mod tests {
         let (view, pending) = read_view(&Mutex::new(session), &path, |_| {});
         assert!(view.error.is_none());
         assert_eq!(view.commits.len(), 0);
-        assert!(pending.is_empty());
+        assert_eq!(pending, Pending::default());
     }
 
     /// A repository with an unsigned root and a tip carrying a gpgsig header
@@ -440,7 +508,7 @@ mod tests {
         let session = Mutex::new(Session::new());
 
         let (view, pending) = read_view_with(&session, &path, true, |_| {});
-        assert_eq!(pending, vec![tip.clone()]);
+        assert_eq!(pending.signatures, vec![tip.clone()]);
         let verifying =
             |view: &RepoView, id: &str| view.commits.iter().find(|c| c.id == id).unwrap().verifying;
         assert!(verifying(&view, &tip));
@@ -448,8 +516,63 @@ mod tests {
 
         // Without gpg nothing can be checked, so nothing waits.
         let (view, pending) = read_view_with(&session, &path, false, |_| {});
-        assert!(pending.is_empty());
+        assert!(pending.signatures.is_empty());
         assert!(!verifying(&view, &tip));
+    }
+
+    #[test]
+    fn a_read_leaves_uncounted_commits_pending_until_a_batch_counts_them() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (path, tip) = fake_signed_repo(tmp.path());
+        let session = Mutex::new(Session::new());
+
+        let (view, pending) = read_view_with(&session, &path, false, |_| {});
+        let base = view
+            .commits
+            .iter()
+            .find(|c| c.id != tip)
+            .unwrap()
+            .id
+            .clone();
+        assert_eq!(
+            pending.counts,
+            vec![(tip.clone(), Some(base.clone())), (base.clone(), None)]
+        );
+        assert!(view.commits.iter().all(|c| c.stat.is_none()));
+
+        let executed = count_batch(&session, &path, &pending.counts);
+        assert!(executed.ok, "{}", executed.message);
+        assert!(executed.command.contains("diff-tree"));
+        let (view, pending) = read_view_with(&session, &path, false, |_| {});
+        assert!(pending.counts.is_empty());
+        let stat = view.commits.iter().find(|c| c.id == tip).unwrap().stat;
+        assert_eq!(
+            stat,
+            Some(CommitStat {
+                added: 0,
+                deleted: 0
+            })
+        );
+    }
+
+    #[test]
+    fn a_count_that_fails_is_not_tried_again() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (path, tip) = fake_signed_repo(tmp.path());
+        let session = Mutex::new(Session::new());
+        let missing = tmp.path().join("missing");
+
+        let executed = count_batch(&session, &missing, &[(tip.clone(), None)]);
+        assert!(!executed.ok);
+        let (view, pending) = read_view_with(&session, &path, false, |_| {});
+        assert!(!pending.counts.iter().any(|(id, _)| id == &tip));
+        assert!(view
+            .commits
+            .iter()
+            .find(|c| c.id == tip)
+            .unwrap()
+            .stat
+            .is_none());
     }
 
     #[test]
@@ -465,7 +588,7 @@ mod tests {
         }
 
         let (view, pending) = read_view_with(&session, &path, true, |_| {});
-        assert!(pending.is_empty());
+        assert!(pending.signatures.is_empty());
         let commit = view.commits.iter().find(|c| c.id == tip).unwrap();
         assert_eq!(commit.verified, Some(true));
         assert_eq!(commit.signature_key.as_deref(), Some("ABCD1234"));
@@ -603,12 +726,12 @@ mod tests {
         assert_eq!(view.commits[0].signature.as_deref(), Some("openpgp"));
         assert_eq!(view.commits[0].verified, None);
         assert!(view.commits[0].verifying);
-        let executed = verify_batch(&session, &path, &pending);
+        let executed = verify_batch(&session, &path, &pending.signatures);
         assert!(executed.command.contains("%H %G?"));
         assert!(executed.ok);
 
         let (view, pending) = read_view(&session, &path, |_| {});
-        assert!(pending.is_empty());
+        assert!(pending.signatures.is_empty());
         assert!(!view.commits[0].verifying);
         assert_eq!(view.commits[0].verified, Some(true));
         let key = view.commits[0].signature_key.as_deref().unwrap_or("");

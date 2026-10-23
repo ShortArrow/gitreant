@@ -17,6 +17,9 @@ export interface CommitView {
   /** A signed commit whose signature the server is still checking
    *  (ADR 0037); a `verified` event announces the verdicts. */
   verifying?: boolean;
+  /** Lines added and deleted against the first parent (ADR 0041); absent
+   *  until a `counted` event announces them. */
+  stat?: { added: number; deleted: number };
   /** A `git stash` entry; its color is its own, not the line below it. */
   stash?: boolean;
   /** A stash's index/untracked helper commit; hidden unless the stash

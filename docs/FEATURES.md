@@ -58,6 +58,9 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   pane.
 - **Author avatars.** Rows show the author's GitHub avatar; a setting hides
   them.
+- **Lines added and deleted.** Each row shows `+N −M`, the lines its commit
+  added and deleted against its first parent. The counts fill in after the
+  graph shows.
 
 ## Commit details and diffs
 

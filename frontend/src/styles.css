@@ -1032,6 +1032,20 @@ body {
   color: var(--warning, #d29922);
 }
 
+/* A commit's lines added and deleted (ADR 0041). */
+.commit-stat {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.commit-stat .stat-added {
+  color: var(--success);
+}
+
+.commit-stat .stat-deleted {
+  color: var(--danger);
+}
+
 .commit-meta {
   margin-left: auto;
   color: var(--muted);

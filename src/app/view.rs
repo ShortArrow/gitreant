@@ -38,6 +38,10 @@ pub struct CommitView {
     /// A signed commit whose signature is still being checked (ADR 0037).
     #[serde(skip_serializing_if = "is_false")]
     pub verifying: bool,
+    /// Lines added and deleted against the first parent (ADR 0041); absent
+    /// until counted, and on a commit that could not be counted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stat: Option<CommitStat>,
     /// A `git stash` entry, drawn apart from the commits of a branch.
     #[serde(skip_serializing_if = "is_false")]
     pub stash: bool,
@@ -49,6 +53,13 @@ pub struct CommitView {
     /// working tree changed. Absent on every real commit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uncommitted: Option<usize>,
+}
+
+/// Lines a commit added and deleted against its first parent (ADR 0041).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct CommitStat {
+    pub added: u64,
+    pub deleted: u64,
 }
 
 fn is_false(b: &bool) -> bool {
@@ -288,6 +299,7 @@ pub fn build_view(id: &Path, data: &RepoData, uncommitted: usize) -> RepoView {
             verified: None,
             signature_key: None,
             verifying: false,
+            stat: None,
             stash: false,
             stash_internal: false,
             uncommitted: Some(uncommitted),
@@ -310,6 +322,7 @@ pub fn build_view(id: &Path, data: &RepoData, uncommitted: usize) -> RepoView {
         verified: meta.verified,
         signature_key: meta.signature_key.clone(),
         verifying: false,
+        stat: None,
         stash: node.stash,
         stash_internal: node.stash_internal,
         uncommitted: None,

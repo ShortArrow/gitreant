@@ -563,7 +563,7 @@ export function RepoCard({
   // A reload can unmount the hovered node or badge before the pointer
   // leaves it, and then no mouseleave fires: the tooltip and focus go with
   // the old view. A node the reload keeps keeps them, since batches of
-  // verdicts reload the view under a still pointer (ADR 0037).
+  // verdicts and counts reload the view under a still pointer (ADR 0041).
   useEffect(() => {
     const kept = new Set(view.commits.map((c) => c.id));
     setHoverNode((hover) =>
@@ -1196,6 +1196,19 @@ export function RepoCard({
                   {commit.summary}
                 </span>
                 <span className="commit-meta">
+                  {commit.stat && (
+                    <span
+                      className="commit-stat"
+                      data-testid="commit-stat"
+                      title={t("lineStat", {
+                        added: commit.stat.added,
+                        deleted: commit.stat.deleted,
+                      })}
+                    >
+                      <span className="stat-added">+{commit.stat.added}</span>{" "}
+                      <span className="stat-deleted">−{commit.stat.deleted}</span>
+                    </span>
+                  )}
                   {commit.signature &&
                     (() => {
                       const badge = signatureBadge(commit.verified, commit.verifying);

@@ -1519,6 +1519,80 @@ async fn signatures_are_checked_after_the_view_answers() {
     assert!(!second.contains("\"verifying\""), "{second}");
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn line_counts_arrive_after_the_view_answers() {
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+    std::fs::write(tmp.path().join("a.txt"), "one\ntwo\n").unwrap();
+    let git = |args: &[&str]| {
+        let status = Command::new("git")
+            .current_dir(tmp.path())
+            .args(args)
+            .status()
+            .unwrap();
+        assert!(status.success(), "git {args:?} failed");
+    };
+    git(&["add", "a.txt"]);
+    git(&["commit", "-q", "-m", "add a"]);
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    let mut session = Session::new();
+    session.add(tmp.path()).unwrap();
+    tokio::spawn(async move {
+        serve(listener, AppState::new(session)).await.unwrap();
+    });
+    let (first, stream_text, second, log) = tokio::task::spawn_blocking(move || {
+        assert!((0..50).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            ping(port)
+        }));
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_millis(200)))
+            .unwrap();
+        write!(
+            stream,
+            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/event-stream\r\n\r\n"
+        )
+        .unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        let first = http_first_view(port);
+
+        let mut buf = Vec::new();
+        let mut chunk = [0u8; 4096];
+        let start = std::time::Instant::now();
+        while start.elapsed() < std::time::Duration::from_secs(20) {
+            match stream.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                Err(_) => {}
+            }
+            if String::from_utf8_lossy(&buf).contains("event: counted") {
+                break;
+            }
+        }
+        let second = http_first_view(port);
+        let log = http_get(port, "/api/log");
+        (
+            first,
+            String::from_utf8_lossy(&buf).into_owned(),
+            second,
+            log,
+        )
+    })
+    .await
+    .unwrap();
+
+    assert!(!first.contains("\"stat\""), "{first}");
+    assert!(stream_text.contains("event: counted"), "{stream_text:?}");
+    assert!(
+        second.contains("\"stat\":{\"added\":2,\"deleted\":0}"),
+        "{second}"
+    );
+    assert!(log.contains("diff-tree --stdin"), "{log}");
+}
+
 /// Send `head` (request line and headers, no blank line) with an empty
 /// body and return the raw response.
 fn http_raw(port: u16, head: &str) -> String {

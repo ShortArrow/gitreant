@@ -4,6 +4,7 @@
 mod avatar;
 mod branch;
 mod detail;
+mod diffstat;
 mod diff_attributes;
 mod fetch;
 mod prs;
@@ -40,6 +41,7 @@ pub use uncommitted::{
     read_uncommitted, read_uncommitted_diff, read_uncommitted_diffs, uncommitted_paths,
     UncommittedPath, UNCOMMITTED_ID,
 };
+pub use diffstat::{count_command, count_lines, LineCount};
 pub use verify::{
     gpg_available, verification_state, verify_command, verify_signatures, SignatureCheck,
 };

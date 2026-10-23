@@ -178,6 +178,10 @@ export function App() {
     events.addEventListener("verified", (e) => {
       loadView((e as MessageEvent<string>).data, fetchSeq.current);
     });
+    // A batch of commits was counted (ADR 0041), likewise.
+    events.addEventListener("counted", (e) => {
+      loadView((e as MessageEvent<string>).data, fetchSeq.current);
+    });
     // Routine reads finish in milliseconds; a read only surfaces after
     // 300ms so the indicator never flickers. Parallel reads each keep
     // their own counter and reveal timer, keyed by repository id.

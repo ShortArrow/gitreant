@@ -70,14 +70,17 @@ enum ServerEvent {
     /// A batch of this repository's signatures was checked (ADR 0037);
     /// clients read its view again.
     Verified(String),
+    /// A batch of this repository's commits was counted (ADR 0041);
+    /// clients read its view again.
+    Counted(String),
 }
 
 /// How often per-repository read progress is streamed at most.
 const ANALYZE_THROTTLE: Duration = Duration::from_millis(200);
 
-/// How many signatures one background check covers before the clients hear
-/// about it (ADR 0037).
-const VERIFY_BATCH: usize = 256;
+/// How many commits one background check or count covers before the
+/// clients hear about it (ADR 0037, ADR 0041).
+const BACKGROUND_BATCH: usize = 256;
 
 /// Shared, cloneable server state.
 #[derive(Clone)]
@@ -103,6 +106,8 @@ pub struct AppState {
     avatar_started: Arc<Mutex<std::collections::HashSet<String>>>,
     /// Repositories whose signatures a background check is going through.
     verifying: Arc<Mutex<std::collections::HashSet<String>>>,
+    /// Repositories whose commits a background count is going through.
+    counting: Arc<Mutex<std::collections::HashSet<String>>>,
 }
 
 impl AppState {
@@ -120,31 +125,37 @@ impl AppState {
             avatars: Arc::new(Mutex::new(HashMap::new())),
             avatar_started: Arc::new(Mutex::new(std::collections::HashSet::new())),
             verifying: Arc::new(Mutex::new(std::collections::HashSet::new())),
+            counting: Arc::new(Mutex::new(std::collections::HashSet::new())),
         }
     }
 
-    /// Check `pending` signatures of the repository at `path` in the
-    /// background, a batch at a time, unless a check of it already runs
-    /// (ADR 0037). Each batch is logged and announced; the run leaves the
-    /// running set before its last announcement, so the read that follows
-    /// starts a new run for any commit it did not cover.
-    fn ensure_verified(&self, id: String, path: PathBuf, pending: Vec<String>) {
+    /// Work through what a read of the repository at `path` left
+    /// `pending` in the background, a batch at a time with `run`, unless a
+    /// run of the same kind (`running`) already goes through it (ADR 0037,
+    /// ADR 0041). Each batch is logged and announced with `event`; the run
+    /// leaves the running set before its last announcement, so the read
+    /// that follows starts a new run for anything it did not cover.
+    fn ensure_background<T: Send + 'static>(
+        &self,
+        running: &Arc<Mutex<std::collections::HashSet<String>>>,
+        id: String,
+        path: PathBuf,
+        pending: Vec<T>,
+        run: fn(&Mutex<Session>, &std::path::Path, &[T]) -> crate::app::ExecutedCommand,
+        event: fn(String) -> ServerEvent,
+    ) {
         if pending.is_empty() {
             return;
         }
-        if !self
-            .verifying
-            .lock()
-            .expect("verifying mutex")
-            .insert(id.clone())
-        {
+        if !running.lock().expect("running mutex").insert(id.clone()) {
             return;
         }
         let state = self.clone();
+        let running = running.clone();
         std::thread::spawn(move || {
-            let batches: Vec<&[String]> = pending.chunks(VERIFY_BATCH).collect();
+            let batches: Vec<&[T]> = pending.chunks(BACKGROUND_BATCH).collect();
             for (index, batch) in batches.iter().enumerate() {
-                let command = crate::app::verify_batch(&state.session, &path, batch);
+                let command = run(&state.session, &path, batch);
                 state.push_log(CommandLogEntry {
                     time: epoch_now(),
                     repo: command.repo,
@@ -153,9 +164,9 @@ impl AppState {
                     message: command.message,
                 });
                 if index + 1 == batches.len() {
-                    state.verifying.lock().expect("verifying mutex").remove(&id);
+                    running.lock().expect("running mutex").remove(&id);
                 }
-                let _ = state.updates.send(ServerEvent::Verified(id.clone()));
+                let _ = state.updates.send(event(id.clone()));
             }
         });
     }
@@ -304,7 +315,22 @@ impl AppState {
             }));
         }
         let _ = self.updates.send(ServerEvent::Analyzed(id.clone()));
-        self.ensure_verified(id, path.to_path_buf(), pending);
+        self.ensure_background(
+            &self.verifying,
+            id.clone(),
+            path.to_path_buf(),
+            pending.signatures,
+            crate::app::verify_batch,
+            ServerEvent::Verified,
+        );
+        self.ensure_background(
+            &self.counting,
+            id,
+            path.to_path_buf(),
+            pending.counts,
+            crate::app::count_batch,
+            ServerEvent::Counted,
+        );
         {
             let remote_tags = self.remote_tags.lock().expect("remote tags mutex");
             if let Some(tag_remotes) = remote_tags.get(&view.id) {
@@ -1373,6 +1399,7 @@ async fn events(
                 .data(serde_json::to_string(&progress).unwrap_or_default()),
             Ok(ServerEvent::Analyzed(id)) => Event::default().event("analyzed").data(id),
             Ok(ServerEvent::Verified(id)) => Event::default().event("verified").data(id),
+            Ok(ServerEvent::Counted(id)) => Event::default().event("counted").data(id),
         })
     });
     Sse::new(stream).keep_alive(KeepAlive::default())
