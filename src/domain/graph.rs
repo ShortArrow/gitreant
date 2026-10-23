@@ -220,7 +220,8 @@ impl LayoutState {
     /// The column this commit occupies. An unreserved commit is a branch tip
     /// (or unreferenced): it adopts an open pre-reserved column when its
     /// first parent is that column's pending commit, otherwise it gets a
-    /// fresh column + color.
+    /// fresh column + color, right of the column its first parent already
+    /// waits in, so the branch forks to the right of the one it grew from.
     fn lane_for(&mut self, id: &str, first_parent: Option<&str>) -> usize {
         if let Some(idx) = self.find(id) {
             if self.adoptable == Some(idx) {
@@ -237,7 +238,8 @@ impl LayoutState {
                 return idx;
             }
         }
-        let idx = self.alloc_after(None);
+        let parent_lane = first_parent.and_then(|parent| self.find(parent));
+        let idx = self.alloc_after(parent_lane);
         self.colors[idx] = Some(self.pick_color(idx));
         self.lanes[idx] = Some(id.to_string());
         idx
@@ -506,6 +508,41 @@ mod tests {
             .find(|e| e.from == "A" && e.to == "C")
             .unwrap();
         assert!(merge_edge.to_lane > merge_edge.from_lane);
+    }
+
+    #[test]
+    fn a_tip_takes_a_lane_right_of_its_parents_lane() {
+        // A frees lane 1 when S1 is placed. T's parent P1 already waits in
+        // lane 2; reusing the freed lane 1 would draw T forking to the LEFT
+        // of the branch it grew from.
+        //   H  [S1]   (HEAD)
+        //   A  [S1]   (holds lane 1 down to S1)
+        //   P  [P1]   (lane 2)
+        //   S1 [S2]
+        //   T  [P1]   (must go right of lane 2, not into lane 1)
+        //   P1 [S2]
+        //   S2 []
+        let g = layout(
+            &[
+                ci("H", &["S1"]),
+                ci("A", &["S1"]),
+                ci("P", &["P1"]),
+                ci("S1", &["S2"]),
+                ci("T", &["P1"]),
+                ci("P1", &["S2"]),
+                ci("S2", &[]),
+            ],
+            Some("H"),
+        );
+
+        let lane_of = |id: &str| g.nodes.iter().find(|n| n.id == id).unwrap().lane;
+        assert_eq!(lane_of("P1"), 2);
+        assert!(
+            lane_of("T") > lane_of("P1"),
+            "tip went left of its parent: T={} P1={}",
+            lane_of("T"),
+            lane_of("P1")
+        );
     }
 
     #[test]

@@ -63,6 +63,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Line counts and signature verdicts no longer go missing when they are
   announced before the page listens for them, or when an older read of the
   view answers after a newer one.
+- A branch that grows from a line other than the checked-out one forks to
+  the right of that line instead of the left
+  ([ADR 0020](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0020-lane-principles.md)).
 
 ### Security
 

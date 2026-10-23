@@ -15,7 +15,7 @@ commit.
 
 ## Decision
 
-Add the following two principles to the domain layout (`layout`
+Add the following three principles to the domain layout (`layout`
 receives `head`).
 
 1. **Pinned spine**: HEAD's first-parent chain (the spine) reserves
@@ -26,6 +26,10 @@ receives `head`).
    (second parent onward) is assigned the lowest free lane to the
    right of the merge commit's lane. Free-lane reuse happens only
    within the same direction, never flowing back to the left.
+3. **Tips fork to the right**: a branch tip whose first parent already
+   waits in a lane takes the lowest free lane to the right of that lane,
+   so a branch growing from a line other than the spine also forks to
+   its right.
 
 Fork (fork-convergence) routing is unchanged, but because the above
 places branches to the right of their base, the picture settles into
