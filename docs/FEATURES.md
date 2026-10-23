@@ -61,13 +61,10 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 - **Lines added and deleted.** Each row shows `+N −M`, the lines its commit
   added and deleted against its first parent. The counts fill in after the
   graph shows.
-- **Terrain mode.** A button in the pane's header shows the graph as
-  terrain, tilted back, with each commit raised by the lines it added and
-  sunk by the lines it deleted, on a logarithmic scale. It opens fitted to
-  the pane. Dragging or the arrow keys turn it, about the commit or the
-  point the drag began on; a right or Shift drag moves it, the wheel or
-  `+` / `-` zoom it, `0` resets it, and hovering a commit names it with its
-  counts.
+- **Thickness.** The graph gives each counted commit a see-through
+  thickness, green up and to the left by the lines it added and red down
+  and to the right by the lines it deleted, on a logarithmic scale; the
+  edges between commits carry it as fins. A graph setting turns it off.
 
 ## Commit details and diffs
 

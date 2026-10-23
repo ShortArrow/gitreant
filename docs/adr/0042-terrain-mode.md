@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-10-23)
+Superseded by [ADR 0044](0044-graph-thickness.md) (2026-10-23).
 
 ## Context
 

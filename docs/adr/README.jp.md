@@ -45,4 +45,5 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0039](0039-server-records.jp.md) | 動いているサーバを記録し、CLI から見つけられるようにする | Accepted |
 | [0040](0040-lane-colors-by-what-is-in-use.jp.md) | 列の色を、使用中の列を見て選ぶ | Accepted |
 | [0041](0041-diff-stats-per-commit.jp.md) | 各コミットが加えた行数と削った行数を表示する | Accepted |
-| [0042](0042-terrain-mode.jp.md) | 加えた行と削った行で起伏をつけて、履歴を地形として見せる | Accepted |
+| [0042](0042-terrain-mode.jp.md) | 加えた行と削った行で起伏をつけて、履歴を地形として見せる | 0044 に置き換え |
+| [0044](0044-graph-thickness.jp.md) | 行の表示のグラフに、各コミットが変えた行数の厚みをつける | Accepted |

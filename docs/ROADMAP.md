@@ -122,9 +122,13 @@ keyed off the remote URL's host.
 
 ## Graph / UI
 
+- **Tilt the thickness** — dragging the graph's background turns the
+  direction a commit's thickness
+  ([ADR 0044](adr/0044-graph-thickness.md)) extrudes in, and its depth, down
+  to none when seen from straight above; the rows stay where they are
 - **Cumulative chart** — the lines added and deleted summed over time, as
-  another view of the counts beside the terrain mode
-  ([ADR 0042](adr/0042-terrain-mode.md))
+  another view of the counts beside the graph's thickness
+  ([ADR 0044](adr/0044-graph-thickness.md))
 - **Line-count bars** — a setting that draws a row's `+N −M` as horizontal
   bars, added and deleted, instead of numbers
 - **Calendar** — a calendar of the history, with a bubble on each day

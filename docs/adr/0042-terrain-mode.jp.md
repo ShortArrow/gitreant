@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-10-23)
+[ADR 0044](0044-graph-thickness.jp.md) に置き換えられた（2026-10-23）。
 
 ## Context
 
