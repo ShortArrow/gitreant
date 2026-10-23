@@ -26,6 +26,7 @@ const fixtures = JSON.parse(
   repoQ: string;
   repoQWorktree: string;
   repoR: string;
+  repoS: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -2071,6 +2072,38 @@ test.describe.serial("gitreant UI", () => {
     await subRow.hover();
     await subRow.getByTestId("repo-remove").click();
     await expect(subRow).toHaveCount(0);
+  });
+
+  test("a submodule two levels down opens from its region and stays open", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoS);
+    await page.getByTestId("add-submit").click();
+    await page.locator('[data-repo-name="repoS"]').click();
+    await expect(page.getByTestId("submodule-node")).toHaveCount(1);
+
+    const node = (await page.getByTestId("submodule-node").boundingBox())!;
+    const region = (await page.getByTestId("submodule-region-hit").boundingBox())!;
+    await page.mouse.click(region.x + 3, node.y + node.height + 10, {
+      button: "right",
+    });
+    await page.getByTestId("region-open").click();
+    const tab = page.locator('[data-tab-name="deep"]');
+    await expect(tab).toHaveClass(/\bactive\b/);
+    // The tab names a repository the server shows, so it stays.
+    await page.waitForTimeout(500);
+    await expect(tab).toHaveClass(/\bactive\b/);
+    await expect(page.getByTestId("pane-empty")).toHaveCount(0);
+
+    // Restore the served set.
+    const repoS = page.locator('[data-repo-name="repoS"]');
+    await repoS.hover();
+    await repoS.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoS"]')).toHaveCount(0);
+    const deepRow = page.locator('[data-testid="repo-item"][data-repo-name="deep"]');
+    await deepRow.hover();
+    await deepRow.getByTestId("repo-remove").click();
+    await expect(deepRow).toHaveCount(0);
   });
 
   test("a submodule graph collapses to a strip and stays collapsed", async ({

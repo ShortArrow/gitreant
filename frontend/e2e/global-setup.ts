@@ -391,6 +391,25 @@ function makeRepoR(): string {
   return dir; // 2 commits, text.txt converted in the working tree
 }
 
+/** repoS: a superproject whose submodule sits two levels down, so
+ * `.gitmodules` names its path with a `/`. */
+function makeRepoS(): string {
+  const child = initRepo("repoS-deep");
+  commit(child, "deep-1", 1_700_000_000);
+  const parent = initRepo("repoS");
+  commit(parent, "s-1", 1_700_000_000);
+  git(parent, [
+    "-c",
+    "protocol.file.allow=always",
+    "submodule",
+    "add",
+    "../repoS-deep",
+    "libs/deep",
+  ]);
+  commit(parent, "add submodule", 1_700_000_010);
+  return parent;
+}
+
 /** Set by makeRepoI; the teardown must talk to the same gpg installation. */
 let gpgconfBin = "gpgconf";
 
@@ -419,6 +438,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoP = makeRepoP();
   const repoQ = makeRepoQ();
   const repoR = makeRepoR();
+  const repoS = makeRepoS();
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
@@ -447,6 +467,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoQ: repoQ.main,
         repoQWorktree: repoQ.worktree,
         repoR,
+        repoS,
       },
       null,
       2,
