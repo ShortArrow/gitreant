@@ -122,15 +122,9 @@ keyed off the remote URL's host.
 
 ## Graph / UI
 
-- **Terrain mode** — tilt the graph and raise each commit by the lines it
-  added (up) and deleted (down), from the counts of
-  [ADR 0041](adr/0041-diff-stats-per-commit.md). Tilted by dragging, with
-  keys to tilt and reset, and still under `prefers-reduced-motion`. It is a
-  mode of its own, since a tilted graph no longer lines up with the rows.
-  Heights need a logarithmic scale, as one-line fixes and lockfile
-  rewrites share a history
-- **Cumulative chart** — the lines added and deleted summed over time,
-  after the terrain mode
+- **Cumulative chart** — the lines added and deleted summed over time, as
+  another view of the counts beside the terrain mode
+  ([ADR 0042](adr/0042-terrain-mode.md))
 - **Line-count bars** — a setting that draws a row's `+N −M` as horizontal
   bars, added and deleted, instead of numbers
 - **Calendar** — a calendar of the history, with a bubble on each day

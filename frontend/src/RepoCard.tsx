@@ -42,8 +42,11 @@ import {
   PrLinkIcon,
   StashBadgeIcon,
   TagBadgeIcon,
+  TerrainIcon,
   WorktreeIcon,
 } from "./Icons";
+import { LabeledButton } from "./LabeledButton";
+import { Terrain } from "./Terrain";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
 import { format, MESSAGES } from "./i18n";
 import { useCommands, type PaletteCommand } from "./palette";
@@ -419,6 +422,8 @@ export function RepoCard({
   };
   useEffect(maybeLoadMore);
 
+  // The terrain mode (ADR 0042) takes the place of the graph and its rows.
+  const [terrain, setTerrain] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   // Clicking a row or its graph node toggles the detail panel for it.
   const toggleSelected = (id: string) => {
@@ -516,10 +521,10 @@ export function RepoCard({
 
   // The focused pane's graph takes the selection keys (ADR 0035) while the
   // graph is shown and nothing else has the keyboard: no text field, no
-  // menu, no dialog or palette.
+  // menu, no dialog or palette. The terrain has no rows to select.
   const vimKeys = useVimKeys();
   useEffect(() => {
-    if (!focused || diffTarget !== null) return;
+    if (!focused || diffTarget !== null || terrain) return;
     let previous: string | null = null;
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -550,7 +555,7 @@ export function RepoCard({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focused, diffTarget, vimKeys, selected, view.commits]);
+  }, [focused, diffTarget, terrain, vimKeys, selected, view.commits]);
 
   // A reload can drop the selected row (the tree became clean, or the
   // history was rewritten): nothing may keep showing a commit that is gone.
@@ -677,6 +682,14 @@ export function RepoCard({
         <span className="repo-count">
           {t("commitsCount", { n: repo.total })}
         </span>
+        <LabeledButton
+          icon={<TerrainIcon />}
+          label={t("terrain")}
+          testId="terrain-toggle"
+          className="terrain-toggle"
+          active={terrain}
+          onClick={() => setTerrain((on) => !on)}
+        />
       </header>
 
       {opError && (
@@ -815,6 +828,10 @@ export function RepoCard({
         ref={scrollRef}
         onScroll={maybeLoadMore}
       >
+        {terrain ? (
+          <Terrain commits={view.commits} edges={view.edges} />
+        ) : (
+        <>
         <svg
           className="graph"
           data-testid="graph"
@@ -1253,6 +1270,8 @@ export function RepoCard({
             );
           })}
         </ul>
+        </>
+        )}
       </div>
       )}
 

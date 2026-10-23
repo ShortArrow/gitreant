@@ -157,6 +157,9 @@ const en = {
   filesCount: "{n} files",
   fileCount: "{n} file",
   lineStat: "Lines added: {added}, deleted: {deleted}",
+  terrain: "Terrain",
+  terrainLabel:
+    "Terrain of the lines each commit added and deleted. Drag or use the arrow keys to turn it; 0 resets it.",
   diffAll: "Diff all",
   diffAllTitle: "Show every file's diff",
   flat: "Flat",
@@ -329,6 +332,9 @@ const ja: Record<MsgKey, string> = {
   filesCount: "{n} ファイル",
   fileCount: "{n} ファイル",
   lineStat: "追加 {added} 行、削除 {deleted} 行",
+  terrain: "地形",
+  terrainLabel:
+    "各コミットが加えた行と削った行の地形。ドラッグか矢印キーで回し、0 で元に戻す。",
   diffAll: "全差分",
   diffAllTitle: "全ファイルの差分を表示",
   flat: "フラット",

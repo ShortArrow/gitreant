@@ -1048,6 +1048,36 @@ body {
   color: var(--danger);
 }
 
+.repo-header .terrain-toggle {
+  margin-left: auto;
+  align-self: center;
+}
+
+.terrain {
+  flex: none;
+  display: block;
+  cursor: grab;
+  /* Dragging turns the terrain instead of scrolling the pane. */
+  touch-action: none;
+}
+
+.terrain:active {
+  cursor: grabbing;
+}
+
+.terrain-pillar {
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.terrain-up {
+  stroke: var(--success);
+}
+
+.terrain-down {
+  stroke: var(--danger);
+}
+
 .commit-meta {
   margin-left: auto;
   color: var(--muted);

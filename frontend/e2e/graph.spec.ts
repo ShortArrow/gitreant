@@ -750,6 +750,71 @@ test.describe.serial("gitreant UI", () => {
     );
   });
 
+  test("the terrain raises each commit by the lines it added", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const rows = page.getByTestId("commit-row");
+    await expect(
+      rows
+        .filter({ has: page.locator(".commit-summary", { hasText: "main-2" }) })
+        .getByTestId("commit-stat"),
+    ).toHaveText("+2 −0");
+    const commits = await rows.count();
+
+    const toggle = page.getByTestId("terrain-toggle");
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    // A mode of its own: the rows give way to the terrain (ADR 0042).
+    await expect(rows).toHaveCount(0);
+    await expect(page.getByTestId("terrain-node")).toHaveCount(commits);
+    // A commit that added nothing, like the merge of an empty branch,
+    // stands no pillar up.
+    const ups = await page.getByTestId("terrain-up").count();
+    expect(ups).toBeGreaterThan(0);
+    expect(ups).toBeLessThan(commits);
+
+    await page
+      .getByTestId("terrain-node")
+      .and(page.locator("[data-summary=\"main-2\"]"))
+      .hover();
+    await expect(page.getByTestId("node-tip")).toContainText("main-2 +2 −0");
+
+    await toggle.click();
+    await expect(rows).toHaveCount(commits);
+  });
+
+  test("dragging and the keys turn the terrain", async ({ page }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page.getByTestId("terrain-toggle").click();
+    const terrain = page.getByTestId("terrain");
+    await expect(terrain).toHaveAttribute("data-rotation", "30");
+    await expect(terrain).toHaveAttribute("data-tilt", "60");
+
+    const box = (await terrain.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 + 20);
+    await page.mouse.up();
+    await expect(terrain).toHaveAttribute("data-rotation", "50");
+    await expect(terrain).toHaveAttribute("data-tilt", "50");
+
+    await terrain.focus();
+    await page.keyboard.press("ArrowUp");
+    await expect(terrain).toHaveAttribute("data-tilt", "55");
+    await page.keyboard.press("ArrowLeft");
+    await expect(terrain).toHaveAttribute("data-rotation", "35");
+    // The arrows turn the terrain instead of selecting a row.
+    await page.keyboard.press("ArrowDown");
+    await expect(terrain).toHaveAttribute("data-tilt", "50");
+    await page.keyboard.press("0");
+    await expect(terrain).toHaveAttribute("data-rotation", "30");
+    await expect(terrain).toHaveAttribute("data-tilt", "60");
+    await page.getByTestId("terrain-toggle").click();
+    await expect(page.locator(".commits .commit.selected")).toHaveCount(0);
+  });
+
   test("a node's tooltip outlasts a reload that keeps the node", async ({
     page,
   }) => {

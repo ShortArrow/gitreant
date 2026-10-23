@@ -21,6 +21,7 @@ import {
   FileDirectoryOpenFillIcon,
   GearIcon,
   GitBranchIcon,
+  GraphBarVerticalIcon,
   ArrowUpIcon,
   ListUnorderedIcon,
   MoonIcon,
@@ -33,6 +34,11 @@ import {
 } from "@primer/octicons-react";
 
 const SIZE = 14;
+
+/** Bars standing up: the terrain mode (ADR 0042). */
+export function TerrainIcon() {
+  return <GraphBarVerticalIcon className="btn-icon" size={SIZE} />;
+}
 
 /** One column of full-width lines: the inline diff view. */
 export function InlineIcon() {
