@@ -973,6 +973,11 @@ body {
   opacity: 0.4;
 }
 
+/* The fins merge first, then sit fainter under the pillars. */
+.graph .thickness-fins {
+  opacity: 0.5;
+}
+
 .graph .thickness-added {
   color: var(--success);
 }

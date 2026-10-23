@@ -18,7 +18,8 @@ const SIDES: Side[] = ["added", "deleted"];
  * background tilts that direction and depth (ADR 0045). Each side is drawn as
  * one see-through shape in green or red: its copies merge instead of
  * darkening where they overlap. An edge's copies are as wide as a node, so
- * a fin reaches as far as the pillars at its ends.
+ * a fin reaches as far as the pillars at its ends, and fainter, so the
+ * pillars stand out.
  */
 export function Thickness({
   commits,
@@ -69,27 +70,29 @@ export function Thickness({
           className={`thickness-side thickness-${side}`}
           data-side={side}
         >
-          {drawn.map(({ edge, from, to, layers }, i) => (
-            <g key={`te${i}`} className={fadedEdge(edge)}>
-              {layers
-                .filter((layer) => layer.kind === side)
-                .map((layer, j) => (
-                  <path
-                    key={j}
-                    d={edgeBetween(
-                      edge,
-                      { x: from.x + layer.from.x, y: from.y + layer.from.y },
-                      { x: to.x + layer.to.x, y: to.y + layer.to.y },
-                    )}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2 * NODE_RADIUS}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                ))}
-            </g>
-          ))}
+          <g className="thickness-fins">
+            {drawn.map(({ edge, from, to, layers }, i) => (
+              <g key={`te${i}`} className={fadedEdge(edge)}>
+                {layers
+                  .filter((layer) => layer.kind === side)
+                  .map((layer, j) => (
+                    <path
+                      key={j}
+                      d={edgeBetween(
+                        edge,
+                        { x: from.x + layer.from.x, y: from.y + layer.from.y },
+                        { x: to.x + layer.to.x, y: to.y + layer.to.y },
+                      )}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2 * NODE_RADIUS}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  ))}
+              </g>
+            ))}
+          </g>
           {commits.map((commit) => {
             const layers = nodeLayers(commit.stat, tilt).filter(
               (layer) => layer.kind === side,

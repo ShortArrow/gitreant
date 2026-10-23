@@ -427,25 +427,23 @@ export function RepoCard({
   };
   useEffect(maybeLoadMore);
 
-  // How the graph's thickness is tilted (ADR 0045), and the drag on the
-  // graph's background that is tilting it.
+  // How the graph's thickness is tilted (ADR 0045), and where the drag on
+  // the graph's background that is tilting it began.
   const [tilt, setTilt] = useState<Tilt>(START_TILT);
-  const tiltDrag = useRef<{ x: number; y: number; from: Tilt } | null>(null);
+  const tiltDrag = useRef<{ x: number; y: number } | null>(null);
   const onGraphPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0 || e.target !== e.currentTarget) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    tiltDrag.current = { x: e.clientX, y: e.clientY, from: tilt };
+    tiltDrag.current = { x: e.clientX, y: e.clientY };
   };
   const onGraphPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const drag = tiltDrag.current;
     if (drag === null) return;
-    setTilt(tiltBy(drag.from, e.clientX - drag.x, e.clientY - drag.y));
+    setTilt(tiltBy(START_TILT, e.clientX - drag.x, e.clientY - drag.y));
   };
   const onGraphPointerUp = () => {
     tiltDrag.current = null;
-  };
-  const onGraphDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (e.target === e.currentTarget) setTilt(START_TILT);
+    setTilt(START_TILT);
   };
   const [selected, setSelected] = useState<string | null>(null);
   // Clicking a row or its graph node toggles the detail panel for it.
@@ -859,7 +857,6 @@ export function RepoCard({
           onPointerMove={onGraphPointerMove}
           onPointerUp={onGraphPointerUp}
           onPointerCancel={onGraphPointerUp}
-          onDoubleClick={onGraphDoubleClick}
         >
           {regions.map((region) => {
             // Each submodule graph draws in its own region with local lane

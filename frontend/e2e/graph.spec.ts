@@ -788,6 +788,14 @@ test.describe.serial("gitreant UI", () => {
     expect(Number(await fin.getAttribute("stroke-width"))).toBe(
       2 * Number(await copies.first().getAttribute("r")),
     );
+    // Fins are fainter than the pillars, merged into one shape per side.
+    const fins = page.locator(
+      '.thickness-side[data-side="added"] > .thickness-fins',
+    );
+    await expect(fins).toHaveCount(1);
+    expect(
+      Number(await fins.evaluate((g) => getComputedStyle(g).opacity)),
+    ).toBeLessThan(1);
     // Green, see-through, and not the lane's color.
     const side = page.locator('.thickness-side[data-side="added"]');
     const look = await side.evaluate((g) => {
@@ -852,24 +860,21 @@ test.describe.serial("gitreant UI", () => {
     expect(start.dx).toBeLessThan(0);
     expect(start.dy).toBeLessThan(0);
 
-    // A quarter turn clockwise: from up and to the left to up and right.
+    // A quarter turn clockwise: from up and to the left to up and right,
+    // for as long as the button is held.
     await page.mouse.move(x, y);
     await page.mouse.down();
     await page.mouse.move(x + 180, y, { steps: 4 });
-    await page.mouse.up();
     const turned = await lean();
     expect(turned.dx).toBeGreaterThan(0);
     expect(turned.dy).toBeLessThan(0);
 
     // Down flattens it to nothing, as seen from straight above.
-    await page.mouse.move(x, y);
-    await page.mouse.down();
-    await page.mouse.move(x, y + 200, { steps: 4 });
-    await page.mouse.up();
+    await page.mouse.move(x + 180, y + 200, { steps: 4 });
     await expect(thick).toHaveCount(0);
 
-    // A double click returns to the start.
-    await page.mouse.dblclick(x, y);
+    // Letting go returns to the start.
+    await page.mouse.up();
     await expect(thick).toHaveCount(3);
     const reset = await lean();
     expect(reset.dx).toBeCloseTo(start.dx, 0);

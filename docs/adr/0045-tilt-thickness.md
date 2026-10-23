@@ -21,8 +21,9 @@ the graph flat again short of the setting.
   dashed links keep their own clicks and drags.
 - **Within its range.** The depth runs from 0 to 1, where 1 is the
   thickness ADR 0044 describes; the direction turns all the way round.
-  Double-clicking the background returns to the start: up and to the left,
-  at depth 1. The tilt is not saved.
+  The tilt lasts only while the drag does: letting go returns to the
+  start, up and to the left at depth 1, so the graph always reads the same
+  way. The tilt is not saved.
 - **Rows stay put.** The rows, nodes and edges never move. The room the
   main graph keeps on each side is the farthest a thickness can reach in
   any direction, so turning it never shifts the lanes or cuts it off.

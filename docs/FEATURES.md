@@ -66,7 +66,8 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   and to the right by the lines it deleted, on a logarithmic scale; the
   edges between commits carry it as fins. Dragging the graph's background
   turns the direction it extrudes in and, up or down, its depth, down to
-  none; a double click resets it. A graph setting turns it off.
+  none; letting go turns it back. The fins are fainter than the commits'
+  pillars. A graph setting turns it off.
 
 ## Commit details and diffs
 

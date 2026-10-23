@@ -36,11 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([ADR 0041](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0041-diff-stats-per-commit.md)).
 - The graph gives each counted commit a see-through thickness, green for
   the lines it added and red for the lines it deleted, joined along its
-  edges; a graph setting turns it off
+  edges by fainter fins; a graph setting turns it off
   ([ADR 0044](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0044-graph-thickness.md)).
 - Dragging the graph's background tilts the thickness: sideways turns
-  the direction it extrudes in, up and down change its depth, and a double
-  click resets it
+  the direction it extrudes in, up and down change its depth, and letting
+  go turns it back
   ([ADR 0045](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0045-tilt-thickness.md)).
 
 ### Changed
