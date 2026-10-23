@@ -14,10 +14,11 @@ export interface Point {
 }
 
 /** Where the terrain is seen from: turned to its orientation about the
- * `pivot`, a point on the ground drawn at the viewport's center, and
- * scaled by `zoom`. */
+ * `pivot`, a point on the ground drawn at `anchor` (an offset from the
+ * viewport's center), and scaled by `zoom`. */
 export interface Camera extends Orientation {
   pivot: Point;
+  anchor: Point;
   zoom: number;
 }
 
@@ -103,17 +104,46 @@ export function pan(camera: Camera, dx: number, dy: number): Camera {
   };
 }
 
+/** The ground point `camera` draws at `screen`, an offset from the
+ * viewport's center. */
+export function groundAt(camera: Camera, screen: Point): Point {
+  const offset = unproject(
+    {
+      x: (screen.x - camera.anchor.x) / camera.zoom,
+      y: (screen.y - camera.anchor.y) / camera.zoom,
+    },
+    camera,
+  );
+  return { x: camera.pivot.x + offset.x, y: camera.pivot.y + offset.y };
+}
+
+/** Where a commit stands on the ground. */
+export function commitGround(commit: CommitView): Point {
+  return { x: nodeX(commit.lane), y: nodeY(commit.row) };
+}
+
+/** `camera` pivoted on `ground` instead, anchored where it is drawn now:
+ * nothing moves, and later turns go about that point. */
+export function grip(camera: Camera, ground: Point): Camera {
+  const p = project(
+    { x: ground.x - camera.pivot.x, y: ground.y - camera.pivot.y, z: 0 },
+    camera,
+  );
+  return {
+    ...camera,
+    pivot: ground,
+    anchor: {
+      x: camera.anchor.x + p.x * camera.zoom,
+      y: camera.anchor.y + p.y * camera.zoom,
+    },
+  };
+}
+
 /** `camera` zoomed by `factor` about `at`, an offset from the viewport's
  * center, so the ground under it stays there. */
 export function zoomAt(camera: Camera, factor: number, at: Point): Camera {
   const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, camera.zoom * factor));
-  const ratio = 1 / camera.zoom - 1 / zoom;
-  const moved = unproject({ x: at.x * ratio, y: at.y * ratio }, camera);
-  return {
-    ...camera,
-    zoom,
-    pivot: { x: camera.pivot.x + moved.x, y: camera.pivot.y + moved.y },
-  };
+  return grip({ ...grip(camera, groundAt(camera, at)), zoom }, camera.pivot);
 }
 
 /** The camera a terrain opens with: turned to the starting orientation
@@ -127,7 +157,13 @@ export function startCamera(
     x: middle(commits.map((c) => nodeX(c.lane))),
     y: middle(commits.map((c) => nodeY(c.row))),
   };
-  const unscaled = terrainLayout(commits, [], { ...START, pivot, zoom: 1 });
+  const anchor = { x: 0, y: 0 };
+  const unscaled = terrainLayout(commits, [], {
+    ...START,
+    pivot,
+    anchor,
+    zoom: 1,
+  });
   const points = unscaled.commits.flatMap((c) =>
     [c.node, c.up, c.down].flatMap((p) => (p ? [p] : [])),
   );
@@ -137,7 +173,12 @@ export function startCamera(
     (viewport.width / 2 - PADDING) / reach("x"),
     (viewport.height / 2 - PADDING) / reach("y"),
   );
-  return { ...START, pivot, zoom: Math.min(1, Math.max(MIN_ZOOM, zoom)) };
+  return {
+    ...START,
+    pivot,
+    anchor,
+    zoom: Math.min(1, Math.max(MIN_ZOOM, zoom)),
+  };
 }
 
 /** The camera a key moves the focused terrain to, or null for a key the
@@ -231,7 +272,11 @@ export function terrainLayout(
       { x: x - camera.pivot.x, y: y - camera.pivot.y, z },
       camera,
     );
-    return { x: p.x * camera.zoom, y: p.y * camera.zoom, depth: p.depth };
+    return {
+      x: camera.anchor.x + p.x * camera.zoom,
+      y: camera.anchor.y + p.y * camera.zoom,
+      depth: p.depth,
+    };
   };
 
   const placed: TerrainCommit[] = commits.map((commit) => {

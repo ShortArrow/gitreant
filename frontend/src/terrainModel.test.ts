@@ -2,6 +2,9 @@ import { expect, test } from "vitest";
 import type { CommitView, GraphEdge } from "./api";
 import {
   type Camera,
+  commitGround,
+  grip,
+  groundAt,
   pan,
   pillarHeight,
   project,
@@ -35,6 +38,7 @@ const camera: Camera = {
   rotation: 30,
   tilt: 60,
   pivot: { x: 20, y: 40 },
+  anchor: { x: 7, y: -11 },
   zoom: 2,
 };
 
@@ -87,14 +91,39 @@ test("a turn keeps the tilt between above and nearly edge-on", () => {
   });
 });
 
-test("the pivot stays put on the screen while the terrain turns", () => {
+test("the pivot stays put at its anchor while the terrain turns", () => {
   const commits = [commit("a", 0, 0), commit("b", 5, 3)];
   const on = { ...camera, pivot: { x: 14, y: 16 } };
   for (const turned of [on, turn(on, 45, 0), turn(on, 0, -30)]) {
     const a = screenOf(commits, turned, "a");
-    expect(a.x).toBeCloseTo(0);
-    expect(a.y).toBeCloseTo(0);
+    expect(a.x).toBeCloseTo(camera.anchor.x);
+    expect(a.y).toBeCloseTo(camera.anchor.y);
   }
+});
+
+test("gripping a ground point moves nothing, then turns about it", () => {
+  const commits = [commit("a", 0, 0), commit("b", 5, 3), commit("c", 9, 1)];
+  const gripped = grip(camera, commitGround(commits[1]));
+  for (const id of ["a", "b", "c"]) {
+    const before = screenOf(commits, camera, id);
+    const after = screenOf(commits, gripped, id);
+    expect(after.x).toBeCloseTo(before.x);
+    expect(after.y).toBeCloseTo(before.y);
+  }
+  const b = screenOf(commits, gripped, "b");
+  for (const turned of [turn(gripped, 70, 0), turn(gripped, -20, 15)]) {
+    const after = screenOf(commits, turned, "b");
+    expect(after.x).toBeCloseTo(b.x);
+    expect(after.y).toBeCloseTo(b.y);
+  }
+});
+
+test("the ground under a screen point is the one drawn there", () => {
+  const commits = [commit("a", 0, 0), commit("b", 4, 2)];
+  const b = screenOf(commits, camera, "b");
+  const ground = groundAt(camera, b);
+  expect(ground.x).toBeCloseTo(commitGround(commits[1]).x);
+  expect(ground.y).toBeCloseTo(commitGround(commits[1]).y);
 });
 
 test("panning moves the terrain with the pointer", () => {
@@ -123,7 +152,11 @@ test("the start fits every commit and pillar into the viewport", () => {
   );
   const viewport = { width: 600, height: 400 };
   const start = startCamera(commits, viewport);
-  expect(start).toMatchObject({ rotation: 30, tilt: 60 });
+  expect(start).toMatchObject({
+    rotation: 30,
+    tilt: 60,
+    anchor: { x: 0, y: 0 },
+  });
   const layout = terrainLayout(commits, [], start);
   const points = layout.commits.flatMap((c) =>
     [c.node, c.up, c.down].flatMap((p) => (p ? [p] : [])),

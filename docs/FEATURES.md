@@ -64,9 +64,10 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 - **Terrain mode.** A button in the pane's header shows the graph as
   terrain, tilted back, with each commit raised by the lines it added and
   sunk by the lines it deleted, on a logarithmic scale. It opens fitted to
-  the pane. Dragging or the arrow keys turn it, a right or Shift drag
-  moves it, the wheel or `+` / `-` zoom it, `0` resets it, and hovering a
-  commit names it with its counts.
+  the pane. Dragging or the arrow keys turn it, about the commit or the
+  point the drag began on; a right or Shift drag moves it, the wheel or
+  `+` / `-` zoom it, `0` resets it, and hovering a commit names it with its
+  counts.
 
 ## Commit details and diffs
 

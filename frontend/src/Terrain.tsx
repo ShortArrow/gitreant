@@ -4,6 +4,9 @@ import { laneColor, NODE_RADIUS, shortId } from "./graph";
 import { useT } from "./settings";
 import {
   type Camera,
+  commitGround,
+  grip,
+  groundAt,
   pan,
   startCamera,
   terrainKey,
@@ -98,11 +101,17 @@ export function Terrain({
 
   const onPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (camera === null || (e.button !== 0 && e.button !== 2)) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    const svg = e.currentTarget;
+    svg.setPointerCapture(e.pointerId);
     drag.current =
       e.button === 2 || e.shiftKey
         ? { kind: "pan", x: e.clientX, y: e.clientY }
-        : { kind: "turn", x: e.clientX, y: e.clientY, from: camera };
+        : {
+            kind: "turn",
+            x: e.clientX,
+            y: e.clientY,
+            from: grip(camera, groundUnder(e, svg, camera)),
+          };
     setTip(null);
   };
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -125,6 +134,24 @@ export function Terrain({
   };
   const onPointerUp = () => {
     drag.current = null;
+  };
+  // A turn goes about what the drag began on: a commit's node or pillar,
+  // or else the ground under the pointer.
+  const groundUnder = (
+    e: React.PointerEvent,
+    svg: SVGSVGElement,
+    from: Camera,
+  ) => {
+    const id = (e.target as Element)
+      .closest("[data-commit]")
+      ?.getAttribute("data-commit");
+    const commit = commits.find((c) => c.id === id);
+    if (commit) return commitGround(commit);
+    const box = svg.getBoundingClientRect();
+    return groundAt(from, {
+      x: e.clientX - box.left - box.width / 2,
+      y: e.clientY - box.top - box.height / 2,
+    });
   };
   const onKeyDown = (e: React.KeyboardEvent<SVGSVGElement>) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -190,6 +217,7 @@ export function Terrain({
               <g
                 key={placed.commit.id}
                 data-testid="terrain-node"
+                data-commit={placed.commit.id}
                 data-summary={placed.commit.summary}
                 {...hoverProps(placed.commit)}
               >

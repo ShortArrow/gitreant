@@ -820,6 +820,33 @@ test.describe.serial("gitreant UI", () => {
       .poll(async () => Number(await terrain.getAttribute("data-zoom")))
       .toBeGreaterThan(startZoom);
 
+    // A turn begun on a commit goes about it: it stays under the pointer.
+    const grabbed = (await page
+      .getByTestId("terrain-node")
+      .nth(2)
+      .locator("circle")
+      .boundingBox())!;
+    const gx = grabbed.x + grabbed.width / 2;
+    const gy = grabbed.y + grabbed.height / 2;
+    const commitAt = () =>
+      page.evaluate(
+        ([x, y]) =>
+          document
+            .elementFromPoint(x, y)
+            ?.closest("[data-commit]")
+            ?.getAttribute("data-commit") ?? null,
+        [gx, gy],
+      );
+    const held = await commitAt();
+    expect(held).not.toBeNull();
+    await page.mouse.move(gx, gy);
+    await page.mouse.down();
+    await page.mouse.move(gx + 90, gy - 30);
+    await page.mouse.up();
+    await expect(terrain).toHaveAttribute("data-rotation", "95");
+    await expect(terrain).toHaveAttribute("data-tilt", "65");
+    expect(await commitAt()).toBe(held);
+
     await terrain.focus();
     await page.keyboard.press("-");
     await page.keyboard.press("-");
@@ -828,12 +855,12 @@ test.describe.serial("gitreant UI", () => {
       startZoom,
     );
     await page.keyboard.press("ArrowUp");
-    await expect(terrain).toHaveAttribute("data-tilt", "55");
+    await expect(terrain).toHaveAttribute("data-tilt", "70");
     await page.keyboard.press("ArrowLeft");
-    await expect(terrain).toHaveAttribute("data-rotation", "35");
+    await expect(terrain).toHaveAttribute("data-rotation", "80");
     // The arrows turn the terrain instead of selecting a row.
     await page.keyboard.press("ArrowDown");
-    await expect(terrain).toHaveAttribute("data-tilt", "50");
+    await expect(terrain).toHaveAttribute("data-tilt", "65");
     await page.keyboard.press("0");
     await expect(terrain).toHaveAttribute("data-rotation", "30");
     await expect(terrain).toHaveAttribute("data-tilt", "60");
