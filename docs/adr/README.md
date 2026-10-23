@@ -48,3 +48,4 @@ are canonical; the files below are their English translations.
 | [0038](0038-loopback-request-guard.md) | Answer only requests addressed to the loopback server from its own page | Accepted |
 | [0039](0039-server-records.md) | Keep a record of each running server and let the CLI find it | Accepted |
 | [0040](0040-lane-colors-by-what-is-in-use.md) | Choose a lane's color by the lanes in use | Accepted |
+| [0041](0041-diff-stats-per-commit.md) | Show how many lines each commit adds and deletes | Accepted |

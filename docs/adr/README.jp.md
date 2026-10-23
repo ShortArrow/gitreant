@@ -44,3 +44,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0038](0038-loopback-request-guard.jp.md) | ループバックのサーバ宛てで、自分のページから来たリクエストだけに応える | Accepted |
 | [0039](0039-server-records.jp.md) | 動いているサーバを記録し、CLI から見つけられるようにする | Accepted |
 | [0040](0040-lane-colors-by-what-is-in-use.jp.md) | 列の色を、使用中の列を見て選ぶ | Accepted |
+| [0041](0041-diff-stats-per-commit.jp.md) | 各コミットが加えた行数と削った行数を表示する | Accepted |
