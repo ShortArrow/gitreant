@@ -14,7 +14,7 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   adds that repository to the server already running, on the same page.
 - **Tabs and two panes.** Each open repository is a tab. A tab's or a
   drawer row's context menu opens it in the right pane, so two
-  repositories can be compared side by side.
+  repositories can be compared side by side. A middle click closes a tab.
 - **Status in the drawer.** Each repository shows, in small, how many
   uncommitted changes, unpushed commits and branches without an upstream it
   has.

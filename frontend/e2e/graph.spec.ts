@@ -769,6 +769,21 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator(".repo-header h2")).toHaveText("repoB");
   });
 
+  test("a middle click closes a tab", async ({ page }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page.locator('[data-repo-name="repoB"]').click();
+
+    // An inactive tab closes without being shown first.
+    await page.locator('[data-tab-name="repoA"]').click({ button: "middle" });
+    await expect(page.locator('[data-tab-name="repoA"]')).toHaveCount(0);
+    await expect(page.locator('[data-tab-name="repoB"]')).toHaveClass(/active/);
+    await expect(page.locator(".repo-header h2")).toHaveText("repoB");
+
+    await page.locator('[data-tab-name="repoB"]').click({ button: "middle" });
+    await expect(page.getByTestId("tab")).toHaveCount(0);
+    await expect(page.getByTestId("pane-empty")).toBeVisible();
+  });
+
   test("reopening an open repository focuses its tab without duplicating", async ({
     page,
   }) => {

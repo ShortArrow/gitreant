@@ -855,6 +855,14 @@ export function App() {
                           data-testid="tab"
                           data-tab-name={tabRepo.name}
                           onClick={() => openTab(id)}
+                          // A middle click closes the tab, as in a browser;
+                          // its press would otherwise start autoscroll.
+                          onMouseDown={(e) => {
+                            if (e.button === 1) e.preventDefault();
+                          }}
+                          onAuxClick={(e) => {
+                            if (e.button === 1) closeTab(id);
+                          }}
                           onContextMenu={(e) => {
                             e.preventDefault();
                             setTabMenu({
