@@ -27,6 +27,7 @@ const fixtures = JSON.parse(
   repoQWorktree: string;
   repoR: string;
   repoS: string;
+  repoT: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -785,22 +786,47 @@ test.describe.serial("gitreant UI", () => {
     await expect(rows).toHaveCount(commits);
   });
 
-  test("dragging and the keys turn the terrain", async ({ page }) => {
+  test("the terrain turns, moves and zooms", async ({ page }) => {
     await page.locator('[data-repo-name="repoA"]').click();
     await page.getByTestId("terrain-toggle").click();
     const terrain = page.getByTestId("terrain");
     await expect(terrain).toHaveAttribute("data-rotation", "30");
     await expect(terrain).toHaveAttribute("data-tilt", "60");
+    const startZoom = Number(await terrain.getAttribute("data-zoom"));
 
     const box = (await terrain.boundingBox())!;
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    await page.mouse.move(cx, cy);
     await page.mouse.down();
-    await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2 + 20);
+    await page.mouse.move(cx + 40, cy + 20);
     await page.mouse.up();
     await expect(terrain).toHaveAttribute("data-rotation", "50");
     await expect(terrain).toHaveAttribute("data-tilt", "50");
 
+    // A right drag moves the ground under the pointer along with it.
+    const node = page.getByTestId("terrain-node").first().locator("circle");
+    const before = (await node.boundingBox())!;
+    await page.mouse.down({ button: "right" });
+    await page.mouse.move(cx - 30, cy + 25);
+    await page.mouse.up({ button: "right" });
+    const after = (await node.boundingBox())!;
+    expect(after.x - before.x).toBeCloseTo(-70, 0);
+    expect(after.y - before.y).toBeCloseTo(5, 0);
+    await expect(terrain).toHaveAttribute("data-rotation", "50");
+
+    await page.mouse.wheel(0, -200);
+    await expect
+      .poll(async () => Number(await terrain.getAttribute("data-zoom")))
+      .toBeGreaterThan(startZoom);
+
     await terrain.focus();
+    await page.keyboard.press("-");
+    await page.keyboard.press("-");
+    await page.keyboard.press("-");
+    expect(Number(await terrain.getAttribute("data-zoom"))).toBeLessThan(
+      startZoom,
+    );
     await page.keyboard.press("ArrowUp");
     await expect(terrain).toHaveAttribute("data-tilt", "55");
     await page.keyboard.press("ArrowLeft");
@@ -811,8 +837,43 @@ test.describe.serial("gitreant UI", () => {
     await page.keyboard.press("0");
     await expect(terrain).toHaveAttribute("data-rotation", "30");
     await expect(terrain).toHaveAttribute("data-tilt", "60");
+    await expect(terrain).toHaveAttribute("data-zoom", startZoom.toFixed(3));
     await page.getByTestId("terrain-toggle").click();
     await expect(page.locator(".commits .commit.selected")).toHaveCount(0);
+  });
+
+  test("a terrain longer than the pane opens fitted into it", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoT);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoT"]')).toBeVisible();
+    await expect(page.getByTestId("commit-row")).toHaveCount(80);
+
+    await page.getByTestId("terrain-toggle").click();
+    await expect(page.getByTestId("terrain")).toBeVisible();
+    // The part of the pane on screen, not the drawing, which may be larger.
+    const terrain = (await page.getByTestId("graph-scroll").boundingBox())!;
+    const nodes = page.getByTestId("terrain-node").locator("circle");
+    await expect(nodes).toHaveCount(80);
+    for (const box of await Promise.all(
+      (await nodes.all()).map((node) => node.boundingBox()),
+    )) {
+      expect(box!.x).toBeGreaterThanOrEqual(terrain.x);
+      expect(box!.y).toBeGreaterThanOrEqual(terrain.y);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(
+        terrain.x + terrain.width,
+      );
+      expect(box!.y + box!.height).toBeLessThanOrEqual(
+        terrain.y + terrain.height,
+      );
+    }
+
+    await page.getByTestId("terrain-toggle").click();
+    const repoT = page.locator('[data-repo-name="repoT"]');
+    await repoT.hover();
+    await repoT.getByTestId("repo-remove").click();
+    await expect(repoT).toHaveCount(0);
   });
 
   test("a node's tooltip outlasts a reload that keeps the node", async ({

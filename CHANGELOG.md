@@ -35,8 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parent, counted after the graph shows
   ([ADR 0041](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0041-diff-stats-per-commit.md)).
 - A pane's terrain mode tilts its graph back and raises each commit by
-  the lines it added and sinks it by the lines it deleted. Dragging or the
-  arrow keys turn it, and `0` resets it
+  the lines it added and sinks it by the lines it deleted. It opens fitted
+  to the pane; dragging or the arrow keys turn it, a right or Shift drag
+  moves it, the wheel or `+` / `-` zoom it, and `0` resets it
   ([ADR 0042](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0042-terrain-mode.md)).
 
 ### Changed

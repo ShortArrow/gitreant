@@ -1053,8 +1053,18 @@ body {
   align-self: center;
 }
 
+/* The terrain fills the pane instead of scrolling in it. */
+.terrain-view {
+  flex: 1 1 auto;
+  align-self: stretch;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .terrain {
-  flex: none;
+  position: absolute;
+  inset: 0;
   display: block;
   cursor: grab;
   /* Dragging turns the terrain instead of scrolling the pane. */
@@ -1066,7 +1076,6 @@ body {
 }
 
 .terrain-pillar {
-  stroke-width: 4;
   stroke-linecap: round;
 }
 

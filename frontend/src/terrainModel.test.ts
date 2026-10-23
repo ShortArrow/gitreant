@@ -1,12 +1,15 @@
 import { expect, test } from "vitest";
 import type { CommitView, GraphEdge } from "./api";
 import {
+  type Camera,
+  pan,
   pillarHeight,
   project,
-  START,
+  startCamera,
   terrainKey,
   terrainLayout,
   turn,
+  zoomAt,
 } from "./terrainModel";
 
 function commit(
@@ -26,6 +29,20 @@ function commit(
     time: 0,
     stat,
   };
+}
+
+const camera: Camera = {
+  rotation: 30,
+  tilt: 60,
+  pivot: { x: 20, y: 40 },
+  zoom: 2,
+};
+
+function screenOf(commits: CommitView[], at: Camera, id: string) {
+  const placed = terrainLayout(commits, [], at).commits.find(
+    (c) => c.commit.id === id,
+  )!;
+  return placed.node;
 }
 
 test("a pillar grows by the logarithm of its lines", () => {
@@ -60,22 +77,91 @@ test("rotating turns the ground about the vertical axis", () => {
 });
 
 test("a turn keeps the tilt between above and nearly edge-on", () => {
-  expect(turn(START, 0, -100).tilt).toBe(0);
-  expect(turn(START, 0, 100).tilt).toBe(85);
-  expect(turn({ rotation: 350, tilt: 10 }, 20, 0).rotation).toBe(10);
-  expect(turn({ rotation: 10, tilt: 10 }, -20, 0).rotation).toBe(350);
+  expect(turn(camera, 0, -100).tilt).toBe(0);
+  expect(turn(camera, 0, 100).tilt).toBe(85);
+  expect(turn({ ...camera, rotation: 350 }, 20, 0).rotation).toBe(10);
+  expect(turn({ ...camera, rotation: 10 }, -20, 0).rotation).toBe(350);
+  expect(turn(camera, 15, 5)).toMatchObject({
+    pivot: camera.pivot,
+    zoom: camera.zoom,
+  });
 });
 
-test("the keys turn, tilt and reset the terrain", () => {
-  expect(terrainKey("ArrowLeft", START)).toEqual(turn(START, -15, 0));
-  expect(terrainKey("ArrowRight", START)).toEqual(turn(START, 15, 0));
-  expect(terrainKey("ArrowUp", START)).toEqual(turn(START, 0, 5));
-  expect(terrainKey("ArrowDown", START)).toEqual(turn(START, 0, -5));
-  expect(terrainKey("0", { rotation: 100, tilt: 20 })).toEqual(START);
-  expect(terrainKey("x", START)).toBeNull();
+test("the pivot stays put on the screen while the terrain turns", () => {
+  const commits = [commit("a", 0, 0), commit("b", 5, 3)];
+  const on = { ...camera, pivot: { x: 14, y: 16 } };
+  for (const turned of [on, turn(on, 45, 0), turn(on, 0, -30)]) {
+    const a = screenOf(commits, turned, "a");
+    expect(a.x).toBeCloseTo(0);
+    expect(a.y).toBeCloseTo(0);
+  }
 });
 
-test("the layout draws pillars from back to front, within its bounds", () => {
+test("panning moves the terrain with the pointer", () => {
+  const commits = [commit("a", 0, 0), commit("b", 3, 2)];
+  const before = screenOf(commits, camera, "b");
+  const after = screenOf(commits, pan(camera, 30, -12), "b");
+  expect(after.x - before.x).toBeCloseTo(30);
+  expect(after.y - before.y).toBeCloseTo(-12);
+});
+
+test("zooming keeps the point under the pointer in place", () => {
+  const commits = [commit("a", 0, 0), commit("b", 3, 2)];
+  const b = screenOf(commits, camera, "b");
+  const zoomed = zoomAt(camera, 1.5, b);
+  expect(zoomed.zoom).toBeCloseTo(3);
+  const after = screenOf(commits, zoomed, "b");
+  expect(after.x).toBeCloseTo(b.x);
+  expect(after.y).toBeCloseTo(b.y);
+  expect(zoomAt(camera, 1e6, b).zoom).toBe(8);
+  expect(zoomAt(camera, 1e-6, b).zoom).toBe(0.02);
+});
+
+test("the start fits every commit and pillar into the viewport", () => {
+  const commits = Array.from({ length: 400 }, (_, row) =>
+    commit(`c${row}`, row, row % 4, { added: row * 10, deleted: row }),
+  );
+  const viewport = { width: 600, height: 400 };
+  const start = startCamera(commits, viewport);
+  expect(start).toMatchObject({ rotation: 30, tilt: 60 });
+  const layout = terrainLayout(commits, [], start);
+  const points = layout.commits.flatMap((c) =>
+    [c.node, c.up, c.down].flatMap((p) => (p ? [p] : [])),
+  );
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  expect(Math.min(...xs)).toBeGreaterThanOrEqual(-300);
+  expect(Math.max(...xs)).toBeLessThanOrEqual(300);
+  expect(Math.min(...ys)).toBeGreaterThanOrEqual(-200);
+  expect(Math.max(...ys)).toBeLessThanOrEqual(200);
+  // Fitted, not merely inside: one side spans most of the viewport.
+  expect(
+    Math.max(
+      (Math.max(...xs) - Math.min(...xs)) / 600,
+      (Math.max(...ys) - Math.min(...ys)) / 400,
+    ),
+  ).toBeGreaterThan(0.8);
+});
+
+test("a history that already fits opens at its natural size", () => {
+  const small = [commit("a", 0, 0), commit("b", 1, 0)];
+  expect(startCamera(small, { width: 600, height: 400 }).zoom).toBe(1);
+});
+
+test("the keys turn, tilt, zoom and reset the terrain", () => {
+  const start = { ...camera, zoom: 1 };
+  expect(terrainKey("ArrowLeft", camera, start)).toEqual(turn(camera, -15, 0));
+  expect(terrainKey("ArrowRight", camera, start)).toEqual(turn(camera, 15, 0));
+  expect(terrainKey("ArrowUp", camera, start)).toEqual(turn(camera, 0, 5));
+  expect(terrainKey("ArrowDown", camera, start)).toEqual(turn(camera, 0, -5));
+  expect(terrainKey("+", camera, start)?.zoom).toBeCloseTo(2.5);
+  expect(terrainKey("=", camera, start)?.zoom).toBeCloseTo(2.5);
+  expect(terrainKey("-", camera, start)?.zoom).toBeCloseTo(1.6);
+  expect(terrainKey("0", camera, start)).toEqual(start);
+  expect(terrainKey("x", camera, start)).toBeNull();
+});
+
+test("the layout draws pillars from back to front", () => {
   const commits = [
     commit("a", 0, 0, { added: 7, deleted: 0 }),
     commit("b", 1, 1, { added: 0, deleted: 3 }),
@@ -87,7 +173,8 @@ test("the layout draws pillars from back to front, within its bounds", () => {
     { from: "b", to: "d", from_lane: 1, to_lane: 0, color: 1, fork: true },
     { from: "c", to: "gone", from_lane: 0, to_lane: 0, color: 0, fork: false },
   ];
-  const layout = terrainLayout(commits, edges, { rotation: 0, tilt: 60 });
+  const flat = { ...camera, rotation: 0 };
+  const layout = terrainLayout(commits, edges, flat);
 
   expect(layout.commits.map((c) => c.commit.id)).toEqual(["a", "b", "c", "d"]);
   const [a, b, c] = layout.commits;
@@ -100,15 +187,7 @@ test("the layout draws pillars from back to front, within its bounds", () => {
 
   expect(layout.edges).toHaveLength(2);
   expect(layout.edges[1].points).toHaveLength(3);
-  const ys = layout.commits.flatMap((p) =>
-    [p.node, p.up, p.down].flatMap((q) => (q ? [q.y] : [])),
-  );
-  expect(Math.min(...ys)).toBeGreaterThanOrEqual(0);
-  expect(Math.max(...ys)).toBeLessThanOrEqual(layout.height);
-});
 
-test("turned around, the last row is drawn first", () => {
-  const commits = [commit("a", 0, 0), commit("b", 1, 0)];
-  const layout = terrainLayout(commits, [], { rotation: 180, tilt: 60 });
-  expect(layout.commits.map((c) => c.commit.id)).toEqual(["b", "a"]);
+  const back = terrainLayout(commits, [], { ...flat, rotation: 180 });
+  expect(back.commits.map((c) => c.commit.id)).toEqual(["d", "c", "b", "a"]);
 });
