@@ -2025,6 +2025,54 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-repo-name="repoO"]')).toHaveCount(0);
   });
 
+  test("a submodule region's menu opens the submodule in a tab", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoO);
+    await page.getByTestId("add-submit").click();
+    await page.locator('[data-repo-name="repoO"]').click();
+    await expect(page.getByTestId("submodule-node")).toHaveCount(1);
+
+    // The region's empty background, away from its node, takes the click.
+    const node = (await page.getByTestId("submodule-node").boundingBox())!;
+    const region = (await page.getByTestId("submodule-region-hit").boundingBox())!;
+    await page.mouse.click(region.x + 3, node.y + node.height + 10, {
+      button: "right",
+    });
+    const menu = page.getByTestId("context-menu");
+    await expect(menu.getByTestId("region-open")).toBeVisible();
+    await expect(menu.getByTestId("region-open-right")).toBeVisible();
+    await menu.getByTestId("region-open").click();
+    await expect(page.locator('[data-tab-name="sub"]')).toHaveClass(/\bactive\b/);
+    const list = (await (await page.request.get("/api/list")).json()) as {
+      name: string;
+      added?: { via: string; reason?: string };
+    }[];
+    expect(list.find((e) => e.name === "sub")?.added).toMatchObject({
+      via: "browser",
+      reason: "submodule",
+    });
+
+    // A collapsed strip offers the same menu.
+    await page.locator('[data-tab-name="repoO"]').click();
+    await page.getByTestId("region-collapse").click();
+    await page.getByTestId("region-expand").click({ button: "right" });
+    await expect(page.getByTestId("region-open")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page.getByTestId("region-expand").click();
+
+    // Restore the served set: the superproject, then the submodule it
+    // leaves as a top-level row.
+    const repoO = page.locator('[data-repo-name="repoO"]');
+    await repoO.hover();
+    await repoO.getByTestId("repo-remove").click();
+    await expect(page.locator('[data-repo-name="repoO"]')).toHaveCount(0);
+    const subRow = page.locator('[data-testid="repo-item"][data-repo-name="sub"]');
+    await subRow.hover();
+    await subRow.getByTestId("repo-remove").click();
+    await expect(subRow).toHaveCount(0);
+  });
+
   test("a submodule graph collapses to a strip and stays collapsed", async ({
     page,
   }) => {

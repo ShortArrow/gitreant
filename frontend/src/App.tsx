@@ -17,7 +17,7 @@ import {
 } from "./api";
 import { CommandPalette } from "./CommandPalette";
 import { ContextMenu } from "./ContextMenu";
-import { Drawer } from "./Drawer";
+import { Drawer, type OpenChild } from "./Drawer";
 import {
   FetchIcon,
   InfoButtonIcon,
@@ -300,6 +300,17 @@ export function App() {
     [applyRepos, recordAction],
   );
 
+  // Attaching a submodule or worktree makes it viewable; then show it in a
+  // pane. Opening it on the right sits its graph beside its parent's
+  // (ADR 0022).
+  const openChild = useCallback<OpenChild>(
+    async (path, kind, side) => {
+      await handleAdd(path, kind);
+      side === "right" ? openRight(path) : openTab(path);
+    },
+    [handleAdd, openRight, openTab],
+  );
+
   const [logOpen, setLogOpen] = useState(false);
   const [logEntries, setLogEntries] = useState<CommandLogEntry[]>([]);
 
@@ -560,6 +571,7 @@ export function App() {
         onToggle={() => setCollapsed((c) => !c)}
         onSelect={openTab}
         onOpenRight={openRight}
+        onOpenChild={openChild}
         onReveal={(id) => {
           recordAction(`Reveal ${id}`);
           revealPath(id).catch(() => {});
@@ -876,6 +888,9 @@ export function App() {
                       repo={view}
                       focused={index === layout.focused}
                       onLoadMore={() => loadMore(view.id)}
+                      onOpenSubmodule={(path, side) =>
+                        openChild(path, "submodule", side)
+                      }
                     />
                   ) : entry ? (
                     <div className="pane-empty" data-testid="pane-empty">

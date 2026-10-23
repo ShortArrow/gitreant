@@ -33,6 +33,7 @@ export const Default: Story = {
           onToggle={() => setCollapsed((c) => !c)}
           onSelect={setActiveId}
           onOpenRight={(id) => console.log("open right", id)}
+          onOpenChild={async (path) => console.log("open child", path)}
           onReveal={(id) => console.log("reveal", id)}
           onRemove={(id) => console.log("remove", id)}
           onAdd={async (path) => console.log("add", path)}
@@ -72,6 +73,7 @@ export const WithWorktrees: Story = {
           onToggle={() => {}}
           onSelect={setActiveId}
           onOpenRight={(id) => console.log("open right", id)}
+          onOpenChild={async (path) => console.log("open child", path)}
           onReveal={(id) => console.log("reveal", id)}
           onRemove={(id) => console.log("remove", id)}
           onAdd={async (path) => console.log("add", path)}
@@ -106,6 +108,7 @@ export const WithSubmodules: Story = {
           onToggle={() => {}}
           onSelect={setActiveId}
           onOpenRight={(id) => console.log("open right", id)}
+          onOpenChild={async (path) => console.log("open child", path)}
           onReveal={(id) => console.log("reveal", id)}
           onRemove={(id) => console.log("remove", id)}
           onAdd={async (path) => console.log("add", path)}
@@ -123,6 +126,7 @@ export const Collapsed: Story = {
     onToggle: () => {},
     onSelect: () => {},
     onOpenRight: () => {},
+    onOpenChild: async () => {},
     onReveal: () => {},
     onRemove: () => {},
     onAdd: async () => {},
@@ -140,6 +144,7 @@ export const AnalyzingRepo: Story = {
     onToggle: () => {},
     onSelect: () => {},
     onOpenRight: () => {},
+    onOpenChild: async () => {},
     onReveal: () => {},
     onRemove: () => {},
     onAdd: async () => {},
@@ -154,6 +159,7 @@ export const Empty: Story = {
     onToggle: () => {},
     onSelect: () => {},
     onOpenRight: () => {},
+    onOpenChild: async () => {},
     onReveal: () => {},
     onRemove: () => {},
     onAdd: async () => {},

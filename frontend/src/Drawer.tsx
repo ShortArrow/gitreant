@@ -165,7 +165,16 @@ interface DrawerProps {
   onReveal: (id: string) => void;
   onRemove: (id: string) => void;
   onAdd: (path: string, reason: AddReason) => Promise<void>;
+  /** Attach a submodule or worktree and show it in a pane. */
+  onOpenChild: OpenChild;
 }
+
+/** Attach a nested repository and show it here or in the right pane. */
+export type OpenChild = (
+  path: string,
+  kind: "submodule" | "worktree",
+  side: "here" | "right",
+) => Promise<void>;
 
 export function Drawer({
   repos,
@@ -181,6 +190,7 @@ export function Drawer({
   onReveal,
   onRemove,
   onAdd,
+  onOpenChild,
 }: DrawerProps) {
   const t = useT();
   const [path, setPath] = useState("");
@@ -203,9 +213,6 @@ export function Drawer({
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  // Attaching a submodule or worktree makes it viewable; then show it in a
-  // pane. Opening it on the right sits its graph beside its parent's
-  // (ADR 0022).
   const openChild = async (
     path: string,
     kind: "submodule" | "worktree",
@@ -213,8 +220,7 @@ export function Drawer({
   ) => {
     setError(null);
     try {
-      await onAdd(path, kind);
-      side === "right" ? onOpenRight(path) : onSelect(path);
+      await onOpenChild(path, kind, side);
     } catch (err) {
       setError(String(err));
     }

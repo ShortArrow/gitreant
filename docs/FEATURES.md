@@ -53,7 +53,9 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   to a narrow strip with its name, giving the rows their width back; the
   choice is kept per repository. Hovering a submodule's node names
   its commit, and its context menu copies the id or, from the submodule's
-  own origin, the commit's web page.
+  own origin, the commit's web page. Right-clicking a submodule's graph
+  or strip elsewhere opens the submodule in a tab, here or in the right
+  pane.
 - **Author avatars.** Rows show the author's GitHub avatar; a setting hides
   them.
 

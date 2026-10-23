@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from the CLI or from the browser, which `list --verbose` and `--json`
   show
   ([ADR 0039](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0039-server-records.md)).
+- Right-clicking a submodule's graph, or its collapsed strip, opens the
+  submodule in a tab, here or in the right pane.
 
 ### Changed
 

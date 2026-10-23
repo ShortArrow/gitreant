@@ -8,6 +8,7 @@ import {
 } from "react";
 import { CommitHash } from "./CommitHash";
 import { CommitMenu } from "./CommitMenu";
+import { ContextMenu } from "./ContextMenu";
 import {
   checkoutRef,
   checkoutDetached,
@@ -209,6 +210,7 @@ export function RepoCard({
   repo,
   focused = true,
   onLoadMore,
+  onOpenSubmodule,
   loadDetail = fetchCommitDetail,
   loadDiff = fetchFileDiff,
   loadCommitDiff = fetchCommitDiff,
@@ -221,6 +223,8 @@ export function RepoCard({
   focused?: boolean;
   /** Ask for the next page of graph rows (ADR 0023). */
   onLoadMore?: () => void;
+  /** Attach a submodule and show it here or in the right pane. */
+  onOpenSubmodule?: (path: string, side: "here" | "right") => Promise<void>;
   /** Injectable for Storybook; defaults to the real API. */
   loadDetail?: (repoId: string, commitId: string) => Promise<CommitDetail>;
   loadDiff?: (
@@ -346,6 +350,20 @@ export function RepoCard({
   } | null>(null);
   // Result of the last branch operation that failed; cleared on the next one.
   const [opError, setOpError] = useState<string | null>(null);
+  // The menu of a submodule region, opened from its background or strip.
+  const [regionMenu, setRegionMenu] = useState<{
+    x: number;
+    y: number;
+    path: string;
+  } | null>(null);
+  const openRegionMenu = (e: React.MouseEvent, path: string) => {
+    e.preventDefault();
+    setRegionMenu({ x: e.clientX, y: e.clientY, path });
+  };
+  const openSubmodule = (path: string, side: "here" | "right") => {
+    setOpError(null);
+    onOpenSubmodule?.(path, side).catch((err) => setOpError(String(err)));
+  };
   const runBranchOp = useCallback(
     (
       op: (repoId: string, reference: string) => Promise<BranchOpResult>,
@@ -668,6 +686,35 @@ export function RepoCard({
         />
       )}
 
+      {regionMenu && (
+        <ContextMenu
+          x={regionMenu.x}
+          y={regionMenu.y}
+          items={[
+            ...(onOpenSubmodule
+              ? [
+                  {
+                    id: "region-open",
+                    label: t("openSubmodule"),
+                    run: () => openSubmodule(regionMenu.path, "here"),
+                  },
+                  {
+                    id: "region-open-right",
+                    label: t("openRightPane"),
+                    run: () => openSubmodule(regionMenu.path, "right"),
+                  },
+                ]
+              : []),
+            {
+              id: "region-copy-path",
+              label: t("copyAbsolutePath"),
+              run: () => navigator.clipboard?.writeText(regionMenu.path),
+            },
+          ]}
+          onClose={() => setRegionMenu(null)}
+        />
+      )}
+
       {commitMenu && (
         <CommitMenu
           x={commitMenu.x}
@@ -774,7 +821,17 @@ export function RepoCard({
                 key={region.graph.path}
                 data-testid="submodule-region"
                 transform={`translate(${region.offset},0)`}
+                onContextMenu={(e) => openRegionMenu(e, region.graph.path)}
               >
+                {!region.collapsed && (
+                  // The region's empty background, under its edges.
+                  <rect
+                    data-testid="submodule-region-hit"
+                    className="region-hit"
+                    width={region.width}
+                    height={height}
+                  />
+                )}
                 {region.collapsed ? (
                   <RegionToggle
                     testId="region-expand"

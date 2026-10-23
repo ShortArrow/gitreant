@@ -912,6 +912,11 @@ body {
   pointer-events: none;
 }
 
+/* Invisible, yet it takes a right-click on the region's background. */
+.graph .region-hit {
+  fill: transparent;
+}
+
 .graph .region-toggle {
   cursor: pointer;
 }
