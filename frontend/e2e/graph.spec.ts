@@ -729,6 +729,27 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("commit-row")).toHaveCount(5);
   });
 
+  test("a node's tooltip outlasts a reload that keeps the node", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const node = page.getByTestId("graph-node").first();
+    await node.hover();
+    const tip = page.getByTestId("node-tip");
+    await expect(tip).toBeVisible();
+    const label = await tip.textContent();
+
+    // A reload the pointer did not cause, as a batch of verdicts
+    // arriving brings (ADR 0037).
+    const reread = page.waitForResponse((r) => r.url().endsWith("/api/view"));
+    await page.request.post("/api/refresh");
+    await reread;
+    await page.waitForTimeout(200);
+    await expect(tip).toHaveText(label!);
+    await page.mouse.move(0, 0);
+    await expect(tip).toHaveCount(0);
+  });
+
   test("closing a tab empties the pane", async ({ page }) => {
     await page.locator('[data-repo-name="repoA"]').click();
     await expect(page.getByTestId("tab")).toHaveCount(1);

@@ -446,6 +446,8 @@ export function RepoCard({
     x: number;
     y: number;
     label: string;
+    /** The main graph's commit it names; absent for a submodule's node. */
+    commit?: string;
   } | null>(null);
   // The uncommitted-changes row is not a commit: nothing can be tagged or
   // branched at it, so its menu stays closed and it names itself, not a hash.
@@ -471,7 +473,12 @@ export function RepoCard({
     onClick: () => toggleSelected(commit.id),
     onContextMenu: (e: React.MouseEvent) => openCommitMenu(e, commit),
     onMouseEnter: (e: React.MouseEvent) => {
-      setHoverNode({ x: e.clientX, y: e.clientY, label: nodeLabel(commit) });
+      setHoverNode({
+        x: e.clientX,
+        y: e.clientY,
+        label: nodeLabel(commit),
+        commit: commit.id,
+      });
       setFocus({ tip: commit.id, lineage: true });
     },
     onMouseLeave: () => {
@@ -553,13 +560,16 @@ export function RepoCard({
       setDiffTarget(null);
     }
   }, [repo.commits, selected]);
-  // The tooltip follows a node; a node that vanishes under the pointer
-  // (reload, paging) never fires mouseleave.
   // A reload can unmount the hovered node or badge before the pointer
-  // leaves it, so its tooltip and branch focus go with the old view.
+  // leaves it, and then no mouseleave fires: the tooltip and focus go with
+  // the old view. A node the reload keeps keeps them, since batches of
+  // verdicts reload the view under a still pointer (ADR 0037).
   useEffect(() => {
-    setHoverNode(null);
-    setFocus(null);
+    const kept = new Set(view.commits.map((c) => c.id));
+    setHoverNode((hover) =>
+      hover?.commit !== undefined && kept.has(hover.commit) ? hover : null,
+    );
+    setFocus((now) => (now?.lineage && kept.has(now.tip) ? now : null));
   }, [view.commits]);
   // Commits are immutable, the working tree is not: while the changes row
   // is selected, every reload re-reads its files and diffs.
