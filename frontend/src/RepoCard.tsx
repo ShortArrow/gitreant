@@ -46,11 +46,12 @@ import {
 } from "./Icons";
 import { Thickness } from "./Thickness";
 import {
+  rowsInView,
   START_TILT,
   THICKNESS_REACH,
-  type Tilt,
   tiltBy,
 } from "./thicknessModel";
+import { createThicknessView } from "./thicknessView";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
 import { format, MESSAGES } from "./i18n";
 import { useCommands, type PaletteCommand } from "./palette";
@@ -427,9 +428,18 @@ export function RepoCard({
   };
   useEffect(maybeLoadMore);
 
-  // How the graph's thickness is tilted (ADR 0045), and where the drag on
-  // the graph's background that is tilting it began.
-  const [tilt, setTilt] = useState<Tilt>(START_TILT);
+  // How the graph's thickness is seen: its tilt (ADR 0045) and the rows
+  // near the scroll it is drawn for (ADR 0044). Kept outside the card's
+  // state, so a drag or a scroll redraws only the thickness.
+  const [thicknessView] = useState(() =>
+    createThicknessView(rowsInView(0, window.innerHeight)),
+  );
+  const trackThickRows = () => {
+    const el = scrollRef.current;
+    if (el) thicknessView.setRows(rowsInView(el.scrollTop, el.clientHeight));
+  };
+  useEffect(trackThickRows);
+  // Where the drag on the graph's background that is tilting it began.
   const tiltDrag = useRef<{ x: number; y: number } | null>(null);
   const onGraphPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0 || e.target !== e.currentTarget) return;
@@ -439,11 +449,13 @@ export function RepoCard({
   const onGraphPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const drag = tiltDrag.current;
     if (drag === null) return;
-    setTilt(tiltBy(START_TILT, e.clientX - drag.x, e.clientY - drag.y));
+    thicknessView.setTilt(
+      tiltBy(START_TILT, e.clientX - drag.x, e.clientY - drag.y),
+    );
   };
   const onGraphPointerUp = () => {
     tiltDrag.current = null;
-    setTilt(START_TILT);
+    thicknessView.setTilt(START_TILT);
   };
   const [selected, setSelected] = useState<string | null>(null);
   // Clicking a row or its graph node toggles the detail panel for it.
@@ -845,7 +857,10 @@ export function RepoCard({
         className="graph-and-list"
         data-testid="graph-scroll"
         ref={scrollRef}
-        onScroll={maybeLoadMore}
+        onScroll={() => {
+          maybeLoadMore();
+          trackThickRows();
+        }}
       >
         <svg
           className="graph"
@@ -982,7 +997,7 @@ export function RepoCard({
               rowOf={rowOf}
               fadedNode={fadedNode}
               fadedEdge={fadedEdge}
-              tilt={tilt}
+              view={thicknessView}
             />
           )}
           {view.edges.map((edge, i) => {

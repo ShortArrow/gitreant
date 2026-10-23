@@ -29,6 +29,7 @@ const fixtures = JSON.parse(
   repoS: string;
   repoU: string;
   repoV: string;
+  repoW: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -879,6 +880,44 @@ test.describe.serial("gitreant UI", () => {
     const reset = await lean();
     expect(reset.dx).toBeCloseTo(start.dx, 0);
     expect(reset.dy).toBeCloseTo(start.dy, 0);
+  });
+
+  test("only the rows near the view are drawn thick", async ({ page }) => {
+    // Drawing every row's thickness made a long history too slow to tilt.
+    await page.getByTestId("add-input").fill(fixtures.repoW);
+    await page.getByTestId("add-submit").click();
+    await page.locator('[data-repo-name="repoW"]').click();
+    const stat = (summary: RegExp) =>
+      page
+        .getByTestId("commit-row")
+        .filter({ has: page.locator(".commit-summary", { hasText: summary }) })
+        .getByTestId("commit-stat");
+    await expect(stat(/^w-150$/)).toHaveText("+1 −0");
+    await expect(stat(/^w-1$/)).toHaveText("+1 −0");
+    // w-150 is main; w-1, its root, is main~149.
+    const thick = (rev: string) =>
+      page.locator(
+        `[data-testid="thickness-node"][data-commit="${execFileSync(
+          "git",
+          ["rev-parse", rev],
+          { cwd: fixtures.repoW, encoding: "utf8" },
+        ).trim()}"]`,
+      );
+    const drawn = page.getByTestId("thickness-node");
+    await expect(thick("main")).toHaveCount(1);
+    await expect(thick("main~149")).toHaveCount(0);
+    expect(await drawn.count()).toBeLessThan(150);
+
+    await page.getByTestId("graph-scroll").evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    await expect(thick("main~149")).toHaveCount(1);
+    await expect(thick("main")).toHaveCount(0);
+
+    const repoW = page.locator('[data-repo-name="repoW"]');
+    await repoW.hover();
+    await repoW.getByTestId("repo-remove").click();
+    await expect(repoW).toHaveCount(0);
   });
 
   test("counts finished before the event stream connects still show", async ({

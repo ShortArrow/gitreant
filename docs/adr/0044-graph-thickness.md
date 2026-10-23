@@ -48,7 +48,10 @@ rows.
 - The copies are a pure function of the counts, checked by unit tests,
   drawn into the same SVG as the graph; no 3D library is added.
 - A pane draws a copy every 2 pixels of thickness for each counted commit
-  and edge.
+  and edge, but only for the rows within a screen of the scroll, so a long
+  history stays quick to draw and to tilt. The tilt and those rows live
+  outside the card's state: a drag or a scroll redraws the thickness alone,
+  not every row.
 - Turning the thickness, by changing the direction and depth it extrudes
   in, can build on the same copies; it is in the
   [ROADMAP](../ROADMAP.md).

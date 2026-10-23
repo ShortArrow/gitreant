@@ -8,6 +8,8 @@ import {
   tiltBy,
   edgeLayers,
   nodeLayers,
+  rowsInView,
+  spansRows,
   steps,
   thickness,
   THICKNESS_REACH,
@@ -123,4 +125,19 @@ test("an edge between two points bends as the rows' graph does", () => {
       { x: nodeX(1), y: nodeY(3) },
     ),
   );
+});
+
+test("the rows in view reach a screen past each edge of it", () => {
+  // 320px tall: a screen plus the reach either side, in 32px rows.
+  expect(rowsInView(0, 320)).toEqual({ first: 0, last: 22 });
+  expect(rowsInView(3200, 320)).toEqual({ first: 88, last: 122 });
+});
+
+test("an edge is in view when it spans any row in view", () => {
+  const rows = { first: 10, last: 20 };
+  expect(spansRows(12, 15, rows)).toBe(true);
+  expect(spansRows(2, 30, rows)).toBe(true);
+  expect(spansRows(2, 10, rows)).toBe(true);
+  expect(spansRows(2, 9, rows)).toBe(false);
+  expect(spansRows(21, 30, rows)).toBe(false);
 });

@@ -66,6 +66,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A branch that grows from a line other than the checked-out one forks to
   the right of that line instead of the left
   ([ADR 0020](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0020-lane-principles.md)).
+- The graph's thickness tilts smoothly in a long history: only the rows
+  near the scroll are drawn thick
+  ([ADR 0044](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0044-graph-thickness.md)).
 
 ### Security
 

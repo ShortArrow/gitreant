@@ -1,12 +1,8 @@
+import { useSyncExternalStore } from "react";
 import { type CommitView, type GraphEdge, UNCOMMITTED_ID } from "./api";
 import { edgeBetween, NODE_RADIUS, nodeX, nodeY } from "./graph";
-import {
-  edgeLayers,
-  nodeLayers,
-  type Side,
-  START_TILT,
-  type Tilt,
-} from "./thicknessModel";
+import { edgeLayers, nodeLayers, type Side, spansRows } from "./thicknessModel";
+import type { ThicknessView } from "./thicknessView";
 
 const SIDES: Side[] = ["added", "deleted"];
 
@@ -19,7 +15,8 @@ const SIDES: Side[] = ["added", "deleted"];
  * one see-through shape in green or red: its copies merge instead of
  * darkening where they overlap. An edge's copies are as wide as a node, so
  * a fin reaches as far as the pillars at its ends, and fainter, so the
- * pillars stand out.
+ * pillars stand out. Only the commits and edges on the view's rows are
+ * drawn, so a long history stays quick to draw and to tilt.
  */
 export function Thickness({
   commits,
@@ -27,17 +24,21 @@ export function Thickness({
   rowOf,
   fadedNode,
   fadedEdge,
-  tilt = START_TILT,
+  view,
 }: {
   commits: CommitView[];
   edges: GraphEdge[];
   rowOf: Map<string, number>;
   fadedNode: (id: string) => string;
   fadedEdge: (edge: GraphEdge) => string | undefined;
-  /** How the thickness is tilted (ADR 0045). */
-  tilt?: Tilt;
+  /** The tilt and the rows to draw, followed without redrawing the card. */
+  view: ThicknessView;
 }) {
+  const { tilt, rows } = useSyncExternalStore(view.subscribe, view.get);
   const statOf = new Map(commits.map((c) => [c.id, c.stat]));
+  const shown = commits.filter(
+    (c) => c.row >= rows.first && c.row <= rows.last,
+  );
   const drawn = edges.flatMap((edge) => {
     const childRow = rowOf.get(edge.from);
     const parentRow = rowOf.get(edge.to);
@@ -45,7 +46,8 @@ export function Thickness({
       edge.dashed ||
       edge.from === UNCOMMITTED_ID ||
       childRow === undefined ||
-      parentRow === undefined
+      parentRow === undefined ||
+      !spansRows(childRow, parentRow, rows)
     ) {
       return [];
     }
@@ -54,11 +56,7 @@ export function Thickness({
         edge,
         from: { x: nodeX(edge.from_lane), y: nodeY(childRow) },
         to: { x: nodeX(edge.to_lane), y: nodeY(parentRow) },
-        layers: edgeLayers(
-          statOf.get(edge.from),
-          statOf.get(edge.to),
-          tilt,
-        ),
+        layers: edgeLayers(statOf.get(edge.from), statOf.get(edge.to), tilt),
       },
     ];
   });
@@ -93,7 +91,7 @@ export function Thickness({
               </g>
             ))}
           </g>
-          {commits.map((commit) => {
+          {shown.map((commit) => {
             const layers = nodeLayers(commit.stat, tilt).filter(
               (layer) => layer.kind === side,
             );

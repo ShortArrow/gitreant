@@ -1,3 +1,5 @@
+import { ROW_HEIGHT } from "./graph";
+
 /** A commit's lines added and deleted (ADR 0041). */
 export interface LineStat {
   added: number;
@@ -138,4 +140,31 @@ export function edgeLayers(
         };
       });
   });
+}
+
+/** The rows from `first` to `last`, both included. */
+export interface RowRange {
+  first: number;
+  last: number;
+}
+
+/** The rows a thickness is drawn for when the pane is scrolled to
+ * `scrollTop` and `viewHeight` tall: those in view, a screen either side
+ * so a scroll shows no gap before the next draw, and the reach of a
+ * thickness past that. */
+export function rowsInView(scrollTop: number, viewHeight: number): RowRange {
+  const margin = viewHeight + THICKNESS_REACH;
+  return {
+    first: Math.max(0, Math.floor((scrollTop - margin) / ROW_HEIGHT)),
+    last: Math.ceil((scrollTop + viewHeight + margin) / ROW_HEIGHT),
+  };
+}
+
+/** Whether an edge from `childRow` down to `parentRow` crosses `rows`. */
+export function spansRows(
+  childRow: number,
+  parentRow: number,
+  rows: RowRange,
+): boolean {
+  return childRow <= rows.last && parentRow >= rows.first;
 }
