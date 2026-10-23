@@ -50,5 +50,6 @@ are canonical; the files below are their English translations.
 | [0040](0040-lane-colors-by-what-is-in-use.md) | Choose a lane's color by the lanes in use | Accepted |
 | [0041](0041-diff-stats-per-commit.md) | Show how many lines each commit adds and deletes | Accepted |
 | [0042](0042-terrain-mode.md) | Show the history as terrain, raised by lines added and deleted | Superseded by 0044 |
+| [0043](0043-cumulative-chart.md) | Chart the lines added and deleted, summed over time | Accepted |
 | [0044](0044-graph-thickness.md) | Give the rows' graph a thickness of the lines each commit changed | Accepted |
 | [0045](0045-tilt-thickness.md) | Tilt the graph's thickness by dragging its background | Accepted |
