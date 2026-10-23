@@ -429,28 +429,6 @@ function makeRepoV(): string {
   return dir;
 }
 
-/** repoT: a history longer than a pane is tall, each commit adding a line,
- * for the terrain's fit. Written by one `git fast-import`, as eighty
- * commits one by one would slow every run. */
-function makeRepoT(): string {
-  const dir = initRepo("repoT");
-  const t = 1_700_000_000;
-  let stream = "";
-  for (let i = 1; i <= 80; i++) {
-    const content = Array.from({ length: i }, (_, n) => `line ${n}\n`);
-    const data = content.join("");
-    const message = `t-${i}`;
-    stream +=
-      "commit refs/heads/main\n" +
-      `committer Tester <tester@example.com> ${t + i} +0000\n` +
-      `data ${message.length}\n${message}\n` +
-      `M 644 inline t.txt\ndata ${data.length}\n${data}\n`;
-  }
-  execFileSync("git", ["fast-import", "--quiet"], { cwd: dir, input: stream });
-  git(dir, ["reset", "-q", "--hard", "main"]);
-  return dir;
-}
-
 /** Set by makeRepoI; the teardown must talk to the same gpg installation. */
 let gpgconfBin = "gpgconf";
 
@@ -480,7 +458,6 @@ export default async function globalSetup(_config: FullConfig) {
   const repoQ = makeRepoQ();
   const repoR = makeRepoR();
   const repoS = makeRepoS();
-  const repoT = makeRepoT();
   const repoU = makeRepoU();
   const repoV = makeRepoV();
 
@@ -512,7 +489,6 @@ export default async function globalSetup(_config: FullConfig) {
         repoQWorktree: repoQ.worktree,
         repoR,
         repoS,
-        repoT,
         repoU,
         repoV,
       },

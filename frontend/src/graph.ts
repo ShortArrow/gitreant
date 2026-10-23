@@ -63,11 +63,23 @@ export function edgePath(
   if (childRow === undefined || parentRow === undefined) {
     return "";
   }
-  const x1 = nodeX(edge.from_lane);
-  const y1 = nodeY(childRow);
-  const x2 = nodeX(edge.to_lane);
-  const y2 = nodeY(parentRow);
-  if (x1 === x2) {
+  return edgeBetween(
+    edge,
+    { x: nodeX(edge.from_lane), y: nodeY(childRow) },
+    { x: nodeX(edge.to_lane), y: nodeY(parentRow) },
+  );
+}
+
+/** [`edgePath`] from a child drawn at `from` to a parent drawn at `to`,
+ * which a thickness may have moved off their lanes (ADR 0044). */
+export function edgeBetween(
+  edge: GraphEdge,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+): string {
+  const { x: x1, y: y1 } = from;
+  const { x: x2, y: y2 } = to;
+  if (edge.from_lane === edge.to_lane) {
     return `M${x1},${y1} L${x2},${y2}`;
   }
   if (edge.fork) {

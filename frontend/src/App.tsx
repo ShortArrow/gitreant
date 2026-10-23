@@ -45,7 +45,9 @@ import {
   storeLangSetting,
   storedLangSetting,
   storeSquashLinks,
+  storeThickness,
   storedSquashLinks,
+  storedThickness,
   storeVimKeys,
   storedVimKeys,
   storeStashInternals,
@@ -383,6 +385,11 @@ export function App() {
     setLangSetting(setting);
     storeLangSetting(setting);
   };
+  const [thickness, setThickness] = useState<boolean>(storedThickness);
+  const changeThickness = (on: boolean) => {
+    setThickness(on);
+    storeThickness(on);
+  };
   const [squashLinks, setSquashLinks] = useState<boolean>(storedSquashLinks);
   const changeSquashLinks = (on: boolean) => {
     setSquashLinks(on);
@@ -424,6 +431,7 @@ export function App() {
       lang,
       dateFormat,
       squashLinks,
+      thickness,
       stashInternals,
       avatars,
       submoduleLinks,
@@ -434,6 +442,7 @@ export function App() {
       lang,
       dateFormat,
       squashLinks,
+      thickness,
       stashInternals,
       avatars,
       submoduleLinks,
@@ -496,6 +505,11 @@ export function App() {
           id: "drawer",
           title: collapsed ? m.cmdExpandDrawer : m.cmdCollapseDrawer,
           run: () => setCollapsed((c) => !c),
+        },
+        {
+          id: "thickness",
+          title: m.cmdToggleThickness,
+          run: () => changeThickness(!storedThickness()),
         },
         {
           id: "squash-links",
@@ -691,6 +705,15 @@ export function App() {
               </fieldset>
               <fieldset className="settings-group">
                 <legend>{t("settingsGraph")}</legend>
+                <label className="settings-option">
+                  <input
+                    type="checkbox"
+                    data-testid="thickness-toggle"
+                    checked={thickness}
+                    onChange={(e) => changeThickness(e.target.checked)}
+                  />
+                  {t("thicknessSetting")}
+                </label>
                 <label className="settings-option">
                   <input
                     type="checkbox"

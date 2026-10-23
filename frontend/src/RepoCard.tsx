@@ -42,11 +42,10 @@ import {
   PrLinkIcon,
   StashBadgeIcon,
   TagBadgeIcon,
-  TerrainIcon,
   WorktreeIcon,
 } from "./Icons";
-import { LabeledButton } from "./LabeledButton";
-import { Terrain } from "./Terrain";
+import { Thickness } from "./Thickness";
+import { THICKNESS_REACH } from "./thicknessModel";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
 import { format, MESSAGES } from "./i18n";
 import { useCommands, type PaletteCommand } from "./palette";
@@ -56,6 +55,7 @@ import {
   storedCollapsedSubmodules,
   useAvatars,
   useSquashLinks,
+  useThickness,
   useVimKeys,
   useStashInternals,
   useSubmoduleLinks,
@@ -422,8 +422,6 @@ export function RepoCard({
   };
   useEffect(maybeLoadMore);
 
-  // The terrain mode (ADR 0042) takes the place of the graph and its rows.
-  const [terrain, setTerrain] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   // Clicking a row or its graph node toggles the detail panel for it.
   const toggleSelected = (id: string) => {
@@ -521,10 +519,10 @@ export function RepoCard({
 
   // The focused pane's graph takes the selection keys (ADR 0035) while the
   // graph is shown and nothing else has the keyboard: no text field, no
-  // menu, no dialog or palette. The terrain has no rows to select.
+  // menu, no dialog or palette.
   const vimKeys = useVimKeys();
   useEffect(() => {
-    if (!focused || diffTarget !== null || terrain) return;
+    if (!focused || diffTarget !== null) return;
     let previous: string | null = null;
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -555,7 +553,7 @@ export function RepoCard({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focused, diffTarget, terrain, vimKeys, selected, view.commits]);
+  }, [focused, diffTarget, vimKeys, selected, view.commits]);
 
   // A reload can drop the selected row (the tree became clean, or the
   // history was rewritten): nothing may keep showing a commit that is gone.
@@ -650,13 +648,19 @@ export function RepoCard({
   }
 
   const showSquashLinks = useSquashLinks();
+  const showThickness = useThickness();
   const links = showSquashLinks ? squashLinks(view, mergedPrs) : [];
   // Submodule regions sit left of the main graph; everything main-graph
-  // shaped below draws inside a group shifted by mainOffset.
-  const { regions, mainOffset } = submoduleRegions(subGraphs, collapsedSubs);
+  // shaped below draws inside a group shifted by mainOffset. A thickness
+  // reaches past the lanes on both sides, so it moves them in by as much.
+  const reach = showThickness ? THICKNESS_REACH : 0;
+  const regionsAndMain = submoduleRegions(subGraphs, collapsedSubs);
+  const { regions } = regionsAndMain;
+  const mainOffset = regionsAndMain.mainOffset + reach;
   const subLinks = submoduleCrossLinks(view, mainOffset, regions);
   // Link corridors beyond the real lanes widen the drawing.
-  const width = mainOffset + graphWidth(laneSpan(view.lane_count, links));
+  const width =
+    mainOffset + graphWidth(laneSpan(view.lane_count, links)) + reach;
   const height = graphHeight(
     Math.max(
       view.commits.length,
@@ -682,14 +686,6 @@ export function RepoCard({
         <span className="repo-count">
           {t("commitsCount", { n: repo.total })}
         </span>
-        <LabeledButton
-          icon={<TerrainIcon />}
-          label={t("terrain")}
-          testId="terrain-toggle"
-          className="terrain-toggle"
-          active={terrain}
-          onClick={() => setTerrain((on) => !on)}
-        />
       </header>
 
       {opError && (
@@ -828,10 +824,6 @@ export function RepoCard({
         ref={scrollRef}
         onScroll={maybeLoadMore}
       >
-        {terrain ? (
-          <Terrain commits={view.commits} edges={view.edges} />
-        ) : (
-        <>
         <svg
           className="graph"
           data-testid="graph"
@@ -956,6 +948,15 @@ export function RepoCard({
             </g>
           ))}
           <g transform={`translate(${mainOffset},0)`}>
+          {showThickness && (
+            <Thickness
+              commits={view.commits}
+              edges={view.edges}
+              rowOf={rowOf}
+              fadedNode={fadedNode}
+              fadedEdge={fadedEdge}
+            />
+          )}
           {view.edges.map((edge, i) => {
             // A stash's helper links are auxiliary structure: dashed (and
             // grabbable), like the squash-merge links below, rather than
@@ -1270,8 +1271,6 @@ export function RepoCard({
             );
           })}
         </ul>
-        </>
-        )}
       </div>
       )}
 

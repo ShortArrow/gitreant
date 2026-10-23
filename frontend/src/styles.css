@@ -961,6 +961,26 @@ body {
   opacity: 0.25;
 }
 
+/* A commit's thickness (ADR 0044) is drawn, not handled: the node in
+   front of it takes the pointer. */
+.graph .thickness {
+  pointer-events: none;
+}
+
+/* Each side is composited once, so overlapping copies stay one even,
+   see-through shape. */
+.graph .thickness-side {
+  opacity: 0.4;
+}
+
+.graph .thickness-added {
+  color: var(--success);
+}
+
+.graph .thickness-deleted {
+  color: var(--danger);
+}
+
 /* Rows a hovered branch cannot reach (#17), or off a hovered node's
    first-parent chain (ADR 0035). */
 .commits .commit > * {
@@ -1046,45 +1066,6 @@ body {
 
 .commit-stat .stat-deleted {
   color: var(--danger);
-}
-
-.repo-header .terrain-toggle {
-  margin-left: auto;
-  align-self: center;
-}
-
-/* The terrain fills the pane instead of scrolling in it. */
-.terrain-view {
-  flex: 1 1 auto;
-  align-self: stretch;
-  position: relative;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.terrain {
-  position: absolute;
-  inset: 0;
-  display: block;
-  cursor: grab;
-  /* Dragging turns the terrain instead of scrolling the pane. */
-  touch-action: none;
-}
-
-.terrain:active {
-  cursor: grabbing;
-}
-
-.terrain-pillar {
-  stroke-linecap: round;
-}
-
-.terrain-up {
-  stroke: var(--success);
-}
-
-.terrain-down {
-  stroke: var(--danger);
 }
 
 .commit-meta {

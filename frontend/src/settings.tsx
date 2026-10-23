@@ -92,6 +92,26 @@ export function storeSquashLinks(on: boolean) {
   }
 }
 
+export const THICKNESS_KEY = "gitreant-thickness";
+
+/** Whether the graph is drawn with the thickness of each commit's lines
+ * (ADR 0044; default on). */
+export function storedThickness(): boolean {
+  try {
+    return localStorage.getItem(THICKNESS_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function storeThickness(on: boolean) {
+  try {
+    localStorage.setItem(THICKNESS_KEY, on ? "on" : "off");
+  } catch {
+    // localStorage may be unavailable; the state change alone is enough.
+  }
+}
+
 export const VIM_KEYS_KEY = "gitreant-vim-keys";
 
 /** Whether `hjkl` move the graph selection besides the arrows (default
@@ -245,6 +265,7 @@ export const SettingsContext = createContext<{
   lang: Lang;
   dateFormat: DateFormat;
   squashLinks: boolean;
+  thickness: boolean;
   stashInternals: boolean;
   avatars: boolean;
   submoduleLinks: boolean;
@@ -254,6 +275,7 @@ export const SettingsContext = createContext<{
   lang: "en",
   dateFormat: "iso",
   squashLinks: true,
+  thickness: true,
   stashInternals: false,
   avatars: true,
   submoduleLinks: true,
@@ -266,6 +288,11 @@ export function useTime(): (seconds: number) => string {
   const { dateFormat, lang } = useContext(SettingsContext);
   return (seconds) =>
     formatTime(new Date(seconds * 1000), dateFormat, lang, new Date());
+}
+
+/** Whether the graph is drawn with its thickness (ADR 0044). */
+export function useThickness(): boolean {
+  return useContext(SettingsContext).thickness;
 }
 
 /** Whether squash-merge links should be drawn. */

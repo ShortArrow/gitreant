@@ -27,7 +27,6 @@ const fixtures = JSON.parse(
   repoQWorktree: string;
   repoR: string;
   repoS: string;
-  repoT: string;
   repoU: string;
   repoV: string;
 };
@@ -156,7 +155,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("commit-time").first()).toHaveText(
       /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/,
     );
-    await expect(page.locator('[data-testid="graph"] circle')).toHaveCount(5);
+    await expect(page.getByTestId("graph-node")).toHaveCount(5);
     expect(
       await page.locator('[data-testid="graph"] path').count(),
     ).toBeGreaterThan(0);
@@ -667,7 +666,11 @@ test.describe.serial("gitreant UI", () => {
       .locator('[data-testid="graph"] path')
       .evaluateAll((els) =>
         els
-          .filter((e) => (e.getAttribute("d") ?? "").includes("C"))
+          .filter(
+            (e) =>
+              !e.closest(".thickness") &&
+              (e.getAttribute("d") ?? "").includes("C"),
+          )
           .map((e) => e.getAttribute("stroke")),
       );
     expect(strokes.length).toBe(2);
@@ -753,156 +756,72 @@ test.describe.serial("gitreant UI", () => {
     );
   });
 
-  test("the terrain raises each commit by the lines it added", async ({
+  test("each counted commit stands thick with the lines it changed", async ({
     page,
   }) => {
     await page.locator('[data-repo-name="repoA"]').click();
-    const rows = page.getByTestId("commit-row");
-    await expect(
-      rows
-        .filter({ has: page.locator(".commit-summary", { hasText: "main-2" }) })
-        .getByTestId("commit-stat"),
-    ).toHaveText("+2 −0");
-    const commits = await rows.count();
+    const stat = (summary: string) =>
+      page
+        .getByTestId("commit-row")
+        .filter({ has: page.locator(".commit-summary", { hasText: summary }) })
+        .getByTestId("commit-stat");
+    await expect(stat("main-2")).toHaveText("+2 −0");
+    await expect(stat("root")).toHaveText("+1 −0");
 
-    const toggle = page.getByTestId("terrain-toggle");
-    await expect(toggle).toHaveAttribute("aria-pressed", "false");
-    await toggle.click();
-    await expect(toggle).toHaveAttribute("aria-pressed", "true");
-    // A mode of its own: the rows give way to the terrain (ADR 0042).
-    await expect(rows).toHaveCount(0);
-    await expect(page.getByTestId("terrain-node")).toHaveCount(commits);
-    // A commit that added nothing, like the merge of an empty branch,
-    // stands no pillar up.
-    const ups = await page.getByTestId("terrain-up").count();
-    expect(ups).toBeGreaterThan(0);
-    expect(ups).toBeLessThan(commits);
-
-    await page
-      .getByTestId("terrain-node")
-      .and(page.locator("[data-summary=\"main-2\"]"))
-      .hover();
-    await expect(page.getByTestId("node-tip")).toContainText("main-2 +2 −0");
-
-    await toggle.click();
-    await expect(rows).toHaveCount(commits);
-  });
-
-  test("the terrain turns, moves and zooms", async ({ page }) => {
-    await page.locator('[data-repo-name="repoA"]').click();
-    await page.getByTestId("terrain-toggle").click();
-    const terrain = page.getByTestId("terrain");
-    await expect(terrain).toHaveAttribute("data-rotation", "30");
-    await expect(terrain).toHaveAttribute("data-tilt", "60");
-    const startZoom = Number(await terrain.getAttribute("data-zoom"));
-
-    const box = (await terrain.boundingBox())!;
-    const cx = box.x + box.width / 2;
-    const cy = box.y + box.height / 2;
-    await page.mouse.move(cx, cy);
-    await page.mouse.down();
-    await page.mouse.move(cx + 40, cy + 20);
-    await page.mouse.up();
-    await expect(terrain).toHaveAttribute("data-rotation", "50");
-    await expect(terrain).toHaveAttribute("data-tilt", "50");
-
-    // A right drag moves the ground under the pointer along with it.
-    const node = page.getByTestId("terrain-node").first().locator("circle");
-    const before = (await node.boundingBox())!;
-    await page.mouse.down({ button: "right" });
-    await page.mouse.move(cx - 30, cy + 25);
-    await page.mouse.up({ button: "right" });
-    const after = (await node.boundingBox())!;
-    expect(after.x - before.x).toBeCloseTo(-70, 0);
-    expect(after.y - before.y).toBeCloseTo(5, 0);
-    await expect(terrain).toHaveAttribute("data-rotation", "50");
-
-    await page.mouse.wheel(0, -200);
-    await expect
-      .poll(async () => Number(await terrain.getAttribute("data-zoom")))
-      .toBeGreaterThan(startZoom);
-
-    // A turn begun on a commit goes about it: it stays under the pointer.
-    const grabbed = (await page
-      .getByTestId("terrain-node")
-      .nth(2)
-      .locator("circle")
-      .boundingBox())!;
-    const gx = grabbed.x + grabbed.width / 2;
-    const gy = grabbed.y + grabbed.height / 2;
-    const commitAt = () =>
-      page.evaluate(
-        ([x, y]) =>
-          document
-            .elementFromPoint(x, y)
-            ?.closest("[data-commit]")
-            ?.getAttribute("data-commit") ?? null,
-        [gx, gy],
-      );
-    const held = await commitAt();
-    expect(held).not.toBeNull();
-    await page.mouse.move(gx, gy);
-    await page.mouse.down();
-    await page.mouse.move(gx + 90, gy - 30);
-    await page.mouse.up();
-    await expect(terrain).toHaveAttribute("data-rotation", "95");
-    await expect(terrain).toHaveAttribute("data-tilt", "65");
-    expect(await commitAt()).toBe(held);
-
-    await terrain.focus();
-    await page.keyboard.press("-");
-    await page.keyboard.press("-");
-    await page.keyboard.press("-");
-    expect(Number(await terrain.getAttribute("data-zoom"))).toBeLessThan(
-      startZoom,
+    // root, main-1 and main-2 added lines; the empty feature-1 and the
+    // merge that brought it in did not (ADR 0044).
+    const thick = page.getByTestId("thickness-node");
+    await expect(thick).toHaveCount(3);
+    await expect(thick.and(page.locator('[data-side="deleted"]'))).toHaveCount(
+      0,
     );
-    await page.keyboard.press("ArrowUp");
-    await expect(terrain).toHaveAttribute("data-tilt", "70");
-    await page.keyboard.press("ArrowLeft");
-    await expect(terrain).toHaveAttribute("data-rotation", "80");
-    // The arrows turn the terrain instead of selecting a row.
-    await page.keyboard.press("ArrowDown");
-    await expect(terrain).toHaveAttribute("data-tilt", "65");
-    await page.keyboard.press("0");
-    await expect(terrain).toHaveAttribute("data-rotation", "30");
-    await expect(terrain).toHaveAttribute("data-tilt", "60");
-    await expect(terrain).toHaveAttribute("data-zoom", startZoom.toFixed(3));
-    await page.getByTestId("terrain-toggle").click();
-    await expect(page.locator(".commits .commit.selected")).toHaveCount(0);
-  });
+    // Added lines stack up and to the left, far end first.
+    const copies = thick.first().locator("circle");
+    const far = (await copies.first().boundingBox())!;
+    const near = (await copies.last().boundingBox())!;
+    expect(far.x).toBeLessThan(near.x);
+    expect(far.y).toBeLessThan(near.y);
+    // A fin is as wide as a pillar, so both reach as high.
+    const fin = page
+      .locator('.thickness-side[data-side="added"] path')
+      .first();
+    expect(Number(await fin.getAttribute("stroke-width"))).toBe(
+      2 * Number(await copies.first().getAttribute("r")),
+    );
+    // Green, see-through, and not the lane's color.
+    const side = page.locator('.thickness-side[data-side="added"]');
+    const look = await side.evaluate((g) => {
+      const style = getComputedStyle(g);
+      const path = g.querySelector("path")!;
+      return {
+        opacity: Number(style.opacity),
+        color: style.color,
+        stroke: getComputedStyle(path).stroke,
+      };
+    });
+    expect(look.opacity).toBeLessThan(1);
+    expect(look.stroke).toBe(look.color);
+    const success = await page.evaluate(() => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--success)";
+      document.body.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    });
+    expect(look.color).toBe(success);
+    // Drawn behind the nodes, it leaves them to the pointer.
+    await page.getByTestId("graph-node").first().hover();
+    await expect(page.getByTestId("node-tip")).toBeVisible();
 
-  test("a terrain longer than the pane opens fitted into it", async ({
-    page,
-  }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoT);
-    await page.getByTestId("add-submit").click();
-    await expect(page.locator('[data-tab-name="repoT"]')).toBeVisible();
-    await expect(page.getByTestId("commit-row")).toHaveCount(80);
-
-    await page.getByTestId("terrain-toggle").click();
-    await expect(page.getByTestId("terrain")).toBeVisible();
-    // The part of the pane on screen, not the drawing, which may be larger.
-    const terrain = (await page.getByTestId("graph-scroll").boundingBox())!;
-    const nodes = page.getByTestId("terrain-node").locator("circle");
-    await expect(nodes).toHaveCount(80);
-    for (const box of await Promise.all(
-      (await nodes.all()).map((node) => node.boundingBox()),
-    )) {
-      expect(box!.x).toBeGreaterThanOrEqual(terrain.x);
-      expect(box!.y).toBeGreaterThanOrEqual(terrain.y);
-      expect(box!.x + box!.width).toBeLessThanOrEqual(
-        terrain.x + terrain.width,
-      );
-      expect(box!.y + box!.height).toBeLessThanOrEqual(
-        terrain.y + terrain.height,
-      );
-    }
-
-    await page.getByTestId("terrain-toggle").click();
-    const repoT = page.locator('[data-repo-name="repoT"]');
-    await repoT.hover();
-    await repoT.getByTestId("repo-remove").click();
-    await expect(repoT).toHaveCount(0);
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("thickness-toggle").uncheck();
+    await page.keyboard.press("Escape");
+    await expect(thick).toHaveCount(0);
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("thickness-toggle").check();
+    await page.keyboard.press("Escape");
+    await expect(thick).toHaveCount(3);
   });
 
   test("counts finished before the event stream connects still show", async ({
