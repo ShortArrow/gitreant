@@ -1036,6 +1036,8 @@ body {
 .commit-stat {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  /* The clearance a signature badge keeps. */
+  margin-right: 8px;
 }
 
 .commit-stat .stat-added {

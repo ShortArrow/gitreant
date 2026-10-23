@@ -1282,6 +1282,12 @@ test.describe.serial("gitreant UI", () => {
     const badge = verified.getByTestId("badge-signed");
     await expect(badge).toHaveText("Verified");
     await expect(badge).toHaveClass(/badge-verified/);
+    // The line counts before it keep the same clearance a badge does.
+    const stat = verified.getByTestId("commit-stat");
+    await expect(stat).toBeVisible();
+    const statBox = (await stat.boundingBox())!;
+    const badgeBox = (await badge.boundingBox())!;
+    expect(badgeBox.x - (statBox.x + statBox.width)).toBeGreaterThanOrEqual(6);
 
     // The detail pane names the verdict and the signing key, which copies.
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
