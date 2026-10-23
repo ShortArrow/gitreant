@@ -49,3 +49,4 @@ are canonical; the files below are their English translations.
 | [0039](0039-server-records.md) | Keep a record of each running server and let the CLI find it | Accepted |
 | [0040](0040-lane-colors-by-what-is-in-use.md) | Choose a lane's color by the lanes in use | Accepted |
 | [0041](0041-diff-stats-per-commit.md) | Show how many lines each commit adds and deletes | Accepted |
+| [0042](0042-terrain-mode.md) | Show the history as terrain, raised by lines added and deleted | Accepted |
