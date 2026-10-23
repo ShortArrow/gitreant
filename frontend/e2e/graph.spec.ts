@@ -882,6 +882,33 @@ test.describe.serial("gitreant UI", () => {
     expect(reset.dy).toBeCloseTo(start.dy, 0);
   });
 
+  test("a selection on the page does not stop the tilt", async ({ page }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const thick = page.getByTestId("thickness-node");
+    await expect(thick).toHaveCount(3);
+    const box = (await page.getByTestId("graph").boundingBox())!;
+    const x = box.x + box.width - 4;
+    const y = box.y + box.height / 2;
+    // Text selected across the page: pressing inside it would otherwise
+    // start the browser's own drag of the selection.
+    await page.evaluate(() =>
+      document.getSelection()!.selectAllChildren(document.body),
+    );
+    const lean = async () => {
+      const copies = thick.first().locator("circle");
+      const far = (await copies.first().boundingBox())!;
+      const near = (await copies.last().boundingBox())!;
+      return far.x - near.x;
+    };
+    expect(await lean()).toBeLessThan(0);
+
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 180, y, { steps: 4 });
+    expect(await lean()).toBeGreaterThan(0);
+    await page.mouse.up();
+  });
+
   test("only the rows near the view are drawn thick", async ({ page }) => {
     // Drawing every row's thickness made a long history too slow to tilt.
     await page.getByTestId("add-input").fill(fixtures.repoW);
@@ -1157,6 +1184,24 @@ test.describe.serial("gitreant UI", () => {
       "Checkout branch: feature",
     ]);
     await page.keyboard.press("Escape");
+  });
+
+  test("pressing a pane's graph background focuses the pane", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page.locator('[data-repo-name="repoB"]').click({ button: "right" });
+    await page.getByTestId("drawer-open-right").click();
+    const slots = page.getByTestId("pane-slot");
+    await expect(slots).toHaveCount(2);
+    await expect(slots.nth(1)).toHaveClass(/pane-focused/);
+
+    // The press that would tilt the thickness focuses the pane too.
+    const box = (await slots.nth(0).getByTestId("graph").boundingBox())!;
+    await page.mouse.move(box.x + box.width - 4, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.up();
+    await expect(slots.nth(0)).toHaveClass(/pane-focused/);
   });
 
   test("theme toggle flips the document theme", async ({ page }) => {

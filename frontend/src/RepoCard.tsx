@@ -443,6 +443,9 @@ export function RepoCard({
   const tiltDrag = useRef<{ x: number; y: number } | null>(null);
   const onGraphPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0 || e.target !== e.currentTarget) return;
+    // Pressed inside a text selection, the browser would drag the
+    // selection instead and cancel this pointer.
+    e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     tiltDrag.current = { x: e.clientX, y: e.clientY };
   };

@@ -874,7 +874,7 @@ export function App() {
                   index === layout.focused ? " pane-focused" : ""
                 }`}
                 data-testid="pane-slot"
-                onMouseDownCapture={() =>
+                onPointerDownCapture={() =>
                   setLayout((prev) => paneModel.focusPane(prev, index))
                 }
               >
