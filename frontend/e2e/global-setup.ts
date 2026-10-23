@@ -410,6 +410,25 @@ function makeRepoS(): string {
   return parent;
 }
 
+/** repoU: one commit of three lines, counted only by the test that adds it,
+ * so its count is not already known when the test reads it. */
+function makeRepoU(): string {
+  const dir = initRepo("repoU");
+  writeFileSync(path.join(dir, "u.txt"), "1\n2\n3\n");
+  git(dir, ["add", "."]);
+  commit(dir, "u-1", 1_700_000_000);
+  return dir;
+}
+
+/** repoV: like repoU, for the test of a view answered late. */
+function makeRepoV(): string {
+  const dir = initRepo("repoV");
+  writeFileSync(path.join(dir, "v.txt"), "1\n2\n");
+  git(dir, ["add", "."]);
+  commit(dir, "v-1", 1_700_000_000);
+  return dir;
+}
+
 /** repoT: a history longer than a pane is tall, each commit adding a line,
  * for the terrain's fit. Written by one `git fast-import`, as eighty
  * commits one by one would slow every run. */
@@ -462,6 +481,8 @@ export default async function globalSetup(_config: FullConfig) {
   const repoR = makeRepoR();
   const repoS = makeRepoS();
   const repoT = makeRepoT();
+  const repoU = makeRepoU();
+  const repoV = makeRepoV();
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
@@ -492,6 +513,8 @@ export default async function globalSetup(_config: FullConfig) {
         repoR,
         repoS,
         repoT,
+        repoU,
+        repoV,
       },
       null,
       2,

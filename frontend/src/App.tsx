@@ -97,10 +97,16 @@ export function App() {
   // sequence invalidates any older in-flight fetch so it cannot overwrite this.
   // How many rows each repository has asked for so far (ADR 0023 paging).
   const limitsRef = useRef(new Map<string, number>());
+  // The latest read of each repository's view: an answer to an older read,
+  // overtaken on the way, would undo what a newer one brought, such as a
+  // batch of counts.
+  const viewReads = useRef(new Map<string, number>());
   const loadView = useCallback((id: string, seq: number) => {
+    const read = (viewReads.current.get(id) ?? 0) + 1;
+    viewReads.current.set(id, read);
     fetchRepoView(id, limitsRef.current.get(id) ?? pageSize())
       .then((view) => {
-        if (seq === fetchSeq.current) {
+        if (seq === fetchSeq.current && read === viewReads.current.get(id)) {
           setViews((prev) => new Map(prev).set(id, view));
         }
       })
@@ -172,6 +178,10 @@ export function App() {
     // events streamed meanwhile must not be missed.
     const events = new EventSource("/api/events");
     reload();
+    // The stream connects some time after it is created, and again after
+    // a drop: whatever was announced before then, such as a batch of counts
+    // finished meanwhile, is read again once it listens.
+    events.addEventListener("open", () => reload());
     events.addEventListener("update", () => reload());
     // A batch of signatures was checked (ADR 0037): read that one
     // repository again for its verdicts.

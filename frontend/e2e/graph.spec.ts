@@ -28,6 +28,8 @@ const fixtures = JSON.parse(
   repoR: string;
   repoS: string;
   repoT: string;
+  repoU: string;
+  repoV: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -901,6 +903,56 @@ test.describe.serial("gitreant UI", () => {
     await repoT.hover();
     await repoT.getByTestId("repo-remove").click();
     await expect(repoT).toHaveCount(0);
+  });
+
+  test("counts finished before the event stream connects still show", async ({
+    page,
+  }) => {
+    // Hold the event stream back, so the view is read, counted and
+    // announced before the page is listening (ADR 0041).
+    await page.route("**/api/events", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await route.continue();
+    });
+    await page.reload();
+    await page.getByTestId("add-input").fill(fixtures.repoU);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoU"]')).toBeVisible();
+    await expect(page.getByTestId("commit-stat")).toHaveText("+3 −0");
+
+    await page.unroute("**/api/events");
+    const repoU = page.locator('[data-repo-name="repoU"]');
+    await repoU.hover();
+    await repoU.getByTestId("repo-remove").click();
+    await expect(repoU).toHaveCount(0);
+  });
+
+  test("a view answered late does not undo a newer one", async ({ page }) => {
+    // Hold back the answer to the read that starts the count, until the
+    // read its `counted` event brings has answered (ADR 0041).
+    let held = false;
+    await page.route("**/api/view", async (route) => {
+      const response = await route.fetch();
+      const view = await response.json();
+      if (view.name === "repoV" && !held) {
+        held = true;
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+      await route.fulfill({ response, json: view });
+    });
+    await page.getByTestId("add-input").fill(fixtures.repoV);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoV"]')).toBeVisible();
+    const stat = page.getByTestId("commit-stat");
+    await expect(stat).toHaveText("+2 −0");
+    await page.waitForTimeout(2000);
+    await expect(stat).toHaveText("+2 −0");
+
+    await page.unroute("**/api/view");
+    const repoV = page.locator('[data-repo-name="repoV"]');
+    await repoV.hover();
+    await repoV.getByTestId("repo-remove").click();
+    await expect(repoV).toHaveCount(0);
   });
 
   test("a node's tooltip outlasts a reload that keeps the node", async ({
