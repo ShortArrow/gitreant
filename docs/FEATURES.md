@@ -64,7 +64,9 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 - **Thickness.** The graph gives each counted commit a see-through
   thickness, green up and to the left by the lines it added and red down
   and to the right by the lines it deleted, on a logarithmic scale; the
-  edges between commits carry it as fins. A graph setting turns it off.
+  edges between commits carry it as fins. Dragging the graph's background
+  turns the direction it extrudes in and, up or down, its depth, down to
+  none; a double click resets it. A graph setting turns it off.
 
 ## Commit details and diffs
 

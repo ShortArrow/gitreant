@@ -824,6 +824,58 @@ test.describe.serial("gitreant UI", () => {
     await expect(thick).toHaveCount(3);
   });
 
+  test("dragging the graph's background tilts its thickness", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const thick = page.getByTestId("thickness-node");
+    await expect(thick).toHaveCount(3);
+    const graph = page.getByTestId("graph");
+    const box = (await graph.boundingBox())!;
+    // The background right of the lanes, inside the room kept for the
+    // thickness (ADR 0045).
+    const x = box.x + box.width - 4;
+    const y = box.y + box.height / 2;
+    expect(
+      await page.evaluate(
+        ([px, py]) => document.elementFromPoint(px, py)?.tagName,
+        [x, y],
+      ),
+    ).toBe("svg");
+    const lean = async () => {
+      const copies = thick.first().locator("circle");
+      const far = (await copies.first().boundingBox())!;
+      const near = (await copies.last().boundingBox())!;
+      return { dx: far.x - near.x, dy: far.y - near.y };
+    };
+    const start = await lean();
+    expect(start.dx).toBeLessThan(0);
+    expect(start.dy).toBeLessThan(0);
+
+    // A quarter turn clockwise: from up and to the left to up and right.
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 180, y, { steps: 4 });
+    await page.mouse.up();
+    const turned = await lean();
+    expect(turned.dx).toBeGreaterThan(0);
+    expect(turned.dy).toBeLessThan(0);
+
+    // Down flattens it to nothing, as seen from straight above.
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + 200, { steps: 4 });
+    await page.mouse.up();
+    await expect(thick).toHaveCount(0);
+
+    // A double click returns to the start.
+    await page.mouse.dblclick(x, y);
+    await expect(thick).toHaveCount(3);
+    const reset = await lean();
+    expect(reset.dx).toBeCloseTo(start.dx, 0);
+    expect(reset.dy).toBeCloseTo(start.dy, 0);
+  });
+
   test("counts finished before the event stream connects still show", async ({
     page,
   }) => {

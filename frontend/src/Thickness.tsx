@@ -1,6 +1,12 @@
 import { type CommitView, type GraphEdge, UNCOMMITTED_ID } from "./api";
 import { edgeBetween, NODE_RADIUS, nodeX, nodeY } from "./graph";
-import { edgeLayers, nodeLayers, type Side } from "./thicknessModel";
+import {
+  edgeLayers,
+  nodeLayers,
+  type Side,
+  START_TILT,
+  type Tilt,
+} from "./thicknessModel";
 
 const SIDES: Side[] = ["added", "deleted"];
 
@@ -8,7 +14,8 @@ const SIDES: Side[] = ["added", "deleted"];
  * The thickness of the rows' graph (ADR 0044): behind each counted commit,
  * copies of its node and edges stacked up and to the left by the lines it
  * added and down and to the right by the lines it deleted, as an
- * illustration tool's blend fakes a solid's depth. Each side is drawn as
+ * illustration tool's blend fakes a solid's depth; dragging the graph's
+ * background tilts that direction and depth (ADR 0045). Each side is drawn as
  * one see-through shape in green or red: its copies merge instead of
  * darkening where they overlap. An edge's copies are as wide as a node, so
  * a fin reaches as far as the pillars at its ends.
@@ -19,12 +26,15 @@ export function Thickness({
   rowOf,
   fadedNode,
   fadedEdge,
+  tilt = START_TILT,
 }: {
   commits: CommitView[];
   edges: GraphEdge[];
   rowOf: Map<string, number>;
   fadedNode: (id: string) => string;
   fadedEdge: (edge: GraphEdge) => string | undefined;
+  /** How the thickness is tilted (ADR 0045). */
+  tilt?: Tilt;
 }) {
   const statOf = new Map(commits.map((c) => [c.id, c.stat]));
   const drawn = edges.flatMap((edge) => {
@@ -43,7 +53,11 @@ export function Thickness({
         edge,
         from: { x: nodeX(edge.from_lane), y: nodeY(childRow) },
         to: { x: nodeX(edge.to_lane), y: nodeY(parentRow) },
-        layers: edgeLayers(statOf.get(edge.from), statOf.get(edge.to)),
+        layers: edgeLayers(
+          statOf.get(edge.from),
+          statOf.get(edge.to),
+          tilt,
+        ),
       },
     ];
   });
@@ -77,7 +91,7 @@ export function Thickness({
             </g>
           ))}
           {commits.map((commit) => {
-            const layers = nodeLayers(commit.stat).filter(
+            const layers = nodeLayers(commit.stat, tilt).filter(
               (layer) => layer.kind === side,
             );
             if (layers.length === 0) return null;

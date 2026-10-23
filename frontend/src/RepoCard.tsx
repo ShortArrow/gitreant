@@ -45,7 +45,12 @@ import {
   WorktreeIcon,
 } from "./Icons";
 import { Thickness } from "./Thickness";
-import { THICKNESS_REACH } from "./thicknessModel";
+import {
+  START_TILT,
+  THICKNESS_REACH,
+  type Tilt,
+  tiltBy,
+} from "./thicknessModel";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
 import { format, MESSAGES } from "./i18n";
 import { useCommands, type PaletteCommand } from "./palette";
@@ -422,6 +427,26 @@ export function RepoCard({
   };
   useEffect(maybeLoadMore);
 
+  // How the graph's thickness is tilted (ADR 0045), and the drag on the
+  // graph's background that is tilting it.
+  const [tilt, setTilt] = useState<Tilt>(START_TILT);
+  const tiltDrag = useRef<{ x: number; y: number; from: Tilt } | null>(null);
+  const onGraphPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (e.button !== 0 || e.target !== e.currentTarget) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    tiltDrag.current = { x: e.clientX, y: e.clientY, from: tilt };
+  };
+  const onGraphPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const drag = tiltDrag.current;
+    if (drag === null) return;
+    setTilt(tiltBy(drag.from, e.clientX - drag.x, e.clientY - drag.y));
+  };
+  const onGraphPointerUp = () => {
+    tiltDrag.current = null;
+  };
+  const onGraphDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (e.target === e.currentTarget) setTilt(START_TILT);
+  };
   const [selected, setSelected] = useState<string | null>(null);
   // Clicking a row or its graph node toggles the detail panel for it.
   const toggleSelected = (id: string) => {
@@ -830,6 +855,11 @@ export function RepoCard({
           width={width}
           height={height}
           viewBox={`0 0 ${width} ${height}`}
+          onPointerDown={showThickness ? onGraphPointerDown : undefined}
+          onPointerMove={onGraphPointerMove}
+          onPointerUp={onGraphPointerUp}
+          onPointerCancel={onGraphPointerUp}
+          onDoubleClick={onGraphDoubleClick}
         >
           {regions.map((region) => {
             // Each submodule graph draws in its own region with local lane
@@ -955,6 +985,7 @@ export function RepoCard({
               rowOf={rowOf}
               fadedNode={fadedNode}
               fadedEdge={fadedEdge}
+              tilt={tilt}
             />
           )}
           {view.edges.map((edge, i) => {

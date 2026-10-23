@@ -3,6 +3,9 @@ import type { GraphEdge } from "./api";
 import { edgeBetween, edgePath, nodeX, nodeY } from "./graph";
 import {
   EXTRUDE,
+  extrude,
+  START_TILT,
+  tiltBy,
   edgeLayers,
   nodeLayers,
   steps,
@@ -17,13 +20,51 @@ test("thickness grows by the logarithm of the lines, up to a cap", () => {
   expect(thickness(1_000_000)).toBe(36);
 });
 
-test("added lines extrude up and to the left, as far as the reach", () => {
+test("added lines start extruding up and to the left", () => {
   expect(EXTRUDE.x).toBeLessThan(0);
   expect(EXTRUDE.y).toBeLessThan(0);
   expect(Math.hypot(EXTRUDE.x, EXTRUDE.y)).toBeCloseTo(1);
-  expect(THICKNESS_REACH).toBeGreaterThanOrEqual(
-    thickness(1_000_000) * Math.abs(EXTRUDE.x),
+  expect(extrude(START_TILT).x).toBeCloseTo(EXTRUDE.x);
+  expect(extrude(START_TILT).y).toBeCloseTo(EXTRUDE.y);
+  expect(START_TILT.depth).toBe(1);
+});
+
+test("the reach covers a thickness turned any way", () => {
+  expect(THICKNESS_REACH).toBeGreaterThanOrEqual(thickness(1_000_000));
+});
+
+test("dragging turns the direction and changes the depth", () => {
+  const turned = tiltBy(START_TILT, 20, 0);
+  expect(turned.angle).toBeCloseTo(START_TILT.angle + 10);
+  expect(turned.depth).toBe(1);
+  // Up deepens, but no deeper than the start; down flattens to nothing.
+  expect(tiltBy(START_TILT, 0, -100).depth).toBe(1);
+  expect(tiltBy(START_TILT, 0, 75).depth).toBeCloseTo(0.5);
+  expect(tiltBy(START_TILT, 0, 1000).depth).toBe(0);
+  expect(tiltBy({ angle: 350, depth: 1 }, 40, 0).angle).toBeCloseTo(10);
+  expect(tiltBy({ angle: 10, depth: 1 }, -40, 0).angle).toBeCloseTo(350);
+});
+
+test("a tilt turns and scales the copies", () => {
+  const right = { angle: 0, depth: 0.5 };
+  // 3 lines added is 6 thick; half deep, 3.
+  const layers = nodeLayers({ added: 3, deleted: 3 }, right);
+  const added = layers.filter((l) => l.kind === "added");
+  const deleted = layers.filter((l) => l.kind === "deleted");
+  expect(added.map((l) => l.distance)).toEqual([3, 2]);
+  expect(added[0].dx).toBeCloseTo(3);
+  expect(added[0].dy).toBeCloseTo(0);
+  expect(deleted[0].dx).toBeCloseTo(-3);
+  expect(nodeLayers({ added: 3, deleted: 3 }, { angle: 0, depth: 0 })).toEqual(
+    [],
   );
+  const fins = edgeLayers(
+    { added: 3, deleted: 0 },
+    { added: 1, deleted: 0 },
+    right,
+  );
+  expect(fins[0].from.x).toBeCloseTo(3);
+  expect(fins[0].to.x).toBeCloseTo(1.5);
 });
 
 test("steps fill a length every two pixels, ending at it", () => {

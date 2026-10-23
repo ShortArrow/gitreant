@@ -122,10 +122,6 @@ keyed off the remote URL's host.
 
 ## Graph / UI
 
-- **Tilt the thickness** — dragging the graph's background turns the
-  direction a commit's thickness
-  ([ADR 0044](adr/0044-graph-thickness.md)) extrudes in, and its depth, down
-  to none when seen from straight above; the rows stay where they are
 - **Cumulative chart** — the lines added and deleted summed over time, as
   another view of the counts beside the graph's thickness
   ([ADR 0044](adr/0044-graph-thickness.md))
