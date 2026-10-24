@@ -103,6 +103,22 @@ test("the layout spans the plot from the first time to the last", () => {
   }
 });
 
+test("a point across the plot maps back to its time", () => {
+  const sums = cumulative(history, "merge");
+  const layout = chartLayout(sums, { width: 400, height: 200 });
+  const { plot } = layout;
+  const first = sums.points[0].time;
+  const last = sums.points.at(-1)!.time;
+  expect(layout.timeAt(plot.left)).toBeCloseTo(first);
+  expect(layout.timeAt(plot.right)).toBeCloseTo(last);
+  expect(layout.timeAt((plot.left + plot.right) / 2)).toBeCloseTo(
+    (first + last) / 2,
+  );
+  // Outside the plot it holds at the ends.
+  expect(layout.timeAt(0)).toBeCloseTo(first);
+  expect(layout.timeAt(10_000)).toBeCloseTo(last);
+});
+
 test("a single commit still lays out", () => {
   const sums = cumulative([commit("a", [], 7, { added: 1, deleted: 0 })], "a");
   const layout = chartLayout(sums, { width: 400, height: 200 });

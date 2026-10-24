@@ -833,6 +833,70 @@ test.describe.serial("gitreant UI", () => {
     await expect(thick).toHaveCount(3);
   });
 
+  test("the cumulative chart sums the lines along HEAD's first parents", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const stat = (summary: string) =>
+      page
+        .getByTestId("commit-row")
+        .filter({ has: page.locator(".commit-summary", { hasText: summary }) })
+        .getByTestId("commit-stat");
+    await expect(stat("root")).toHaveText("+1 −0");
+    await expect(stat("merge feature")).toHaveText("+0 −0");
+
+    // The chart takes the place of the rows and their graph (ADR 0043).
+    const toggle = page.getByTestId("cumulative-toggle");
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    // Like the pane's other toggles: no fill, muted until pressed.
+    const look = await toggle.evaluate((el) => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--muted)";
+      document.body.append(probe);
+      const muted = getComputedStyle(probe).color;
+      probe.remove();
+      const style = getComputedStyle(el);
+      return { background: style.backgroundColor, color: style.color, muted };
+    });
+    expect(look.background).toBe("rgba(0, 0, 0, 0)");
+    expect(look.color).toBe(look.muted);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("commit-row")).toHaveCount(0);
+    await expect(page.getByTestId("graph")).toHaveCount(0);
+    const chart = page.getByTestId("cumulative-chart");
+    await expect(chart).toBeVisible();
+    await expect(page.getByTestId("chart-counting")).toHaveCount(0);
+    // A legend names each line in its own color.
+    const legend = page.getByTestId("chart-legend").locator("li");
+    await expect(legend).toHaveText(["Added", "Deleted", "Net"]);
+    const colorOf = (selector: string) =>
+      chart
+        .locator(selector)
+        .evaluate((el) => getComputedStyle(el).stroke);
+    const swatch = (i: number) =>
+      legend
+        .nth(i)
+        .locator(".chart-swatch")
+        .evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(await swatch(0)).toBe(await colorOf(".chart-added"));
+    expect(await swatch(1)).toBe(await colorOf(".chart-deleted"));
+    expect(await swatch(2)).toBe(await colorOf(".chart-net"));
+
+    // root, main-1, main-2 and the merge: feature-1 counts in the merge.
+    const box = (await chart.boundingBox())!;
+    const tip = page.getByTestId("chart-tip");
+    await page.mouse.move(box.x + box.width - 16, box.y + box.height / 2);
+    await expect(tip).toContainText("merge feature");
+    await expect(tip).toContainText("added 4, deleted 0, net 4");
+    await page.mouse.move(box.x + 56, box.y + box.height / 2);
+    await expect(tip).toContainText("root");
+    await expect(tip).toContainText("added 1, deleted 0, net 1");
+
+    await toggle.click();
+    await expect(page.getByTestId("commit-row")).not.toHaveCount(0);
+  });
+
   test("dragging the graph's background tilts its thickness", async ({
     page,
   }) => {

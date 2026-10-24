@@ -1870,3 +1870,149 @@ mark.intra.eol-mark {
 .diff-range {
   margin-right: 8px;
 }
+
+/* The cumulative chart (ADR 0043) fills the pane in place of the rows. */
+.repo-header .cumulative-toggle {
+  margin-left: auto;
+  align-self: center;
+}
+
+/* Dressed like the pane's other toggles (the diff's view buttons). */
+.cumulative-toggle {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cumulative-toggle:hover {
+  color: var(--text);
+}
+
+.cumulative-toggle.active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text);
+}
+
+.cumulative {
+  flex: 1 1 auto;
+  align-self: stretch;
+  position: relative;
+  min-width: 0;
+  min-height: 240px;
+  overflow: hidden;
+}
+
+.cumulative-chart {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.cumulative-chart path {
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.cumulative-chart .chart-added {
+  stroke: var(--success);
+}
+
+.cumulative-chart .chart-deleted {
+  stroke: var(--danger);
+}
+
+.cumulative-chart .chart-net {
+  stroke: var(--text);
+  stroke-width: 2.5;
+}
+
+.cumulative-chart .chart-tick line {
+  stroke: var(--border);
+}
+
+.cumulative-chart .chart-zero,
+.cumulative-chart .chart-cursor {
+  stroke: var(--muted);
+}
+
+.cumulative-chart text {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.cumulative-chart .chart-tick text {
+  text-anchor: end;
+  dominant-baseline: middle;
+}
+
+.cumulative-chart .chart-date-last {
+  text-anchor: end;
+}
+
+.chart-tip {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  pointer-events: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+/* The legend and the counting note share the strip above the plot. */
+.chart-head {
+  position: absolute;
+  left: 56px;
+  top: 8px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  pointer-events: none;
+  font-size: 12px;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text);
+}
+
+.chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chart-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+}
+
+.chart-legend-added .chart-swatch {
+  background: var(--success);
+}
+
+.chart-legend-deleted .chart-swatch {
+  background: var(--danger);
+}
+
+.chart-legend-net .chart-swatch {
+  height: 3px;
+  background: var(--text);
+}
+
+.chart-counting {
+  margin: 0;
+  color: var(--muted);
+}

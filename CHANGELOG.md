@@ -42,6 +42,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the direction it extrudes in, up and down change its depth, and letting
   go turns it back
   ([ADR 0045](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0045-tilt-thickness.md)).
+- A button in the pane's header charts the lines added and deleted along
+  HEAD's first parents, summed over time, in place of the rows
+  ([ADR 0043](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0043-cumulative-chart.md)).
 
 ### Changed
 

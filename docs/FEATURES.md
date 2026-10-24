@@ -68,6 +68,11 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   turns the direction it extrudes in and, up or down, its depth, down to
   none; letting go turns it back. The fins are fainter than the commits'
   pillars. A graph setting turns it off.
+- **Lines over time.** A button in the pane's header shows, in place of
+  the rows, the lines added (up) and deleted (down) along HEAD's first
+  parents summed over the commit time, with their net change between
+  them, from the oldest loaded commit. A legend names each line; hovering names the nearest commit and
+  its sums.
 
 ## Commit details and diffs
 

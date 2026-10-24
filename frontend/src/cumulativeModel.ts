@@ -61,11 +61,7 @@ export function niceTicks(min: number, max: number, count = 4): number[] {
   const step =
     magnitude * (scaled < 1.5 ? 1 : scaled < 3 ? 2 : scaled < 7 ? 5 : 10);
   const ticks: number[] = [];
-  for (
-    let k = Math.ceil(min / step);
-    k <= Math.floor(max / step);
-    k++
-  ) {
+  for (let k = Math.ceil(min / step); k <= Math.floor(max / step); k++) {
     ticks.push(k * step + 0);
   }
   return ticks;
@@ -75,13 +71,14 @@ export function niceTicks(min: number, max: number, count = 4): number[] {
 export function stepPath(points: { x: number; y: number }[]): string {
   if (points.length === 0) return "";
   const [first, ...rest] = points;
-  return [
-    `M${first.x},${first.y}`,
-    ...rest.map((p) => `H${p.x} V${p.y}`),
-  ].join(" ");
+  return [`M${first.x},${first.y}`, ...rest.map((p) => `H${p.x} V${p.y}`)].join(
+    " ",
+  );
 }
 
-const MARGIN = { left: 56, right: 16, top: 16, bottom: 28 };
+/** Room around the plot: the ticks' labels left, the dates below, and the
+ * legend above. */
+const MARGIN = { left: 56, right: 16, top: 36, bottom: 28 };
 
 export interface ChartLayout {
   /** Where the lines are drawn, inside the axes' labels. */
@@ -93,6 +90,8 @@ export interface ChartLayout {
   net: string;
   zeroY: number;
   ticks: { value: number; y: number }[];
+  /** The time at `x`, held within the first and last times. */
+  timeAt: (x: number) => number;
 }
 
 /** Scale `sums` to a chart of `size`: time across, lines up. Lines added
@@ -129,6 +128,10 @@ export function chartLayout(
     net: line((p) => p.net),
     zeroY: y(0),
     ticks: niceTicks(low, high).map((value) => ({ value, y: y(value) })),
+    timeAt: (x) => {
+      const across = (x - plot.left) / (plot.right - plot.left);
+      return first + Math.min(1, Math.max(0, across)) * span;
+    },
   };
 }
 

@@ -122,9 +122,6 @@ keyed off the remote URL's host.
 
 ## Graph / UI
 
-- **Cumulative chart** — the lines added and deleted summed over time, as
-  another view of the counts beside the graph's thickness
-  ([ADR 0044](adr/0044-graph-thickness.md))
 - **Line-count bars** — a setting that draws a row's `+N −M` as horizontal
   bars, added and deleted, instead of numbers
 - **Calendar** — a calendar of the history, with a bubble on each day

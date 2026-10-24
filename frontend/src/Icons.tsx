@@ -21,6 +21,7 @@ import {
   FileDirectoryOpenFillIcon,
   GearIcon,
   GitBranchIcon,
+  GraphIcon,
   ArrowUpIcon,
   ListUnorderedIcon,
   MoonIcon,
@@ -33,6 +34,11 @@ import {
 } from "@primer/octicons-react";
 
 const SIZE = 14;
+
+/** A line chart: the lines added and deleted over time (ADR 0043). */
+export function CumulativeIcon() {
+  return <GraphIcon className="btn-icon" size={SIZE} />;
+}
 
 /** One column of full-width lines: the inline diff view. */
 export function InlineIcon() {

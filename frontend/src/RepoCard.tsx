@@ -39,11 +39,14 @@ import {
 import { DraggableDashed } from "./DraggableDashed";
 import {
   BranchBadgeIcon,
+  CumulativeIcon,
   PrLinkIcon,
   StashBadgeIcon,
   TagBadgeIcon,
   WorktreeIcon,
 } from "./Icons";
+import { CumulativeChart } from "./CumulativeChart";
+import { LabeledButton } from "./LabeledButton";
 import { Thickness } from "./Thickness";
 import {
   rowsInView,
@@ -554,13 +557,15 @@ export function RepoCard({
   const [diffTarget, setDiffTarget] = useState<DiffTarget | null>(null);
   const [diffFiles, setDiffFiles] = useState<FileDiff[] | null>(null);
   const [diffError, setDiffError] = useState<string | null>(null);
+  // The cumulative chart (ADR 0043) takes the place of the rows.
+  const [chart, setChart] = useState(false);
 
   // The focused pane's graph takes the selection keys (ADR 0035) while the
   // graph is shown and nothing else has the keyboard: no text field, no
   // menu, no dialog or palette.
   const vimKeys = useVimKeys();
   useEffect(() => {
-    if (!focused || diffTarget !== null) return;
+    if (!focused || diffTarget !== null || chart) return;
     let previous: string | null = null;
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -591,7 +596,7 @@ export function RepoCard({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focused, diffTarget, vimKeys, selected, view.commits]);
+  }, [focused, diffTarget, chart, vimKeys, selected, view.commits]);
 
   // A reload can drop the selected row (the tree became clean, or the
   // history was rewritten): nothing may keep showing a commit that is gone.
@@ -724,6 +729,14 @@ export function RepoCard({
         <span className="repo-count">
           {t("commitsCount", { n: repo.total })}
         </span>
+        <LabeledButton
+          icon={<CumulativeIcon />}
+          label={t("cumulative")}
+          testId="cumulative-toggle"
+          className="cumulative-toggle"
+          active={chart}
+          onClick={() => setChart((on) => !on)}
+        />
       </header>
 
       {opError && (
@@ -835,7 +848,9 @@ export function RepoCard({
       )}
 
       <div className="repo-body">
-      {selected && diffTarget ? (
+      {chart ? (
+        <CumulativeChart commits={view.commits} head={view.head} />
+      ) : selected && diffTarget ? (
         <FileDiffPane
           files={diffFiles}
           error={diffError}
