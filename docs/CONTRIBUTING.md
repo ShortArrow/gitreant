@@ -204,3 +204,16 @@ comment with it.
 
 Design decisions and their rationale are recorded as ADRs under
 [adr/](adr/).
+
+## Language
+
+gitreant is developed in public, so what goes to GitHub is in English:
+commit messages, pull request descriptions, issues and comments.
+
+The documents with a Japanese version (the README, FEATURES, ROADMAP,
+QUALITY and every ADR) are kept in both languages, and a change to one
+changes the other in the same push. CI checks the pairs that sit side by
+side (see `docs-tandem` under [CI](#ci)). The README's Japanese version,
+[README.jp.md](README.jp.md), lives in this folder rather than beside the
+root `README.md`, so that pair is kept by hand. Every other document, this
+one included, is English only.
