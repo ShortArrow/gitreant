@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The settings' one-of-a-few choices (buttons, language, date format) are
+  segmented buttons instead of radio buttons.
 - Hovering a branch badge fades the graph's nodes and edges with the rows.
 - A stash's node is a ring around a dot, in a color of its own rather
   than the color of the branch it sits on

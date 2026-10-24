@@ -37,6 +37,7 @@ import {
 import { applyTheme, currentTheme, toggleTheme } from "./theme";
 import { mergeLog, type UserAction } from "./logModel";
 import { RepoCard } from "./RepoCard";
+import { Segmented } from "./Segmented";
 import { resolveLang, MESSAGES, format, type LangSetting } from "./i18n";
 import {
   SettingsContext,
@@ -684,24 +685,16 @@ export function App() {
               </header>
               <fieldset className="settings-group">
                 <legend>{t("settingsButtons")}</legend>
-                {(
-                  [
+                <Segmented
+                  name="button-style"
+                  value={buttonStyle}
+                  options={[
                     ["icon", t("buttonsIcon")],
                     ["icon-label", t("buttonsIconLabel")],
                     ["label", t("buttonsLabel")],
-                  ] as const
-                ).map(([value, label]) => (
-                  <label key={value} className="settings-option">
-                    <input
-                      type="radio"
-                      name="button-style"
-                      data-testid={`button-style-${value}`}
-                      checked={buttonStyle === value}
-                      onChange={() => changeButtonStyle(value)}
-                    />
-                    {label}
-                  </label>
-                ))}
+                  ]}
+                  onChange={changeButtonStyle}
+                />
               </fieldset>
               <fieldset className="settings-group">
                 <legend>{t("settingsGraph")}</legend>
@@ -762,45 +755,29 @@ export function App() {
               </fieldset>
               <fieldset className="settings-group">
                 <legend>{t("settingsLanguage")}</legend>
-                {(
-                  [
+                <Segmented
+                  name="language"
+                  value={langSetting}
+                  options={[
                     ["auto", t("langAuto")],
                     ["en", t("langEn")],
                     ["ja", t("langJa")],
-                  ] as const
-                ).map(([value, label]) => (
-                  <label key={value} className="settings-option">
-                    <input
-                      type="radio"
-                      name="language"
-                      data-testid={`language-${value}`}
-                      checked={langSetting === value}
-                      onChange={() => changeLangSetting(value)}
-                    />
-                    {label}
-                  </label>
-                ))}
+                  ]}
+                  onChange={changeLangSetting}
+                />
               </fieldset>
               <fieldset className="settings-group">
                 <legend>{t("settingsDateFormat")}</legend>
-                {(
-                  [
+                <Segmented
+                  name="date-format"
+                  value={dateFormat}
+                  options={[
                     ["iso", t("dateIso")],
                     ["locale", t("dateLocale")],
                     ["relative", t("dateRelative")],
-                  ] as const
-                ).map(([value, label]) => (
-                  <label key={value} className="settings-option">
-                    <input
-                      type="radio"
-                      name="date-format"
-                      data-testid={`date-format-${value}`}
-                      checked={dateFormat === value}
-                      onChange={() => changeDateFormat(value)}
-                    />
-                    {label}
-                  </label>
-                ))}
+                  ]}
+                  onChange={changeDateFormat}
+                />
               </fieldset>
               <fieldset className="settings-group">
                 <legend>{t("settingsMaintenance")}</legend>

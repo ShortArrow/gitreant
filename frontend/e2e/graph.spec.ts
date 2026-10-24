@@ -1703,6 +1703,37 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("info-panel")).toHaveCount(0);
   });
 
+  test("the settings' choices are segmented buttons", async ({ page }) => {
+    await page.getByTestId("settings-toggle").click();
+    const groups = page.getByTestId("settings-panel").locator(".segmented");
+    // Buttons, language and date format.
+    await expect(groups).toHaveCount(3);
+
+    const segments = groups.first().locator(".segment");
+    await expect(segments).toHaveCount(3);
+    const boxes = await Promise.all(
+      [0, 1, 2].map(async (i) => (await segments.nth(i).boundingBox())!),
+    );
+    // One row, side by side and touching.
+    expect(boxes[1].y).toBeCloseTo(boxes[0].y, 0);
+    expect(boxes[2].y).toBeCloseTo(boxes[0].y, 0);
+    expect(boxes[1].x).toBeCloseTo(boxes[0].x + boxes[0].width, 0);
+    expect(boxes[2].x).toBeCloseTo(boxes[1].x + boxes[1].width, 0);
+
+    // The chosen segment is filled; choosing another moves the fill.
+    const fill = (i: number) =>
+      segments
+        .nth(i)
+        .evaluate((el) => getComputedStyle(el).backgroundColor);
+    await page.getByTestId("button-style-icon").click();
+    const chosen = await fill(0);
+    expect(chosen).not.toBe(await fill(1));
+    await page.getByTestId("button-style-icon-label").click();
+    expect(await fill(1)).toBe(chosen);
+    expect(await fill(0)).not.toBe(chosen);
+    await page.keyboard.press("Escape");
+  });
+
   test("the log pane wraps, resizes and offers copy controls", async ({
     page,
   }) => {
