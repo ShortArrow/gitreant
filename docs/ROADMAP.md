@@ -122,8 +122,6 @@ keyed off the remote URL's host.
 
 ## Graph / UI
 
-- **Line-count bars** — a setting that draws a row's `+N −M` as horizontal
-  bars, added and deleted, instead of numbers
 - **Calendar** — a calendar of the history, with a bubble on each day
   sized by its activity (what the size counts is still open)
 - **Blame** — add it to the diff line-selection menu (the UI foundation

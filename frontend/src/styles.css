@@ -1116,6 +1116,43 @@ body {
   color: var(--danger);
 }
 
+/* Line counts as bars (ADR 0046), at the row's start and as tall as it:
+   each side as wide as the longest bar, so every row's axis lines up. */
+.stat-bars {
+  flex: none;
+  align-self: stretch;
+  display: inline-flex;
+  margin-right: 0;
+}
+
+/* A row not counted yet keeps the bars' room: two sides and the axis. */
+.stat-bars-empty {
+  width: 73px;
+}
+
+.stat-side {
+  display: flex;
+  width: 36px;
+  height: 100%;
+}
+
+.stat-side-deleted {
+  justify-content: flex-end;
+}
+
+.stat-bar-added {
+  background: var(--success);
+}
+
+.stat-bar-deleted {
+  background: var(--danger);
+}
+
+.stat-axis {
+  width: 1px;
+  background: var(--muted);
+}
+
 .commit-meta {
   margin-left: auto;
   color: var(--muted);

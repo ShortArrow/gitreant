@@ -92,6 +92,26 @@ export function storeSquashLinks(on: boolean) {
   }
 }
 
+export const LINE_BARS_KEY = "gitreant-line-bars";
+
+/** Whether each row's line counts are drawn as bars instead of numbers
+ * (ADR 0046; default off). */
+export function storedLineBars(): boolean {
+  try {
+    return localStorage.getItem(LINE_BARS_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
+export function storeLineBars(on: boolean) {
+  try {
+    localStorage.setItem(LINE_BARS_KEY, on ? "on" : "off");
+  } catch {
+    // localStorage may be unavailable; the state change alone is enough.
+  }
+}
+
 export const THICKNESS_KEY = "gitreant-thickness";
 
 /** Whether the graph is drawn with the thickness of each commit's lines
@@ -266,6 +286,7 @@ export const SettingsContext = createContext<{
   dateFormat: DateFormat;
   squashLinks: boolean;
   thickness: boolean;
+  lineBars: boolean;
   stashInternals: boolean;
   avatars: boolean;
   submoduleLinks: boolean;
@@ -276,6 +297,7 @@ export const SettingsContext = createContext<{
   dateFormat: "iso",
   squashLinks: true,
   thickness: true,
+  lineBars: false,
   stashInternals: false,
   avatars: true,
   submoduleLinks: true,
@@ -293,6 +315,11 @@ export function useTime(): (seconds: number) => string {
 /** Whether the graph is drawn with its thickness (ADR 0044). */
 export function useThickness(): boolean {
   return useContext(SettingsContext).thickness;
+}
+
+/** Whether each row's line counts are drawn as bars (ADR 0046). */
+export function useLineBars(): boolean {
+  return useContext(SettingsContext).lineBars;
 }
 
 /** Whether squash-merge links should be drawn. */

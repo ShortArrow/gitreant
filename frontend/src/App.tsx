@@ -46,8 +46,10 @@ import {
   storeLangSetting,
   storedLangSetting,
   storeSquashLinks,
+  storeLineBars,
   storeThickness,
   storedSquashLinks,
+  storedLineBars,
   storedThickness,
   storeVimKeys,
   storedVimKeys,
@@ -386,6 +388,11 @@ export function App() {
     setLangSetting(setting);
     storeLangSetting(setting);
   };
+  const [lineBars, setLineBars] = useState<boolean>(storedLineBars);
+  const changeLineBars = (on: boolean) => {
+    setLineBars(on);
+    storeLineBars(on);
+  };
   const [thickness, setThickness] = useState<boolean>(storedThickness);
   const changeThickness = (on: boolean) => {
     setThickness(on);
@@ -433,6 +440,7 @@ export function App() {
       dateFormat,
       squashLinks,
       thickness,
+      lineBars,
       stashInternals,
       avatars,
       submoduleLinks,
@@ -444,6 +452,7 @@ export function App() {
       dateFormat,
       squashLinks,
       thickness,
+      lineBars,
       stashInternals,
       avatars,
       submoduleLinks,
@@ -511,6 +520,11 @@ export function App() {
           id: "thickness",
           title: m.cmdToggleThickness,
           run: () => changeThickness(!storedThickness()),
+        },
+        {
+          id: "line-bars",
+          title: m.cmdToggleLineBars,
+          run: () => changeLineBars(!storedLineBars()),
         },
         {
           id: "squash-links",
@@ -706,6 +720,15 @@ export function App() {
                     onChange={(e) => changeThickness(e.target.checked)}
                   />
                   {t("thicknessSetting")}
+                </label>
+                <label className="settings-option">
+                  <input
+                    type="checkbox"
+                    data-testid="line-bars-toggle"
+                    checked={lineBars}
+                    onChange={(e) => changeLineBars(e.target.checked)}
+                  />
+                  {t("lineBarsSetting")}
                 </label>
                 <label className="settings-option">
                   <input

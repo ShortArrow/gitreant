@@ -51,6 +51,7 @@ import { Thickness } from "./Thickness";
 import {
   rowsInView,
   START_TILT,
+  thickness,
   THICKNESS_REACH,
   tiltBy,
 } from "./thicknessModel";
@@ -64,6 +65,7 @@ import {
   storedCollapsedSubmodules,
   useAvatars,
   useSquashLinks,
+  useLineBars,
   useThickness,
   useVimKeys,
   useStashInternals,
@@ -692,6 +694,7 @@ export function RepoCard({
 
   const showSquashLinks = useSquashLinks();
   const showThickness = useThickness();
+  const showLineBars = useLineBars();
   const links = showSquashLinks ? squashLinks(view, mergedPrs) : [];
   // Submodule regions sit left of the main graph; everything main-graph
   // shaped below draws inside a group shifted by mainOffset. A thickness
@@ -1171,6 +1174,35 @@ export function RepoCard({
                 onClick={() => toggleSelected(commit.id)}
                 onContextMenu={(e) => openCommitMenu(e, commit)}
               >
+                {showLineBars &&
+                  // At the row's start, so every row's axis lines up; a row
+                  // not counted yet keeps the room (ADR 0046).
+                  (commit.stat ? (
+                    <span
+                      className="commit-stat stat-bars"
+                      data-testid="commit-stat"
+                      title={t("lineStat", {
+                        added: commit.stat.added,
+                        deleted: commit.stat.deleted,
+                      })}
+                    >
+                      <span className="stat-side stat-side-deleted">
+                        <span
+                          className="stat-bar-deleted"
+                          style={{ width: thickness(commit.stat.deleted) }}
+                        />
+                      </span>
+                      <span className="stat-axis" />
+                      <span className="stat-side">
+                        <span
+                          className="stat-bar-added"
+                          style={{ width: thickness(commit.stat.added) }}
+                        />
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="stat-bars stat-bars-empty" />
+                  ))}
                 {isHead && <span className="badge badge-head">HEAD</span>}
                 {refs.map((ref) => {
                   const isBranch = ref.kind === "branch";
@@ -1275,7 +1307,7 @@ export function RepoCard({
                   {commit.summary}
                 </span>
                 <span className="commit-meta">
-                  {commit.stat && (
+                  {commit.stat && !showLineBars && (
                     <span
                       className="commit-stat"
                       data-testid="commit-stat"

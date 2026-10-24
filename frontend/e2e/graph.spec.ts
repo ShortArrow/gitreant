@@ -833,6 +833,62 @@ test.describe.serial("gitreant UI", () => {
     await expect(thick).toHaveCount(3);
   });
 
+  test("a setting draws the line counts as bars", async ({ page }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const stat = (summary: string) =>
+      page
+        .getByTestId("commit-row")
+        .filter({ has: page.locator(".commit-summary", { hasText: summary }) })
+        .getByTestId("commit-stat");
+    await expect(stat("main-2")).toHaveText("+2 −0");
+    await expect(stat("root")).toHaveText("+1 −0");
+
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("line-bars-toggle").check();
+    await page.keyboard.press("Escape");
+
+    // Bars in place of the numbers, which stay in the tooltip (ADR 0046).
+    await expect(stat("main-2")).toHaveText("");
+    await expect(stat("main-2")).toHaveAttribute(
+      "title",
+      "Lines added: 2, deleted: 0",
+    );
+    // The thickness's scale: 3 × log2(1 + lines) pixels.
+    const width = async (summary: string, side: string) =>
+      (await stat(summary).locator(`.stat-bar-${side}`).boundingBox())
+        ?.width ?? 0;
+    expect(await width("main-2", "added")).toBeCloseTo(3 * Math.log2(3), 0);
+    expect(await width("root", "added")).toBeCloseTo(3, 0);
+    expect(await width("main-2", "deleted")).toBe(0);
+    // As tall as the row.
+    const rowBox = (await page
+      .getByTestId("commit-row")
+      .filter({ has: page.locator(".commit-summary", { hasText: "main-2" }) })
+      .boundingBox())!;
+    const barBox = (await stat("main-2")
+      .locator(".stat-bar-added")
+      .boundingBox())!;
+    expect(barBox.height).toBeGreaterThanOrEqual(rowBox.height - 2);
+    // At the start of the row, so every row's axis lines up, whatever its
+    // badges or author.
+    const axis = async (summary: string) =>
+      (await stat(summary).locator(".stat-axis").boundingBox())!.x;
+    expect(await axis("root")).toBeCloseTo(await axis("merge feature"), 0);
+    const summaryBox = (await page
+      .locator(".commit-summary", { hasText: "merge feature" })
+      .boundingBox())!;
+    expect(await axis("merge feature")).toBeLessThan(summaryBox.x);
+
+    // The choice is kept.
+    await page.reload();
+    await page.locator('[data-repo-name="repoA"]').click();
+    await expect(stat("main-2").locator(".stat-axis")).toHaveCount(1);
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("line-bars-toggle").uncheck();
+    await page.keyboard.press("Escape");
+    await expect(stat("main-2")).toHaveText("+2 −0");
+  });
+
   test("the cumulative chart sums the lines along HEAD's first parents", async ({
     page,
   }) => {

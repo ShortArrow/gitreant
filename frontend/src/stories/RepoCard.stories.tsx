@@ -66,6 +66,7 @@ export const StashInternals: Story = {
           dateFormat: "iso",
           squashLinks: true,
           thickness: true,
+          lineBars: false,
           stashInternals: true,
           avatars: true,
           submoduleLinks: true,
