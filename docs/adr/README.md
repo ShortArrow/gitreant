@@ -53,3 +53,4 @@ are canonical; the files below are their English translations.
 | [0043](0043-cumulative-chart.md) | Chart the lines added and deleted, summed over time | Accepted |
 | [0044](0044-graph-thickness.md) | Give the rows' graph a thickness of the lines each commit changed | Accepted |
 | [0045](0045-tilt-thickness.md) | Tilt the graph's thickness by dragging its background | Accepted |
+| [0046](0046-line-count-bars.md) | Draw a row's line counts as bars | Accepted |

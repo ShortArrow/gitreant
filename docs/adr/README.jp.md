@@ -49,3 +49,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0043](0043-cumulative-chart.jp.md) | 加えた行と削った行を、時間に沿って足し上げたグラフにする | Accepted |
 | [0044](0044-graph-thickness.jp.md) | 行の表示のグラフに、各コミットが変えた行数の厚みをつける | Accepted |
 | [0045](0045-tilt-thickness.jp.md) | グラフの背景をドラッグして、厚みを傾ける | Accepted |
+| [0046](0046-line-count-bars.jp.md) | 行の行数を横棒で描く | Accepted |
