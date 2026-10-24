@@ -2096,3 +2096,66 @@ mark.intra.eol-mark {
   margin: 0;
   color: var(--muted);
 }
+
+/* Each legend entry turns its series on and off (ADR 0047), taking clicks
+   unlike the rest of the head; a hidden one's name fades. */
+.chart-legend button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.chart-legend button[aria-pressed="false"] {
+  opacity: 0.4;
+}
+
+.chart-legend-candles .chart-swatch {
+  width: 6px;
+  height: 10px;
+  background: var(--success);
+}
+
+.chart-legend-bars .chart-swatch {
+  width: 10px;
+  height: 10px;
+  background: color-mix(in srgb, var(--success) 35%, transparent);
+}
+
+/* Each period's lines, behind the sums (ADR 0047). */
+.cumulative-chart .chart-bar-added {
+  fill: var(--success);
+  opacity: 0.35;
+}
+
+.cumulative-chart .chart-bar-deleted {
+  fill: var(--danger);
+  opacity: 0.35;
+}
+
+/* Candles for the net change (ADR 0047). */
+.cumulative-chart .chart-candle line {
+  stroke-width: 1;
+}
+
+.cumulative-chart .chart-candle-up line {
+  stroke: var(--success);
+}
+
+.cumulative-chart .chart-candle-up rect {
+  fill: var(--success);
+}
+
+.cumulative-chart .chart-candle-down line {
+  stroke: var(--danger);
+}
+
+.cumulative-chart .chart-candle-down rect {
+  fill: var(--danger);
+}

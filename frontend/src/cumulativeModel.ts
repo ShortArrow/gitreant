@@ -92,6 +92,10 @@ export interface ChartLayout {
   ticks: { value: number; y: number }[];
   /** The time at `x`, held within the first and last times. */
   timeAt: (x: number) => number;
+  /** The x of `time`, on the same scale as the points, unclamped. */
+  x: (time: number) => number;
+  /** The y of a sum. */
+  y: (value: number) => number;
 }
 
 /** Scale `sums` to a chart of `size`: time across, lines up. Lines added
@@ -110,9 +114,9 @@ export function chartLayout(
   const { points } = sums;
   const first = points[0]?.time ?? 0;
   const span = Math.max(1, (points.at(-1)?.time ?? 0) - first);
-  const xs = points.map(
-    (p) => plot.left + ((p.time - first) / span) * (plot.right - plot.left),
-  );
+  const x = (time: number) =>
+    plot.left + ((time - first) / span) * (plot.right - plot.left);
+  const xs = points.map((p) => x(p.time));
   const values = points.flatMap((p) => [p.added, -p.deleted, p.net]);
   const low = Math.min(0, ...values);
   const high = Math.max(1, ...values);
@@ -132,6 +136,8 @@ export function chartLayout(
       const across = (x - plot.left) / (plot.right - plot.left);
       return first + Math.min(1, Math.max(0, across)) * span;
     },
+    x,
+    y,
   };
 }
 

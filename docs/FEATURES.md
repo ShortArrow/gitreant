@@ -73,8 +73,11 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 - **Lines over time.** A button in the pane's header shows, in place of
   the rows, the lines added (up) and deleted (down) along HEAD's first
   parents summed over the commit time, with their net change between
-  them, from the oldest loaded commit. A legend names each line; hovering names the nearest commit and
-  its sums.
+  them, from the oldest loaded commit. A legend names each line; hovering
+  names the nearest commit and its sums. Candles of the net change and
+  bars of the lines each period added and deleted sit on the same axes, a
+  day, a week or a month each, whichever suits the span; pressing a name
+  in the legend hides or shows its series.
 
 ## Commit details and diffs
 

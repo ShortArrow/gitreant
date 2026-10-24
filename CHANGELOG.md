@@ -45,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A button in the pane's header charts the lines added and deleted along
   HEAD's first parents, summed over time, in place of the rows
   ([ADR 0043](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0043-cumulative-chart.md)).
+- The chart adds candles of the net change and bars of each period's
+  lines, a day, a week or a month each, and its legend turns each series
+  on and off
+  ([ADR 0047](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0047-net-candles.md)).
 - A setting draws each row's line counts as bars, deleted left of an axis
   and added right of it
   ([ADR 0046](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0046-line-count-bars.md)).

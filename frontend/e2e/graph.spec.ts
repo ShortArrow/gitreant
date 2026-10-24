@@ -925,7 +925,13 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("chart-counting")).toHaveCount(0);
     // A legend names each line in its own color.
     const legend = page.getByTestId("chart-legend").locator("li");
-    await expect(legend).toHaveText(["Added", "Deleted", "Net"]);
+    await expect(legend).toHaveText([
+      "Added",
+      "Deleted",
+      "Net",
+      "Candles",
+      "Bars",
+    ]);
     const colorOf = (selector: string) =>
       chart
         .locator(selector)
@@ -951,6 +957,56 @@ test.describe.serial("gitreant UI", () => {
 
     await toggle.click();
     await expect(page.getByTestId("commit-row")).not.toHaveCount(0);
+  });
+
+  test("the chart adds candles and each period's bars, each turned on and off in the legend", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await expect(
+      page
+        .getByTestId("commit-row")
+        .filter({
+          has: page.locator(".commit-summary", { hasText: "merge feature" }),
+        })
+        .getByTestId("commit-stat"),
+    ).toHaveText("+0 −0");
+    await page.getByTestId("cumulative-toggle").click();
+    const chart = page.getByTestId("cumulative-chart");
+
+    // Every series shows at first: candles sit on the net line (ADR 0047).
+    await expect(chart.locator(".chart-net")).toHaveCount(1);
+    // repoA's commits fall on one day: one candle, rising from 0 to 4, and
+    // one day's bars.
+    const candle = chart.locator(".chart-candle");
+    await expect(candle).toHaveCount(1);
+    await expect(candle).toHaveClass(/chart-candle-up/);
+    await expect(chart.locator(".chart-bar-added")).toHaveCount(1);
+    await expect(chart.locator(".chart-bar-deleted")).toHaveCount(1);
+    const box = (await candle.locator("rect").boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    const tip = page.getByTestId("chart-tip");
+    await expect(tip).toContainText("open 0, high 4, low 0, close 4");
+    await expect(tip).toContainText("in the period: added 4, deleted 0");
+
+    // Pressing a name hides its series and fades the name.
+    const series = (name: string) => page.getByTestId(`chart-series-${name}`);
+    await expect(series("net")).toHaveAttribute("aria-pressed", "true");
+    await series("net").click();
+    await expect(series("net")).toHaveAttribute("aria-pressed", "false");
+    await expect(chart.locator(".chart-net")).toHaveCount(0);
+    await expect(candle).toHaveCount(1);
+    await series("candles").click();
+    await expect(candle).toHaveCount(0);
+    await series("bars").click();
+    await expect(chart.locator(".chart-bar-added")).toHaveCount(0);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(tip).not.toContainText("open");
+    await expect(tip).not.toContainText("in the period");
+    await series("added").click();
+    await expect(chart.locator(".chart-added")).toHaveCount(0);
+    await series("net").click();
+    await expect(chart.locator(".chart-net")).toHaveCount(1);
   });
 
   test("dragging the graph's background tilts its thickness", async ({
