@@ -51,3 +51,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0045](0045-tilt-thickness.jp.md) | グラフの背景をドラッグして、厚みを傾ける | Accepted |
 | [0046](0046-line-count-bars.jp.md) | 行の行数を横棒で描く | Accepted |
 | [0047](0047-net-candles.jp.md) | 行数の推移のグラフに、ロウソク足と期間ごとの行数を加える | Accepted |
+| [0048](0048-chart-commits-under-cursor.jp.md) | 行数の推移のグラフで、カーソルの位置のコミットを一覧する | Accepted |
