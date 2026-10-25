@@ -361,6 +361,8 @@ export function RepoCard({
     commit: string;
     webUrl?: string;
     refs: boolean;
+    /** Opened from the chart's list of a period's commits (ADR 0048). */
+    fromChart?: boolean;
   } | null>(null);
   // Result of the last branch operation that failed; cleared on the next one.
   const [opError, setOpError] = useState<string | null>(null);
@@ -507,6 +509,10 @@ export function RepoCard({
       webUrl: webUrlOf(repo, commit.id),
       refs: true,
     });
+  };
+  const openChartCommitMenu = (e: React.MouseEvent, commit: CommitView) => {
+    openCommitMenu(e, commit);
+    setCommitMenu((menu) => menu && { ...menu, fromChart: true });
   };
   const nodeLabel = (commit: CommitView) =>
     commit.uncommitted !== undefined
@@ -825,6 +831,14 @@ export function RepoCard({
               : undefined
           }
           onGoTo={select}
+          onShowInRows={
+            commitMenu.fromChart
+              ? () => {
+                  setChart(false);
+                  select(commitMenu.commit);
+                }
+              : undefined
+          }
           onCheckoutDetached={
             commitMenu.refs
               ? () =>
@@ -852,7 +866,12 @@ export function RepoCard({
 
       <div className="repo-body">
       {chart ? (
-        <CumulativeChart commits={view.commits} head={view.head} />
+        <CumulativeChart
+          commits={view.commits}
+          head={view.head}
+          onCommitMenu={openChartCommitMenu}
+          menuOpen={commitMenu !== null}
+        />
       ) : selected && diffTarget ? (
         <FileDiffPane
           files={diffFiles}

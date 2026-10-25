@@ -5,7 +5,9 @@ import {
   cumulative,
   nearest,
   niceTicks,
+  pointsBetween,
   stepPath,
+  timesUnder,
 } from "./cumulativeModel";
 
 function commit(
@@ -132,4 +134,31 @@ test("the nearest commit to a time", () => {
   expect(nearest(sums.points, 310)).toBe(2);
   expect(nearest(sums.points, 1000)).toBe(2);
   expect(nearest([], 5)).toBeNull();
+});
+
+test("the times drawn within a few pixels of an x", () => {
+  // Over a long span, commits a second apart fall on the same pixel.
+  const history = [
+    commit("c", ["b"], 100_000, { added: 1, deleted: 0 }),
+    commit("b", ["a"], 1, { added: 1, deleted: 0 }),
+    commit("a", [], 0, { added: 1, deleted: 0 }),
+  ];
+  const sums = cumulative(history, "c");
+  const layout = chartLayout(sums, { width: 400, height: 200 });
+  const under = timesUnder(layout, layout.xs[0]);
+  expect(pointsBetween(sums.points, under).map((p) => p.commit.id)).toEqual([
+    "b",
+    "a",
+  ]);
+  const last = timesUnder(layout, layout.xs[2]);
+  expect(pointsBetween(sums.points, last).map((p) => p.commit.id)).toEqual([
+    "c",
+  ]);
+});
+
+test("the points between two times, both included, newest first", () => {
+  const sums = cumulative(history, "merge");
+  expect(
+    pointsBetween(sums.points, { from: 200, to: 400 }).map((p) => p.commit.id),
+  ).toEqual(["merge", "m1"]);
 });

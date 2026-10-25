@@ -20,6 +20,7 @@ export function CommitMenu({
   parents = [],
   children = [],
   onGoTo,
+  onShowInRows,
   onCompare,
   onCheckoutDetached,
   onClose,
@@ -39,6 +40,9 @@ export function CommitMenu({
   children?: CommitView[];
   /** Selects the parent or child picked. */
   onGoTo?: (id: string) => void;
+  /** Leaves the chart for this commit's row; offered first when the menu
+   * was opened from the chart (ADR 0048). */
+  onShowInRows?: () => void;
   /** Compares this commit with the selected one; absent when there is no
    * other commit selected. */
   onCompare?: () => void;
@@ -79,6 +83,18 @@ export function CommitMenu({
       <span className="ctx-menu-note">{shortId(commit)}</span>
       {stage === null ? (
         <>
+          {onShowInRows && (
+            <button
+              type="button"
+              data-testid="commit-menu-show-in-rows"
+              onClick={() => {
+                onShowInRows();
+                onClose();
+              }}
+            >
+              {t("showInRows")}
+            </button>
+          )}
           <button
             type="button"
             data-testid="commit-menu-copy-hash"

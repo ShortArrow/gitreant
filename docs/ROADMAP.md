@@ -125,9 +125,6 @@ keyed off the remote URL's host.
 - **Bars per commit** — let the chart of lines over time draw a bar for
   each commit's lines, as well as for each period's
   ([ADR 0047](adr/0047-net-candles.md))
-- **A period's commits from the chart** — clicking the chart lists the
-  commits of the period under the pointer in a pane on the right; a
-  right-click on one of them goes to its row
 - **Calendar** — a calendar of the history, with a bubble on each day
   sized by its activity (what the size counts is still open)
 - **Blame** — add it to the diff line-selection menu (the UI foundation

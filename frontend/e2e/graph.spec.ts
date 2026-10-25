@@ -1009,6 +1009,64 @@ test.describe.serial("gitreant UI", () => {
     await expect(chart.locator(".chart-net")).toHaveCount(1);
   });
 
+  test("clicking the chart lists the commits under the cursor, each a way back to its row", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await expect(
+      page
+        .getByTestId("commit-row")
+        .filter({
+          has: page.locator(".commit-summary", { hasText: "merge feature" }),
+        })
+        .getByTestId("commit-stat"),
+    ).toHaveText("+0 −0");
+    await page.getByTestId("cumulative-toggle").click();
+    const chart = page.getByTestId("cumulative-chart");
+    const list = page.getByTestId("chart-list");
+    const listed = list.getByTestId("listed-commit");
+    // repoA's first parents are root, main-1, main-2 and the merge, at 0,
+    // 10, 30 and 40 seconds: main-1 is drawn a quarter across the plot,
+    // whose margins are 56 and 16 pixels.
+    const clickMain1 = async () => {
+      const box = (await chart.boundingBox())!;
+      const x = box.x + 56 + (box.width - 72) / 4;
+      await page.mouse.click(x, box.y + box.height / 2);
+    };
+
+    // Only the commit under the cursor is listed, not the rest of its day
+    // (ADR 0048).
+    await clickMain1();
+    await expect(listed.locator(".listed-commit-summary")).toHaveText([
+      "main-1",
+    ]);
+    await expect(listed).toContainText("+1 −0");
+
+    // Esc closes the menu first, then the list.
+    await listed.click({ button: "right" });
+    await expect(page.getByTestId("commit-menu")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("commit-menu")).toHaveCount(0);
+    await expect(list).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(list).toHaveCount(0);
+
+    // The × closes it too.
+    await clickMain1();
+    await expect(list).toBeVisible();
+    await page.getByTestId("chart-list-close").click();
+    await expect(list).toHaveCount(0);
+
+    // "Show in rows" closes the chart and selects the commit there.
+    await clickMain1();
+    await listed.click({ button: "right" });
+    await page.getByTestId("commit-menu-show-in-rows").click();
+    await expect(chart).toHaveCount(0);
+    await expect(page.locator(".commits .commit.selected")).toContainText(
+      "main-1",
+    );
+  });
+
   test("dragging the graph's background tilts its thickness", async ({
     page,
   }) => {

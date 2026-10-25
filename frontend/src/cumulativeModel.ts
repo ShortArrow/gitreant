@@ -156,3 +156,28 @@ export function nearest(
   });
   return best;
 }
+
+/** How far apart, in pixels, two commits may be drawn and still count as
+ * one place on the chart (ADR 0048). */
+export const UNDER_REACH = 3;
+
+/** The times drawn within `reach` pixels of `x`: where the commits under a
+ * cursor at `x` fall. */
+export function timesUnder(
+  layout: ChartLayout,
+  x: number,
+  reach = UNDER_REACH,
+): { from: number; to: number } {
+  return { from: layout.timeAt(x - reach), to: layout.timeAt(x + reach) };
+}
+
+/** The points from `times.from` to `times.to`, both included, newest
+ * first. */
+export function pointsBetween(
+  points: CumulativePoint[],
+  times: { from: number; to: number },
+): CumulativePoint[] {
+  return points
+    .filter((p) => times.from <= p.time && p.time <= times.to)
+    .reverse();
+}

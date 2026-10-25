@@ -77,7 +77,9 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   names the nearest commit and its sums. Candles of the net change and
   bars of the lines each period added and deleted sit on the same axes, a
   day, a week or a month each, whichever suits the span; pressing a name
-  in the legend hides or shows its series.
+  in the legend hides or shows its series. Clicking the chart lists the
+  commits under the cursor beside it; right-clicking one offers "Show in
+  rows".
 
 ## Commit details and diffs
 

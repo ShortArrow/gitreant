@@ -49,6 +49,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lines, a day, a week or a month each, and its legend turns each series
   on and off
   ([ADR 0047](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0047-net-candles.md)).
+- Clicking the chart lists the commits under the cursor beside it, and a
+  listed commit's menu goes back to its row
+  ([ADR 0048](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0048-chart-commits-under-cursor.md)).
 - A setting draws each row's line counts as bars, deleted left of an axis
   and added right of it
   ([ADR 0046](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0046-line-count-bars.md)).
