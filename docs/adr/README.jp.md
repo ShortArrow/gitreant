@@ -53,3 +53,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0047](0047-net-candles.jp.md) | 行数の推移のグラフに、ロウソク足と期間ごとの行数を加える | Accepted |
 | [0048](0048-chart-commits-under-cursor.jp.md) | 行数の推移のグラフで、カーソルの位置のコミットを一覧する | Accepted |
 | [0049](0049-chart-timeframe.jp.md) | ロウソクと棒の時間足を選べるようにする | Accepted |
+| [0050](0050-calendar.jp.md) | 行の下に履歴のカレンダーを置く | Accepted |
