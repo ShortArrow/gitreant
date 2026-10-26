@@ -1169,6 +1169,9 @@ test.describe.serial("gitreant UI", () => {
   test("clicking the chart lists the commits under the cursor, each a way back to its row", async ({
     page,
   }) => {
+    // Narrow enough that the list leaves the chart less room than its head
+    // takes on one line.
+    await page.setViewportSize({ width: 900, height: 720 });
     await page.locator('[data-repo-name="repoA"]').click();
     await expect(
       page
@@ -1198,6 +1201,10 @@ test.describe.serial("gitreant UI", () => {
       "main-1",
     ]);
     await expect(listed).toContainText("+1 −0");
+    // The chart's head stays inside the room the list leaves it.
+    const month = (await page.getByTestId("timeframe-month").boundingBox())!;
+    const panel = (await list.boundingBox())!;
+    expect(month.x + month.width).toBeLessThanOrEqual(panel.x);
 
     // Esc closes the menu first, then the list.
     await listed.click({ button: "right" });

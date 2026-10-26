@@ -2118,13 +2118,17 @@ mark.intra.eol-mark {
   border-radius: 6px;
 }
 
-/* The legend and the counting note share the strip above the plot. */
+/* The legend and the counting note share the strip above the plot, kept
+   within the chart's width and wrapping when it is too narrow for one line,
+   so nothing in it runs under the list beside the chart. */
 .chart-head {
   position: absolute;
   left: 56px;
+  right: 16px;
   top: 8px;
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 4px 16px;
   align-items: center;
   pointer-events: none;
   font-size: 12px;
@@ -2132,6 +2136,7 @@ mark.intra.eol-mark {
 
 .chart-legend {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin: 0;
   padding: 0;
