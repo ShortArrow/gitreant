@@ -2169,10 +2169,13 @@ mark.intra.eol-mark {
   background: var(--text);
 }
 
-/* The timeframe of the candles and bars (ADR 0049) takes clicks too. */
+/* The timeframe of the candles and bars (ADR 0049) takes clicks too, and
+   wraps its buttons when even a line of its own is too narrow. */
 .chart-head .segmented {
   pointer-events: auto;
   background: var(--bg-elev);
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .chart-head .segment {

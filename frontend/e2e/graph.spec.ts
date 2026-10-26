@@ -1181,7 +1181,7 @@ test.describe.serial("gitreant UI", () => {
   }) => {
     // Narrow enough that the list leaves the chart less room than its head
     // takes on one line.
-    await page.setViewportSize({ width: 900, height: 720 });
+    await page.setViewportSize({ width: 820, height: 720 });
     await page.locator('[data-repo-name="repoA"]').click();
     await expect(
       page
