@@ -89,8 +89,9 @@ responsibility for — is defined in [QUALITY.md](QUALITY.md).
 - **web**: frontend `pnpm build` (includes type check) and `pnpm build-storybook`
 - **e2e**: Playwright E2E on Ubuntu
 - **docs-tandem**: bilingual documents update together — when both `X.jp.md`
-  and `X.md` exist, a change to one side must change the other in the same
-  push (`.github/scripts/check-docs-tandem.sh`); a change that only re-breaks
+  and `X.md` exist, or `README.md` and `docs/README.jp.md`, a change to one
+  side must change the other in the same push
+  (`.github/scripts/check-docs-tandem.sh`); a change that only re-breaks
   lines is exempt, since Japanese paragraphs are kept on one line (a break
   inside one renders as a stray space), and so is a file changed only by
   commits marked `[wording-only]` in their message, for rewording one
@@ -212,8 +213,8 @@ commit messages, pull request descriptions, issues and comments.
 
 The documents with a Japanese version (the README, FEATURES, ROADMAP,
 QUALITY and every ADR) are kept in both languages, and a change to one
-changes the other in the same push. CI checks the pairs that sit side by
-side (see `docs-tandem` under [CI](#ci)). The README's Japanese version,
+changes the other in the same push, which CI checks (see `docs-tandem`
+under [CI](#ci)). The README's Japanese version,
 [README.jp.md](README.jp.md), lives in this folder rather than beside the
-root `README.md`, so that pair is kept by hand. Every other document, this
-one included, is English only.
+root `README.md`; the check pairs the two by name. Every other document,
+this one included, is English only.

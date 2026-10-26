@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Fail when one side of a bilingual doc pair (X.jp.md / X.md, both tracked)
-# was MODIFIED without the other changing too. Additions are exempt: the
+# was MODIFIED without the other changing too. The README's pair is the one
+# not side by side: README.md and docs/README.jp.md. Additions are exempt: the
 # convention is Japanese-first with English editions landing later, so a new
 # translation (or a brand-new pair) must not require touching its
 # counterpart. Pairs where only one language exists stay exempt as well, and
@@ -45,6 +46,8 @@ modified="$(git diff --name-only --diff-filter=M "$base" "$head")"
 fail=0
 while IFS= read -r file; do
   case "$file" in
+    README.md) other=docs/README.jp.md ;;
+    docs/README.jp.md) other=README.md ;;
     *.jp.md) other="${file%.jp.md}.md" ;;
     *.md) other="${file%.md}.jp.md" ;;
     *) continue ;;
