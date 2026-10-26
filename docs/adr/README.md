@@ -56,3 +56,4 @@ are canonical; the files below are their English translations.
 | [0046](0046-line-count-bars.md) | Draw a row's line counts as bars | Accepted |
 | [0047](0047-net-candles.md) | Add candles and each period's lines to the chart of lines over time | Accepted |
 | [0048](0048-chart-commits-under-cursor.md) | List the commits under the cursor of the chart of lines over time | Accepted |
+| [0049](0049-chart-timeframe.md) | Choose the timeframe of the candles and bars | Accepted |
