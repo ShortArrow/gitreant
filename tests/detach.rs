@@ -232,13 +232,20 @@ fn the_cli_finds_running_servers_without_a_port() {
             .spawn()
             .unwrap();
         let status = wait_exit(&mut launcher, Duration::from_secs(60));
-        assert!(status.is_some_and(|s| s.success()), "start failed on {port}");
+        assert!(
+            status.is_some_and(|s| s.success()),
+            "start failed on {port}"
+        );
         assert!(ping(port));
     };
 
     let listed = gitreant(&["list"]);
     assert!(listed.status.success());
-    assert!(text(&listed).contains("no gitreant server is running"), "{}", text(&listed));
+    assert!(
+        text(&listed).contains("no gitreant server is running"),
+        "{}",
+        text(&listed)
+    );
     assert_eq!(gitreant(&["list", "--json"]).stdout.trim_ascii(), b"[]");
 
     let (first, second) = (free_port(), free_port());
@@ -246,9 +253,17 @@ fn the_cli_finds_running_servers_without_a_port() {
     start(second);
     // One line per server by default; the repositories only on request.
     let listed = text(&gitreant(&["list"]));
-    let repo_name = repo.path().file_name().unwrap().to_string_lossy().into_owned();
+    let repo_name = repo
+        .path()
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
     for port in [first, second] {
-        assert!(listed.contains(&format!("http://127.0.0.1:{port}")), "{listed}");
+        assert!(
+            listed.contains(&format!("http://127.0.0.1:{port}")),
+            "{listed}"
+        );
     }
     assert_eq!(listed.trim().lines().count(), 2, "{listed}");
     assert!(listed.contains("1 repository"), "{listed}");
@@ -275,24 +290,34 @@ fn the_cli_finds_running_servers_without_a_port() {
     // Two run: a bare --shutdown names them and stops neither.
     let refused = gitreant(&["--shutdown"]);
     assert!(!refused.status.success());
-    assert!(text(&refused).contains(&format!("{second}")), "{}", text(&refused));
+    assert!(
+        text(&refused).contains(&format!("{second}")),
+        "{}",
+        text(&refused)
+    );
     assert!(ping(first) && ping(second));
 
     // One runs: a bare --shutdown stops it, and its record goes with it.
-    assert!(gitreant(&["--shutdown", "--port", &first.to_string()]).status.success());
+    assert!(gitreant(&["--shutdown", "--port", &first.to_string()])
+        .status
+        .success());
     assert!(wait_until(|| !ping(first), Duration::from_secs(10)));
     assert!(gitreant(&["--shutdown"]).status.success());
     assert!(wait_until(|| !ping(second), Duration::from_secs(10)));
-    let no_records = || {
-        std::fs::read_dir(state.path())
-            .map_or(true, |mut entries| entries.next().is_none())
-    };
-    assert!(wait_until(no_records, Duration::from_secs(10)), "records were not removed");
+    let no_records =
+        || std::fs::read_dir(state.path()).map_or(true, |mut entries| entries.next().is_none());
+    assert!(
+        wait_until(no_records, Duration::from_secs(10)),
+        "records were not removed"
+    );
 
     // --all stops every running server.
     let (third, fourth) = (free_port(), free_port());
     start(third);
     start(fourth);
     assert!(gitreant(&["--shutdown", "--all"]).status.success());
-    assert!(wait_until(|| !ping(third) && !ping(fourth), Duration::from_secs(10)));
+    assert!(wait_until(
+        || !ping(third) && !ping(fourth),
+        Duration::from_secs(10)
+    ));
 }

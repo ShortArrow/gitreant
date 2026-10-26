@@ -76,7 +76,14 @@ pub fn read_uncommitted(path: &Path) -> Result<CommitDetail, String> {
     // endings drops out of the listing altogether.
     let beyond_endings = output(
         path,
-        &["diff", "HEAD", "--numstat", "-z", "--no-renames", "--ignore-cr-at-eol"],
+        &[
+            "diff",
+            "HEAD",
+            "--numstat",
+            "-z",
+            "--no-renames",
+            "--ignore-cr-at-eol",
+        ],
     )
     .map(|out| parse_numstat(&out))
     .ok();
@@ -315,7 +322,9 @@ mod tests {
 
     #[test]
     fn parses_porcelain_status_codes_into_file_statuses() {
-        let entries = parse_status(" M src/a.rs\0?? new.txt\0A  staged.rs\0 D gone.rs\0MM both.rs\0!! ignored\0");
+        let entries = parse_status(
+            " M src/a.rs\0?? new.txt\0A  staged.rs\0 D gone.rs\0MM both.rs\0!! ignored\0",
+        );
         let summary: Vec<(&str, &str, bool)> = entries
             .iter()
             .map(|e| (e.path.as_str(), e.status.as_str(), e.untracked))
@@ -352,7 +361,10 @@ mod tests {
     #[test]
     fn keeps_only_the_hunks_of_a_git_diff() {
         let out = "diff --git a/n.txt b/n.txt\nindex 5626abf..814f4a4 100644\n--- a/n.txt\n+++ b/n.txt\n@@ -1 +1,2 @@\n one\n+two\n\\ No newline at end of file\n";
-        assert_eq!(parse_diff(out), (false, "@@ -1 +1,2 @@\n one\n+two\n".to_string()));
+        assert_eq!(
+            parse_diff(out),
+            (false, "@@ -1 +1,2 @@\n one\n+two\n".to_string())
+        );
         assert_eq!(
             parse_diff("diff --git a/i.png b/i.png\nBinary files a/i.png and b/i.png differ\n"),
             (true, String::new())
@@ -374,7 +386,8 @@ mod tests {
     fn keeps_the_carriage_return_git_prints_on_a_line() {
         // A line-ending change is only visible through the CR git leaves on
         // the line; dropping it makes the two sides identical.
-        let out = "diff --git a/n.txt b/n.txt\n--- a/n.txt\n+++ b/n.txt\n@@ -1 +1 @@\n-one\n+one\r\n";
+        let out =
+            "diff --git a/n.txt b/n.txt\n--- a/n.txt\n+++ b/n.txt\n@@ -1 +1 @@\n-one\n+one\r\n";
         assert_eq!(
             parse_diff(out),
             (false, "@@ -1 +1 @@\n-one\n+one\r\n".to_string())

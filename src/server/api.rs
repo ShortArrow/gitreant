@@ -676,7 +676,8 @@ async fn submodule_graphs(
             .filter(initialized)
             .filter_map(|sub| {
                 let data = crate::git::read_repo(&sub.path).ok()?;
-                let view = crate::app::build_view(&sub.path, &data, 0).truncate(SUBMODULE_VIEW_LIMIT);
+                let view =
+                    crate::app::build_view(&sub.path, &data, 0).truncate(SUBMODULE_VIEW_LIMIT);
                 let updates = crate::git::gitlink_updates(&root, &sub.rel)
                     .into_iter()
                     .map(|u| GitlinkUpdateView {
@@ -900,8 +901,8 @@ async fn commit_detail(
         }
     })
     .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .map_err(|message| (StatusCode::NOT_FOUND, message))?;
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(|message| (StatusCode::NOT_FOUND, message))?;
     Ok(Json(detail.into()))
 }
 
@@ -960,8 +961,8 @@ async fn commit_diff(
         }
     })
     .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .map_err(|message| (StatusCode::NOT_FOUND, message))?;
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .map_err(|message| (StatusCode::NOT_FOUND, message))?;
     Ok(Json(diffs.into_iter().map(Into::into).collect()))
 }
 

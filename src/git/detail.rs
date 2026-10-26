@@ -330,9 +330,7 @@ fn file_change(
         Change::Modification {
             previous_id, id, ..
         } => ("M", blob(previous_id.detach()), blob(id.detach())),
-        Change::Rewrite { source_id, id, .. } => {
-            ("R", blob(source_id.detach()), blob(id.detach()))
-        }
+        Change::Rewrite { source_id, id, .. } => ("R", blob(source_id.detach()), blob(id.detach())),
     };
     let path = change.location().to_string();
     let (additions, deletions) = if attributes.binary(&path, &old, &new) {
@@ -357,7 +355,10 @@ fn line_counts(old: &[u8], new: &[u8]) -> (usize, usize) {
     let new = String::from_utf8_lossy(new);
     let input = InternedInput::new(old.as_ref(), new.as_ref());
     let diff = Diff::compute(Algorithm::Histogram, &input);
-    (diff.count_additions() as usize, diff.count_removals() as usize)
+    (
+        diff.count_additions() as usize,
+        diff.count_removals() as usize,
+    )
 }
 
 /// The two contents are different, but identical once every CR that ends a

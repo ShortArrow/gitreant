@@ -624,8 +624,7 @@ async fn diff_endpoint_returns_unified_hunks() {
 
     // Two commits compare as the changes from the base to the target.
     let root = gitreant::git::read_repo(dir).unwrap().commits[1].id.clone();
-    let request =
-        format!("{{\"repo\": {repo_id:?}, \"base\": {root:?}, \"target\": {head:?}}}");
+    let request = format!("{{\"repo\": {repo_id:?}, \"base\": {root:?}, \"target\": {head:?}}}");
     let resp =
         tokio::task::spawn_blocking(move || http_post_json(port, "/api/range-diff", &request))
             .await
@@ -635,11 +634,17 @@ async fn diff_endpoint_returns_unified_hunks() {
     assert!(resp.contains("+hello"), "hunk missing: {resp}");
 
     // An id that names no commit -> 404.
-    let bad = format!("{{\"repo\": {repo_id:?}, \"base\": {root:?}, \"target\": \"{}\"}}", "0".repeat(40));
+    let bad = format!(
+        "{{\"repo\": {repo_id:?}, \"base\": {root:?}, \"target\": \"{}\"}}",
+        "0".repeat(40)
+    );
     let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/range-diff", &bad))
         .await
         .unwrap();
-    assert!(resp.contains("404"), "expected 404 for unknown commit: {resp}");
+    assert!(
+        resp.contains("404"),
+        "expected 404 for unknown commit: {resp}"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -946,11 +951,10 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
     };
     let m2 = head_of("main");
     let body = format!("{{\"repo\":{id:?},\"reference\":{m2:?}}}");
-    let resp = tokio::task::spawn_blocking(move || {
-        http_post_json(port, "/api/checkout-detached", &body)
-    })
-    .await
-    .unwrap();
+    let resp =
+        tokio::task::spawn_blocking(move || http_post_json(port, "/api/checkout-detached", &body))
+            .await
+            .unwrap();
     assert!(resp.contains("\"ok\":true"), "response: {resp}");
     assert_eq!(head_of("HEAD"), m2);
     let log = tokio::task::spawn_blocking(move || http_get(port, "/api/log"))
@@ -1268,7 +1272,14 @@ async fn listing_carries_linked_worktrees_with_their_branches() {
     let linked = tmp.path().join("topic-wt");
     let status = Command::new("git")
         .current_dir(&main)
-        .args(["worktree", "add", "-q", linked.to_str().unwrap(), "-b", "topic"])
+        .args([
+            "worktree",
+            "add",
+            "-q",
+            linked.to_str().unwrap(),
+            "-b",
+            "topic",
+        ])
         .status()
         .unwrap();
     assert!(status.success(), "git worktree add failed");
@@ -1303,7 +1314,9 @@ async fn listing_carries_linked_worktrees_with_their_branches() {
         .await
         .unwrap();
     let entries: serde_json::Value = serde_json::from_str(
-        list.lines().find(|l| l.starts_with('[')).expect("list body"),
+        list.lines()
+            .find(|l| l.starts_with('['))
+            .expect("list body"),
     )
     .unwrap();
     let worktrees = entries[0]["worktrees"]
@@ -1314,7 +1327,9 @@ async fn listing_carries_linked_worktrees_with_their_branches() {
     assert_eq!(worktrees[0]["branch"], "topic");
     assert_eq!(worktrees[0]["main"], false);
     // Canonical, like repository ids, so the drawer can match an attached one.
-    let expected = gitreant::app::canonical(&linked).to_string_lossy().into_owned();
+    let expected = gitreant::app::canonical(&linked)
+        .to_string_lossy()
+        .into_owned();
     assert_eq!(worktrees[0]["path"], expected);
 
     // The view of the main worktree carries the same relation.
@@ -1444,7 +1459,14 @@ fn sign_tip_with_a_fake_signature(dir: &Path) {
     ]
     .join("\n");
     let tip = out(
-        &["hash-object", "-w", "-t", "commit", "--literally", "--stdin"],
+        &[
+            "hash-object",
+            "-w",
+            "-t",
+            "commit",
+            "--literally",
+            "--stdin",
+        ],
         Some(&raw),
     );
     out(&["update-ref", "refs/heads/main", &tip], None);
@@ -1722,10 +1744,18 @@ async fn the_list_says_how_each_repository_came() {
     .await
     .unwrap();
 
-    let body = list.lines().find(|line| line.starts_with('[')).expect("list body");
+    let body = list
+        .lines()
+        .find(|line| line.starts_with('['))
+        .expect("list body");
     let entries: Vec<serde_json::Value> = serde_json::from_str(body).unwrap();
     let added = |dir: &tempfile::TempDir| {
-        let name = dir.path().file_name().unwrap().to_string_lossy().into_owned();
+        let name = dir
+            .path()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
         entries
             .iter()
             .find(|e| e["name"] == name.as_str())
@@ -1737,6 +1767,9 @@ async fn the_list_says_how_each_repository_came() {
     assert_eq!(added(&dirs[2])["via"], "browser");
     assert_eq!(added(&dirs[2])["reason"], "submodule");
     assert_eq!(added(&dirs[3])["via"], "browser");
-    assert!(added(&dirs[3]).get("reason").is_none(), "an unknown reason is dropped");
+    assert!(
+        added(&dirs[3]).get("reason").is_none(),
+        "an unknown reason is dropped"
+    );
     assert!(added(&dirs[0])["at"].as_i64().unwrap() > 1_700_000_000);
 }

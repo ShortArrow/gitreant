@@ -173,7 +173,10 @@ mod tests {
 
     #[test]
     fn the_target_is_the_named_port_or_the_only_server() {
-        assert_eq!(target(Some(4300), &[record(4000), record(4200)], 4000), Target::Port(4300));
+        assert_eq!(
+            target(Some(4300), &[record(4000), record(4200)], 4000),
+            Target::Port(4300)
+        );
         assert_eq!(target(None, &[record(4200)], 4000), Target::Port(4200));
         assert_eq!(target(None, &[], 4000), Target::Port(4000));
         assert_eq!(

@@ -15,7 +15,11 @@ fn the_ico_holds_png_frames_from_16_to_256_pixels() {
     let ico = icon_bytes();
     let u16_at = |at: usize| u16::from_le_bytes([ico[at], ico[at + 1]]);
     let u32_at = |at: usize| u32::from_le_bytes([ico[at], ico[at + 1], ico[at + 2], ico[at + 3]]);
-    assert_eq!((u16_at(0), u16_at(2)), (0, 1), "ICONDIR header: reserved 0, type 1 (icon)");
+    assert_eq!(
+        (u16_at(0), u16_at(2)),
+        (0, 1),
+        "ICONDIR header: reserved 0, type 1 (icon)"
+    );
     let count = u16_at(4) as usize;
     assert!(count >= 7, "expected small and large frames, found {count}");
 
@@ -35,6 +39,9 @@ fn the_ico_holds_png_frames_from_16_to_256_pixels() {
         sizes.push(width);
     }
     for required in [16, 32, 48, 256] {
-        assert!(sizes.contains(&required), "no {required}px frame in {sizes:?}");
+        assert!(
+            sizes.contains(&required),
+            "no {required}px frame in {sizes:?}"
+        );
     }
 }

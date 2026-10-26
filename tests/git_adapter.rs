@@ -8,9 +8,8 @@ use std::process::Command;
 use gitreant::domain::layout;
 use gitreant::git::{
     gitlink_updates, read_commit, read_commit_diff, read_file_diff, read_range_diff, read_repo,
-    read_repo_with_progress, read_status, read_submodules, read_uncommitted,
-    read_uncommitted_diff, read_uncommitted_diffs, read_worktrees, uncommitted_paths,
-    FileChange, UNCOMMITTED_ID,
+    read_repo_with_progress, read_status, read_submodules, read_uncommitted, read_uncommitted_diff,
+    read_uncommitted_diffs, read_worktrees, uncommitted_paths, FileChange, UNCOMMITTED_ID,
 };
 
 fn git(dir: &Path, args: &[&str]) {
@@ -338,11 +337,17 @@ fn commit_diffs_take_attributes_from_the_working_tree() {
     let diff = read_file_diff(dir, &head, "plain.txt").expect("diff");
     assert!(diff.binary, "the uncommitted .gitattributes applies");
     let dat = read_file_diff(dir, &head, "a.dat").expect("diff");
-    assert!(!dat.binary, "the committed .gitattributes no longer applies");
+    assert!(
+        !dat.binary,
+        "the committed .gitattributes no longer applies"
+    );
 
     std::fs::remove_dir_all(dir.join("sub")).unwrap();
     let e = read_file_diff(dir, &head, "sub/e.txt").expect("diff");
-    assert!(!e.binary, "a .gitattributes left only in the index is not read");
+    assert!(
+        !e.binary,
+        "a .gitattributes left only in the index is not read"
+    );
 }
 
 #[test]
@@ -416,22 +421,42 @@ fn diffs_two_commits_against_each_other() {
     let dir = tmp.path();
     git(dir, &["init", "-q", "-b", "main"]);
     git(dir, &["config", "commit.gpgsign", "false"]);
-    std::fs::write(dir.join("a.txt"), "one
-").unwrap();
-    std::fs::write(dir.join("gone.txt"), "bye
-").unwrap();
-    std::fs::write(dir.join("same.txt"), "kept
-").unwrap();
+    std::fs::write(
+        dir.join("a.txt"),
+        "one
+",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("gone.txt"),
+        "bye
+",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("same.txt"),
+        "kept
+",
+    )
+    .unwrap();
     git(dir, &["add", "."]);
     commit(dir, "base", 1000);
-    std::fs::write(dir.join("a.txt"), "one
+    std::fs::write(
+        dir.join("a.txt"),
+        "one
 two
-").unwrap();
+",
+    )
+    .unwrap();
     git(dir, &["add", "."]);
     commit(dir, "middle", 1001);
     std::fs::remove_file(dir.join("gone.txt")).unwrap();
-    std::fs::write(dir.join("new.txt"), "hi
-").unwrap();
+    std::fs::write(
+        dir.join("new.txt"),
+        "hi
+",
+    )
+    .unwrap();
     git(dir, &["add", "-A"]);
     commit(dir, "target", 1002);
 
@@ -739,7 +764,11 @@ fn uncommitted_changes_list_files_with_counts_and_diff_against_head() {
     let note = read_uncommitted_diff(dir, "note.txt").expect("note diff");
     assert_eq!(note.status, "M");
     assert!(!note.binary);
-    assert!(note.text.starts_with("@@"), "hunks only, got {:?}", note.text);
+    assert!(
+        note.text.starts_with("@@"),
+        "hunks only, got {:?}",
+        note.text
+    );
     assert!(note.text.contains("+two\n"), "got {:?}", note.text);
     let scratch = read_uncommitted_diff(dir, "scratch.txt").expect("scratch diff");
     assert_eq!(scratch.status, "A");
@@ -764,7 +793,10 @@ fn uncommitted_changes_list_files_with_counts_and_diff_against_head() {
         .iter()
         .find(|f| f.path == "nested/")
         .expect("the embedded repository is listed as a directory");
-    assert_eq!((entry.status.as_str(), entry.additions, entry.deletions), ("A", 0, 0));
+    assert_eq!(
+        (entry.status.as_str(), entry.additions, entry.deletions),
+        ("A", 0, 0)
+    );
     let all = read_uncommitted_diffs(dir).expect("diffs survive the directory");
     assert_eq!(all.len(), 5);
     let dir_diff = read_uncommitted_diff(dir, "nested/").expect("directory diff");
@@ -781,9 +813,20 @@ fn uncommitted_changes_list_files_with_counts_and_diff_against_head() {
     std::fs::write(dir.join("a[1].txt"), "one\nbracket\n").unwrap();
     std::fs::write(dir.join("a1.txt"), "one\nplain\n").unwrap();
     let bracket = read_uncommitted_diff(dir, "a[1].txt").expect("bracket diff");
-    assert!(bracket.text.contains("+bracket\n"), "got {:?}", bracket.text);
-    assert!(!bracket.text.contains("+plain\n"), "globbed onto a1.txt: {:?}", bracket.text);
-    assert_eq!(bracket.text.lines().filter(|l| l.starts_with("@@")).count(), 1);
+    assert!(
+        bracket.text.contains("+bracket\n"),
+        "got {:?}",
+        bracket.text
+    );
+    assert!(
+        !bracket.text.contains("+plain\n"),
+        "globbed onto a1.txt: {:?}",
+        bracket.text
+    );
+    assert_eq!(
+        bracket.text.lines().filter(|l| l.starts_with("@@")).count(),
+        1
+    );
 }
 
 #[test]
@@ -797,7 +840,10 @@ fn a_clean_working_tree_has_no_uncommitted_paths() {
     commit(dir, "root", 1000);
 
     assert!(uncommitted_paths(dir).is_empty());
-    assert!(read_uncommitted(dir).expect("clean detail").files.is_empty());
+    assert!(read_uncommitted(dir)
+        .expect("clean detail")
+        .files
+        .is_empty());
 }
 
 #[test]
@@ -811,7 +857,14 @@ fn linked_worktrees_are_listed_from_either_side() {
     let linked = tmp.path().join("feature-wt");
     git(
         &main,
-        &["worktree", "add", "-q", linked.to_str().unwrap(), "-b", "feature"],
+        &[
+            "worktree",
+            "add",
+            "-q",
+            linked.to_str().unwrap(),
+            "-b",
+            "feature",
+        ],
     );
     let canon = |p: &Path| std::fs::canonicalize(p).unwrap();
 
@@ -835,7 +888,10 @@ fn linked_worktrees_are_listed_from_either_side() {
     // own HEAD, and it carries its relatives.
     let repo = read_repo(&linked).expect("read the linked worktree");
     assert_eq!(repo.head_branch.as_deref(), Some("feature"));
-    assert!(repo.refs.iter().any(|r| r.name == "main" && r.remote.is_none()));
+    assert!(repo
+        .refs
+        .iter()
+        .any(|r| r.name == "main" && r.remote.is_none()));
     assert_eq!(repo.worktrees.len(), 1);
     assert!(repo.worktrees[0].main);
 
@@ -844,7 +900,14 @@ fn linked_worktrees_are_listed_from_either_side() {
     let gone = tmp.path().join("gone-wt");
     git(
         &main,
-        &["worktree", "add", "-q", gone.to_str().unwrap(), "-b", "gone"],
+        &[
+            "worktree",
+            "add",
+            "-q",
+            gone.to_str().unwrap(),
+            "-b",
+            "gone",
+        ],
     );
     assert_eq!(read_worktrees(&main).len(), 2);
     std::fs::remove_dir_all(&gone).unwrap();
@@ -894,7 +957,12 @@ fn line_ending_only_changes_are_flagged_and_keep_their_carriage_returns() {
 
     // Uncommitted: the flag, and the CR survives into the diff text.
     let detail = read_uncommitted(dir).expect("uncommitted detail");
-    assert_eq!(flags(&detail.files), expected, "uncommitted flags: {:?}", detail.files);
+    assert_eq!(
+        flags(&detail.files),
+        expected,
+        "uncommitted flags: {:?}",
+        detail.files
+    );
     let diff = read_uncommitted_diff(dir, "eol.txt").expect("uncommitted eol diff");
     assert!(diff.text.contains("-one\n"), "got {:?}", diff.text);
     assert!(diff.text.contains("+one\r\n"), "got {:?}", diff.text);
@@ -904,7 +972,12 @@ fn line_ending_only_changes_are_flagged_and_keep_their_carriage_returns() {
     commit(dir, "convert", 1001);
     let head = read_repo(dir).expect("read repo").commits[0].id.clone();
     let detail = read_commit(dir, &head).expect("commit detail");
-    assert_eq!(flags(&detail.files), expected, "commit flags: {:?}", detail.files);
+    assert_eq!(
+        flags(&detail.files),
+        expected,
+        "commit flags: {:?}",
+        detail.files
+    );
     let diff = read_file_diff(dir, &head, "eol.txt").expect("commit eol diff");
     assert!(diff.text.contains("-one\n"), "got {:?}", diff.text);
     assert!(diff.text.contains("+one\r\n"), "got {:?}", diff.text);

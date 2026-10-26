@@ -18,9 +18,9 @@ use clap::{CommandFactory, Parser, Subcommand};
 use gitreant::app::{canonical, Session};
 use gitreant::doctor;
 use gitreant::git::discover_repo;
-use gitreant::records::{self, Record, Target};
 #[cfg(not(target_os = "android"))]
 use gitreant::launch;
+use gitreant::records::{self, Record, Target};
 use gitreant::server::{
     bind, get_repo_list, get_repo_paths, ping, post_refresh, post_repo, post_shutdown, serve,
     AppState,

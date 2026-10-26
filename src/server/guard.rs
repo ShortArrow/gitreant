@@ -26,7 +26,12 @@ pub fn allowed(method: &Method, host: Option<&str>, origin: Option<&str>, port: 
 pub async fn guard(port: u16, request: Request, next: Next) -> Response {
     let headers = request.headers();
     let text = |name| headers.get(name).and_then(|value| value.to_str().ok());
-    if allowed(request.method(), text(header::HOST), text(header::ORIGIN), port) {
+    if allowed(
+        request.method(),
+        text(header::HOST),
+        text(header::ORIGIN),
+        port,
+    ) {
         next.run(request).await
     } else {
         (StatusCode::FORBIDDEN, "request refused").into_response()
@@ -63,10 +68,21 @@ mod tests {
 
     #[test]
     fn a_request_must_address_a_loopback_name() {
-        for host in ["127.0.0.1:4000", "localhost:4000", "LOCALHOST", "[::1]:4000", "127.0.0.1"] {
+        for host in [
+            "127.0.0.1:4000",
+            "localhost:4000",
+            "LOCALHOST",
+            "[::1]:4000",
+            "127.0.0.1",
+        ] {
             assert!(allowed(&Method::GET, Some(host), None, 4000), "{host}");
         }
-        for host in ["attacker.example:4000", "127.0.0.1.attacker.example", "[::2]:4000", ""] {
+        for host in [
+            "attacker.example:4000",
+            "127.0.0.1.attacker.example",
+            "[::2]:4000",
+            "",
+        ] {
             assert!(!allowed(&Method::GET, Some(host), None, 4000), "{host}");
         }
         assert!(!allowed(&Method::GET, None, None, 4000));
@@ -74,7 +90,8 @@ mod tests {
 
     #[test]
     fn a_state_change_must_come_from_the_server_s_own_origin_if_any() {
-        let post = |origin: Option<&str>| allowed(&Method::POST, Some("127.0.0.1:4000"), origin, 4000);
+        let post =
+            |origin: Option<&str>| allowed(&Method::POST, Some("127.0.0.1:4000"), origin, 4000);
         assert!(post(None), "a client without a page passes");
         assert!(post(Some("http://127.0.0.1:4000")));
         assert!(post(Some("http://localhost:4000")));
@@ -90,6 +107,11 @@ mod tests {
             assert!(!post(Some(origin)), "{origin}");
         }
         // Reads are not state changes.
-        assert!(allowed(&Method::GET, Some("127.0.0.1:4000"), Some("http://attacker.example"), 4000));
+        assert!(allowed(
+            &Method::GET,
+            Some("127.0.0.1:4000"),
+            Some("http://attacker.example"),
+            4000
+        ));
     }
 }

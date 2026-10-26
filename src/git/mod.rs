@@ -4,8 +4,8 @@
 mod avatar;
 mod branch;
 mod detail;
-mod diffstat;
 mod diff_attributes;
+mod diffstat;
 mod fetch;
 mod prs;
 mod repo;
@@ -25,6 +25,7 @@ pub use detail::{
     read_commit, read_commit_diff, read_file_diff, read_range_diff, CommitDetail, FileChange,
     FileDiff,
 };
+pub use diffstat::{count_command, count_lines, LineCount};
 pub use fetch::{fetch_command, fetch_remotes, tag_remotes, RemoteTagList};
 pub use prs::{
     gh_available, list_merged_prs, list_prs, merged_pr_command, pr_command, MergedPullRequest,
@@ -41,7 +42,6 @@ pub use uncommitted::{
     read_uncommitted, read_uncommitted_diff, read_uncommitted_diffs, uncommitted_paths,
     UncommittedPath, UNCOMMITTED_ID,
 };
-pub use diffstat::{count_command, count_lines, LineCount};
 pub use verify::{
     gpg_available, verification_state, verify_command, verify_signatures, SignatureCheck,
 };

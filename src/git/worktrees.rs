@@ -50,19 +50,23 @@ pub fn read_worktrees(path: &Path) -> Vec<Worktree> {
             }
         }
     }
-    let linked = repo.worktrees().unwrap_or_default().into_iter().filter_map(|proxy| {
-        let base = proxy.base().ok()?;
-        if same_dir(&base, &here) || !base.is_dir() {
-            return None;
-        }
-        let linked = proxy.into_repo_with_possibly_inaccessible_worktree().ok()?;
-        Some(Worktree {
-            name: dir_name(&base),
-            branch: branch_of(&linked),
-            path: base,
-            main: false,
-        })
-    });
+    let linked = repo
+        .worktrees()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|proxy| {
+            let base = proxy.base().ok()?;
+            if same_dir(&base, &here) || !base.is_dir() {
+                return None;
+            }
+            let linked = proxy.into_repo_with_possibly_inaccessible_worktree().ok()?;
+            Some(Worktree {
+                name: dir_name(&base),
+                branch: branch_of(&linked),
+                path: base,
+                main: false,
+            })
+        });
     out.extend(linked);
     out
 }
