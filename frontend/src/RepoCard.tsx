@@ -39,12 +39,14 @@ import {
 import { DraggableDashed } from "./DraggableDashed";
 import {
   BranchBadgeIcon,
+  CalendarIcon,
   CumulativeIcon,
   PrLinkIcon,
   StashBadgeIcon,
   TagBadgeIcon,
   WorktreeIcon,
 } from "./Icons";
+import { Calendar } from "./Calendar";
 import { CumulativeChart } from "./CumulativeChart";
 import { LabeledButton } from "./LabeledButton";
 import { Thickness } from "./Thickness";
@@ -422,15 +424,20 @@ export function RepoCard({
   const scrollRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLElement>(null);
   const requestedAt = useRef(0);
+  const hasMore =
+    onLoadMore !== undefined && loadedCommitCount(repo) < repo.total;
+  // Asks for the next page, once for each count of rows read so far.
+  const loadNextPage = () => {
+    const loaded = loadedCommitCount(repo);
+    if (!onLoadMore || loaded >= repo.total) return;
+    if (requestedAt.current === loaded) return;
+    requestedAt.current = loaded;
+    onLoadMore();
+  };
   const maybeLoadMore = () => {
     const el = scrollRef.current;
-    if (!el || !onLoadMore) return;
-    const loaded = loadedCommitCount(repo);
-    if (loaded >= repo.total) return;
-    if (requestedAt.current === loaded) return;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 300) {
-      requestedAt.current = loaded;
-      onLoadMore();
+    if (el && el.scrollTop + el.clientHeight >= el.scrollHeight - 300) {
+      loadNextPage();
     }
   };
   useEffect(maybeLoadMore);
@@ -567,6 +574,8 @@ export function RepoCard({
   const [diffError, setDiffError] = useState<string | null>(null);
   // The cumulative chart (ADR 0043) takes the place of the rows.
   const [chart, setChart] = useState(false);
+  // The calendar (ADR 0050) sits under whatever the body shows.
+  const [calendar, setCalendar] = useState(false);
 
   // The focused pane's graph takes the selection keys (ADR 0035) while the
   // graph is shown and nothing else has the keyboard: no text field, no
@@ -745,6 +754,14 @@ export function RepoCard({
           className="cumulative-toggle"
           active={chart}
           onClick={() => setChart((on) => !on)}
+        />
+        <LabeledButton
+          icon={<CalendarIcon />}
+          label={t("calendar")}
+          testId="calendar-toggle"
+          className="cumulative-toggle"
+          active={calendar}
+          onClick={() => setCalendar((on) => !on)}
         />
       </header>
 
@@ -1424,6 +1441,18 @@ export function RepoCard({
         />
       )}
       </div>
+      {calendar && (
+        <Calendar
+          commits={view.commits}
+          selected={selected}
+          hasOlder={hasMore}
+          onOlder={loadNextPage}
+          onPick={(id) => {
+            setChart(false);
+            select(id);
+          }}
+        />
+      )}
     </section>
   );
 }

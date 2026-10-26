@@ -450,6 +450,27 @@ function makeRepoW(): string {
   return dir;
 }
 
+/** repoY: four years of history, a commit a week, each adding one line,
+ * for the calendar reaching back page by page. */
+function makeRepoY(): string {
+  const dir = initRepo("repoY");
+  const data = (text: string) => `data ${Buffer.byteLength(text)}\n${text}\n`;
+  let stream = "";
+  let content = "";
+  for (let i = 1; i <= 208; i++) {
+    content += `${i}\n`;
+    stream +=
+      "commit refs/heads/main\n" +
+      `committer Tester <tester@example.com> ${1_600_000_000 + i * 7 * 86_400} +0000\n` +
+      data(`y-${i}`) +
+      "M 100644 inline y.txt\n" +
+      data(content);
+  }
+  execFileSync("git", ["fast-import", "--quiet"], { cwd: dir, input: stream });
+  git(dir, ["checkout", "-q", "main"]);
+  return dir;
+}
+
 /** Set by makeRepoI; the teardown must talk to the same gpg installation. */
 let gpgconfBin = "gpgconf";
 
@@ -482,6 +503,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoU = makeRepoU();
   const repoV = makeRepoV();
   const repoW = makeRepoW();
+  const repoY = makeRepoY();
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
@@ -514,6 +536,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoU,
         repoV,
         repoW,
+        repoY,
       },
       null,
       2,

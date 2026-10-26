@@ -1957,6 +1957,11 @@ mark.intra.eol-mark {
   align-self: center;
 }
 
+/* The header's toggles sit together at its right end. */
+.repo-header .cumulative-toggle + .cumulative-toggle {
+  margin-left: 0;
+}
+
 /* Dressed like the pane's other toggles (the diff's view buttons). */
 .cumulative-toggle {
   background: transparent;
@@ -2235,4 +2240,89 @@ mark.intra.eol-mark {
 
 .cumulative-chart .chart-candle-down rect {
   fill: var(--danger);
+}
+
+/* The calendar (ADR 0050): a strip under the pane's body. */
+.calendar {
+  position: relative;
+  flex: none;
+  border-top: 1px solid var(--border);
+}
+
+/* The shading and the way to older pages, above the weeks. */
+.calendar-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 0;
+  font-size: 12px;
+}
+
+.calendar-head .segmented {
+  margin-left: auto;
+}
+
+.calendar-head .segment {
+  padding: 1px 8px;
+}
+
+/* The weekday names stand beside the weeks, which scroll on their own. */
+.calendar-body {
+  display: flex;
+}
+
+.calendar-weekdays {
+  flex: none;
+  margin: 4px 0 8px 14px;
+}
+
+.calendar-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 4px 14px 8px 0;
+}
+
+/* The tip sits low, clear of the head. */
+.calendar-tip {
+  top: auto;
+  bottom: 8px;
+}
+
+.calendar-scroll svg {
+  display: block;
+}
+
+.calendar-cell {
+  fill: color-mix(in srgb, var(--border) 45%, transparent);
+}
+
+.calendar-day {
+  cursor: pointer;
+}
+
+.calendar-day:hover,
+.calendar-day.selected {
+  stroke: var(--text);
+  stroke-width: 1.5;
+}
+
+.calendar-day.blank {
+  fill: color-mix(in srgb, var(--border) 45%, transparent);
+}
+
+.calendar-day.counting {
+  fill: none;
+  stroke: var(--muted);
+}
+
+.calendar-weekday,
+.calendar-month {
+  font-size: 10px;
+  fill: var(--muted);
+  dominant-baseline: middle;
+}
+
+.calendar-weekday {
+  text-anchor: end;
 }

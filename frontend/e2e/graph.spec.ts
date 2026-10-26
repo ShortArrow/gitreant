@@ -30,6 +30,7 @@ const fixtures = JSON.parse(
   repoU: string;
   repoV: string;
   repoW: string;
+  repoY: string;
 };
 
 test.describe.serial("gitreant UI", () => {
@@ -1007,6 +1008,138 @@ test.describe.serial("gitreant UI", () => {
     await expect(chart.locator(".chart-added")).toHaveCount(0);
     await series("net").click();
     await expect(chart.locator(".chart-net")).toHaveCount(1);
+  });
+
+  test("the calendar under the rows shades each day and walks its commits", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await expect(
+      page
+        .getByTestId("commit-row")
+        .filter({
+          has: page.locator(".commit-summary", { hasText: "merge feature" }),
+        })
+        .getByTestId("commit-stat"),
+    ).toHaveText("+0 −0");
+    await page.getByTestId("calendar-toggle").click();
+    const calendar = page.getByTestId("calendar");
+    // A strip under the rows, which stay (ADR 0050).
+    await expect(calendar).toBeVisible();
+    await expect(page.getByTestId("commit-row").first()).toBeVisible();
+
+    // repoA's commits fall on one day: one week, one shaded day.
+    await expect(calendar.locator(".calendar-week")).toHaveCount(1);
+    const day = calendar.getByTestId("calendar-day");
+    await expect(day).toHaveCount(1);
+    await day.hover();
+    // Every commit but the merge, on main and on feature.
+    const tip = page.getByTestId("calendar-tip");
+    await expect(tip).toContainText("4 commits");
+    await expect(tip).toContainText("+4 −0");
+
+    // Clicking the day selects its newest commit, then each older one, and
+    // round to the newest again.
+    const selected = page.locator(".commits .commit.selected");
+    for (const summary of ["main-2", "feature-1", "main-1", "root", "main-2"]) {
+      await day.click();
+      await expect(selected).toContainText(summary);
+    }
+    await expect(day).toHaveClass(/selected/);
+
+    // From the chart, the day goes back to the rows.
+    await page.getByTestId("cumulative-toggle").click();
+    await expect(page.getByTestId("cumulative-chart")).toBeVisible();
+    await day.click();
+    await expect(page.getByTestId("cumulative-chart")).toHaveCount(0);
+    await expect(selected).toContainText("feature-1");
+
+    await page.getByTestId("calendar-toggle").click();
+    await expect(calendar).toHaveCount(0);
+  });
+
+  test("the calendar shades by added lines, deleted lines or both", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await expect(
+      page
+        .getByTestId("commit-row")
+        .filter({
+          has: page.locator(".commit-summary", { hasText: "merge feature" }),
+        })
+        .getByTestId("commit-stat"),
+    ).toHaveText("+0 −0");
+    await page.getByTestId("calendar-toggle").click();
+    const day = page.getByTestId("calendar-day");
+    const shading = (name: string) => page.getByTestId(`shading-${name}`);
+
+    // Both at first; repoA's day only added lines (ADR 0050).
+    await expect(shading("both")).toBeChecked();
+    await expect(day).not.toHaveClass(/blank/);
+    await shading("deleted").check();
+    await expect(day).toHaveClass(/blank/);
+    await shading("added").check();
+    await expect(day).not.toHaveClass(/blank/);
+  });
+
+  test("scrolling the calendar to its oldest end reads older pages", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 900, height: 700 });
+    await page.addInitScript(() =>
+      localStorage.setItem("gitreant-page-size", "60"),
+    );
+    await page.reload();
+    await page.getByTestId("add-input").fill(fixtures.repoY);
+    await page.getByTestId("add-submit").click();
+    await page.locator('[data-repo-name="repoY"]').click();
+    await page.getByTestId("calendar-toggle").click();
+    const weeks = page.getByTestId("calendar").locator(".calendar-week");
+    const scroll = page.locator(".calendar-scroll");
+
+    // A commit a week: the first pages hold some of the four years, and the
+    // calendar opens at its newest end.
+    await expect(weeks.first()).toBeAttached();
+    const before = await weeks.count();
+    expect(before).toBeLessThan(208);
+    expect(await scroll.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+
+    // The weekday names stay put while the weeks scroll under them.
+    const monday = page.locator(".calendar-weekday").first();
+    const at = (await monday.boundingBox())!.x;
+    await scroll.evaluate((el) => {
+      el.scrollLeft -= 100;
+    });
+    await expect.poll(async () => (await monday.boundingBox())!.x).toBe(at);
+
+    // Reaching the oldest end reads on, and the weeks already there stay in
+    // view rather than jumping.
+    await scroll.evaluate((el) => {
+      el.scrollLeft = 0;
+    });
+    await expect.poll(() => weeks.count()).toBeGreaterThan(before);
+    expect(await scroll.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+
+    // Scrolling back again and again reads every page, then stops offering
+    // more.
+    await expect
+      .poll(
+        async () => {
+          await scroll.evaluate((el) => {
+            el.scrollLeft = 0;
+          });
+          return weeks.count();
+        },
+        { timeout: 20_000 },
+      )
+      .toBe(208);
+    await expect(page.getByTestId("calendar-older")).toHaveCount(0);
+
+    const repoY = page.locator('[data-repo-name="repoY"]');
+    await repoY.hover();
+    await repoY.getByTestId("repo-remove").click();
+    await expect(repoY).toHaveCount(0);
   });
 
   test("the timeframe cuts the candles and bars by commit, day, week or month", async ({

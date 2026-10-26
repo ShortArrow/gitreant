@@ -312,6 +312,11 @@ export function useTime(): (seconds: number) => string {
     formatTime(new Date(seconds * 1000), dateFormat, lang, new Date());
 }
 
+/** The language the UI shows, for names the browser spells out. */
+export function useLang(): Lang {
+  return useContext(SettingsContext).lang;
+}
+
 /** Whether the graph is drawn with its thickness (ADR 0044). */
 export function useThickness(): boolean {
   return useContext(SettingsContext).thickness;

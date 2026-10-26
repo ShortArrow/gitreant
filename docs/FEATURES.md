@@ -82,6 +82,14 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   shows its series. Clicking the chart lists the
   commits under the cursor beside it; right-clicking one offers "Show in
   rows".
+- **Calendar.** Another button in the header shows a calendar of the
+  loaded commits as a strip under the rows, a column per week from
+  Monday. Each day is shaded more strongly the more lines its commits
+  changed, green when they added and red when they deleted; merges are
+  left out; buttons above the weeks shade by the lines added or deleted
+  alone instead. Hovering a day names its commits and lines; clicking it
+  selects its newest commit in the rows, and clicking again each older
+  one in turn. Scrolling to its oldest end reads older history.
 
 ## Commit details and diffs
 

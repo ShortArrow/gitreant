@@ -2,6 +2,7 @@
  * Naming stays domain-side so swapping the set touches only this file. */
 
 import {
+  CalendarIcon as OcticonCalendarIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -38,6 +39,11 @@ const SIZE = 14;
 /** A line chart: the lines added and deleted over time (ADR 0043). */
 export function CumulativeIcon() {
   return <GraphIcon className="btn-icon" size={SIZE} />;
+}
+
+/** A calendar: the history by day (ADR 0050). */
+export function CalendarIcon() {
+  return <OcticonCalendarIcon className="btn-icon" size={SIZE} />;
 }
 
 /** One column of full-width lines: the inline diff view. */

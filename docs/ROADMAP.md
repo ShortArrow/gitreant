@@ -122,8 +122,6 @@ keyed off the remote URL's host.
 
 ## Graph / UI
 
-- **Calendar** — a calendar of the history, with a bubble on each day
-  sized by its activity (what the size counts is still open)
 - **Blame** — add it to the diff line-selection menu (the UI foundation
   exists); backend via gix blame or git CLI delegation
 - **Hide stashes entirely** — hide the stash badge and the stash commit
