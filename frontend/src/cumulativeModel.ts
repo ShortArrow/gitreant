@@ -51,6 +51,44 @@ export function cumulative(
   };
 }
 
+/** How far back the chart reaches from its newest commit (ADR 0051). */
+export type Range = "all" | "5y" | "1y" | "6m" | "3m" | "1m";
+
+const RANGE_MONTHS: Record<Exclude<Range, "all">, number> = {
+  "5y": 60,
+  "1y": 12,
+  "6m": 6,
+  "3m": 3,
+  "1m": 1,
+};
+
+/** The first time `range` holds, reaching back from `end` by the local
+ * calendar; -Infinity for all. */
+export function rangeStart(end: number, range: Range): number {
+  if (range === "all") return -Infinity;
+  const date = new Date(end * 1000);
+  date.setMonth(date.getMonth() - RANGE_MONTHS[range]);
+  return date.getTime() / 1000;
+}
+
+/** The sums of the commits from `start` on, summed from zero at the first
+ * of them, and how many of those are still being counted. */
+export function withinRange(sums: Cumulative, start: number): Cumulative {
+  if (start === -Infinity) return sums;
+  const first = sums.points.findIndex((p) => p.time >= start);
+  if (first < 0) return { points: [], counting: 0 };
+  const base = sums.points[first - 1];
+  const points = sums.points.slice(first).map((p) => {
+    const added = p.added - (base?.added ?? 0);
+    const deleted = p.deleted - (base?.deleted ?? 0);
+    return { ...p, added, deleted, net: added - deleted };
+  });
+  return {
+    points,
+    counting: points.filter((p) => p.commit.stat === undefined).length,
+  };
+}
+
 /** Round-numbered values (1, 2 or 5 times a power of ten apart) within
  * `min`..`max`, about `count` intervals of them. */
 export function niceTicks(min: number, max: number, count = 4): number[] {

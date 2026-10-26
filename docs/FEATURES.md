@@ -76,10 +76,12 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   them, from the oldest loaded commit. A legend names each line; hovering
   names the nearest commit and its sums. Candles of the net change and
   bars of the lines each period added and deleted sit on the same axes; a
-  timeframe beside the legend cuts them by commit, day, week or month, or
-  by whichever of the three suits the span, and by commit the commits
-  drawn on the same spot add up. Pressing a name in the legend hides or
-  shows its series. Clicking the chart lists the
+  timeframe beside the legend cuts them by commit, day, week, month,
+  quarter or year, or by whichever calendar period suits the span, and by
+  commit the commits drawn on the same spot add up. A range beside it
+  narrows the chart to the last five years, year, six, three or one
+  months, summed from zero at the range's start. Pressing a name in the
+  legend hides or shows its series. Clicking the chart lists the
   commits under the cursor beside it; right-clicking one offers "Show in
   rows".
 - **Calendar.** Another button in the header shows a calendar of the

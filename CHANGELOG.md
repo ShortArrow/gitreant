@@ -59,6 +59,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its commits added and deleted, and a click selects the day's commits in
   the rows
   ([ADR 0050](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0050-calendar.md)).
+- A range narrows the chart of lines over time to its last years or
+  months, and its timeframe also cuts by quarter or year
+  ([ADR 0051](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0051-chart-range.md)).
 - A setting draws each row's line counts as bars, deleted left of an axis
   and added right of it
   ([ADR 0046](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0046-line-count-bars.md)).

@@ -6,9 +6,11 @@ import {
   nearest,
   niceTicks,
   pointsBetween,
+  rangeStart,
   stepPath,
   timesUnder,
   tipPlace,
+  withinRange,
 } from "./cumulativeModel";
 
 function commit(
@@ -168,4 +170,41 @@ test("the tip sits beside the cursor, toward the room the chart has", () => {
   const size = { width: 400, height: 200 };
   expect(tipPlace(100, 50, size)).toEqual({ left: 108, top: 58 });
   expect(tipPlace(300, 150, size)).toEqual({ right: 108, bottom: 58 });
+});
+
+/** Unix seconds at a local date and hour. */
+function local(year: number, month: number, day: number, hours = 0): number {
+  return new Date(year, month - 1, day, hours).getTime() / 1000;
+}
+
+test("a range reaches back its length from the newest commit, by the calendar", () => {
+  const end = local(2026, 10, 22, 9);
+  expect(rangeStart(end, "all")).toBe(-Infinity);
+  expect(rangeStart(end, "5y")).toBe(local(2021, 10, 22, 9));
+  expect(rangeStart(end, "1y")).toBe(local(2025, 10, 22, 9));
+  expect(rangeStart(end, "6m")).toBe(local(2026, 4, 22, 9));
+  expect(rangeStart(end, "3m")).toBe(local(2026, 7, 22, 9));
+  expect(rangeStart(end, "1m")).toBe(local(2026, 9, 22, 9));
+});
+
+test("within a range, the sums start from zero at its first commit", () => {
+  const sums = cumulative(history, "merge");
+  // root (+20 −0) at 100, m1 (+10 −4) at 200, merge (+5 −1) at 400.
+  const range = withinRange(sums, 150);
+  expect(
+    range.points.map((p) => [p.commit.id, p.added, p.deleted, p.net]),
+  ).toEqual([
+    ["m1", 10, 4, 6],
+    ["merge", 15, 5, 10],
+  ]);
+  expect(withinRange(sums, -Infinity)).toEqual(sums);
+});
+
+test("only the range's commits still being counted are counting", () => {
+  const sums = cumulative(
+    [commit("b", ["a"], 200, { added: 1, deleted: 0 }), commit("a", [], 100)],
+    "b",
+  );
+  expect(sums.counting).toBe(1);
+  expect(withinRange(sums, 150).counting).toBe(0);
 });

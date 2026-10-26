@@ -1152,6 +1152,42 @@ test.describe.serial("gitreant UI", () => {
     await expect(repoY).toHaveCount(0);
   });
 
+  test("the range narrows the chart, and quarters and years cut it", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoY);
+    await page.getByTestId("add-submit").click();
+    await page.locator('[data-repo-name="repoY"]').click();
+    await expect(page.getByTestId("commit-row")).toHaveCount(208);
+    await page.getByTestId("cumulative-toggle").click();
+    const candle = page
+      .getByTestId("cumulative-chart")
+      .locator(".chart-candle");
+    const range = (name: string) => page.getByTestId(`range-${name}`);
+    const timeframe = (name: string) => page.getByTestId(`timeframe-${name}`);
+
+    // A commit a week for four years, from September 2020 (ADR 0051).
+    await expect(range("all")).toBeChecked();
+    await timeframe("week").check();
+    await expect(candle).toHaveCount(208);
+    await timeframe("quarter").check();
+    await expect(candle).toHaveCount(17);
+    await timeframe("year").check();
+    await expect(candle).toHaveCount(5);
+
+    // The last year alone: its 53 Sundays.
+    await range("1y").check();
+    await timeframe("week").check();
+    await expect(candle).toHaveCount(53);
+    await range("all").check();
+    await expect(candle).toHaveCount(208);
+
+    const repoY = page.locator('[data-repo-name="repoY"]');
+    await repoY.hover();
+    await repoY.getByTestId("repo-remove").click();
+    await expect(repoY).toHaveCount(0);
+  });
+
   test("the timeframe cuts the candles and bars by commit, day, week or month", async ({
     page,
   }) => {

@@ -1,7 +1,7 @@
 import type { ChartLayout, CumulativePoint } from "./cumulativeModel";
 
-/** How long one candle spans by the calendar (ADR 0047). */
-export type Period = "day" | "week" | "month";
+/** How long one candle spans by the calendar (ADR 0047, ADR 0051). */
+export type Period = "day" | "week" | "month" | "quarter" | "year";
 
 /** The candles' and bars' timeframe (ADR 0049): a calendar period, the
  * calendar period that suits the span, or the chart's columns. */
@@ -37,23 +37,27 @@ export function candlePeriod(first: number, last: number, most = 60): Period {
   const days = (last - first) / DAY;
   if (days + 1 <= most) return "day";
   if (days / 7 + 1 <= most) return "week";
-  return "month";
+  if (days / 30.4 + 1 <= most) return "month";
+  if (days / 91.3 + 1 <= most) return "quarter";
+  return "year";
 }
 
 /** The start of the period holding `time`, by the local calendar: midnight,
- * the Monday of the week, or the first of the month. */
+ * the Monday of the week, or the first of the month, of the quarter's first
+ * month or of January. */
 export function periodStart(time: number, period: Period): number {
   const date = new Date(time * 1000);
   const year = date.getFullYear();
   const month = date.getMonth();
   const day = date.getDate();
-  const start =
-    period === "day"
-      ? new Date(year, month, day)
-      : period === "week"
-        ? new Date(year, month, day - ((date.getDay() + 6) % 7))
-        : new Date(year, month, 1);
-  return start.getTime() / 1000;
+  const starts: Record<Period, () => Date> = {
+    day: () => new Date(year, month, day),
+    week: () => new Date(year, month, day - ((date.getDay() + 6) % 7)),
+    month: () => new Date(year, month, 1),
+    quarter: () => new Date(year, month - (month % 3), 1),
+    year: () => new Date(year, 0, 1),
+  };
+  return starts[period]().getTime() / 1000;
 }
 
 function nextStart(start: number, period: Period): number {
@@ -61,13 +65,14 @@ function nextStart(start: number, period: Period): number {
   const year = date.getFullYear();
   const month = date.getMonth();
   const day = date.getDate();
-  const next =
-    period === "day"
-      ? new Date(year, month, day + 1)
-      : period === "week"
-        ? new Date(year, month, day + 7)
-        : new Date(year, month + 1, 1);
-  return next.getTime() / 1000;
+  const nexts: Record<Period, () => Date> = {
+    day: () => new Date(year, month, day + 1),
+    week: () => new Date(year, month, day + 7),
+    month: () => new Date(year, month + 1, 1),
+    quarter: () => new Date(year, month + 3, 1),
+    year: () => new Date(year + 1, 0, 1),
+  };
+  return nexts[period]().getTime() / 1000;
 }
 
 /** Periods by the local calendar. */

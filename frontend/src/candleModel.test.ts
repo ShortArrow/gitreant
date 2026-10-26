@@ -51,6 +51,21 @@ test("a period starts at local midnight, on Monday, or on the first", () => {
   expect(periodStart(at(2026, 10, 25, 9), "week")).toBe(at(2026, 10, 19));
 });
 
+test("past months, the period goes on to a quarter and then a year", () => {
+  const start = at(2000, 1, 1);
+  expect(candlePeriod(start, start + 10 * 365 * DAY)).toBe("quarter");
+  expect(candlePeriod(start, start + 20 * 365 * DAY)).toBe("year");
+});
+
+test("a quarter starts in January, April, July or October, and a year on New Year's Day", () => {
+  const time = at(2026, 8, 22, 15);
+  expect(periodStart(time, "quarter")).toBe(at(2026, 7, 1));
+  expect(periodStart(at(2026, 12, 31), "quarter")).toBe(at(2026, 10, 1));
+  expect(periodStart(time, "year")).toBe(at(2026, 1, 1));
+  expect(byCalendar("quarter")(time).end).toBe(at(2026, 10, 1));
+  expect(byCalendar("year")(time).end).toBe(at(2027, 1, 1));
+});
+
 test("a candle opens before the period's first commit and closes after its last", () => {
   const points = [
     point(at(2026, 10, 20, 9), 10),

@@ -13,8 +13,11 @@ import {
   cumulative,
   nearest,
   pointsBetween,
+  type Range,
+  rangeStart,
   timesUnder,
   tipPlace,
+  withinRange,
 } from "./cumulativeModel";
 import { Segmented } from "./Segmented";
 import { useT, useTime } from "./settings";
@@ -30,7 +33,19 @@ const TIMEFRAMES = [
   ["day", "timeframeDay"],
   ["week", "timeframeWeek"],
   ["month", "timeframeMonth"],
+  ["quarter", "timeframeQuarter"],
+  ["year", "timeframeYear"],
 ] as const satisfies readonly (readonly [Timeframe, string])[];
+
+/** The ranges offered beside the timeframe (ADR 0051). */
+const RANGES = [
+  ["all", "rangeAll"],
+  ["5y", "range5y"],
+  ["1y", "range1y"],
+  ["6m", "range6m"],
+  ["3m", "range3m"],
+  ["1m", "range1m"],
+] as const satisfies readonly (readonly [Range, string])[];
 
 const LABEL = {
   added: "chartAdded",
@@ -81,6 +96,7 @@ export function CumulativeChart({
     bars: true,
   });
   const [timeframe, setTimeframe] = useState<Timeframe>("auto");
+  const [range, setRange] = useState<Range>("all");
   // The times whose commits are listed beside the chart (ADR 0048).
   const [listed, setListed] = useState<{ from: number; to: number } | null>(
     null,
@@ -107,7 +123,11 @@ export function CumulativeChart({
     return () => observer.disconnect();
   }, []);
 
-  const sums = useMemo(() => cumulative(commits, head), [commits, head]);
+  const sums = useMemo(() => {
+    const all = cumulative(commits, head);
+    const end = all.points.at(-1)?.time ?? 0;
+    return withinRange(all, rangeStart(end, range));
+  }, [commits, head, range]);
   const layout = useMemo(() => size && chartLayout(sums, size), [sums, size]);
   const { points } = sums;
   const boxes = useMemo(() => {
@@ -293,6 +313,12 @@ export function CumulativeChart({
             value={timeframe}
             options={TIMEFRAMES.map(([value, label]) => [value, t(label)])}
             onChange={setTimeframe}
+          />
+          <Segmented
+            name="range"
+            value={range}
+            options={RANGES.map(([value, label]) => [value, t(label)])}
+            onChange={setRange}
           />
           {sums.counting > 0 && (
             <p className="chart-counting" data-testid="chart-counting">
