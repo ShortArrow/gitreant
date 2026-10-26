@@ -52,6 +52,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clicking the chart lists the commits under the cursor beside it, and a
   listed commit's menu goes back to its row
   ([ADR 0048](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0048-chart-commits-under-cursor.md)).
+- A timeframe beside the chart's legend cuts its candles and bars by
+  commit, day, week or month
+  ([ADR 0049](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0049-chart-timeframe.md)).
 - A setting draws each row's line counts as bars, deleted left of an axis
   and added right of it
   ([ADR 0046](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0046-line-count-bars.md)).

@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CommitView } from "./api";
-import { boxAt, candleBoxes, candlePeriod, candles } from "./candleModel";
+import {
+  boxAt,
+  byTimeframe,
+  candleBoxes,
+  candles,
+  type Timeframe,
+} from "./candleModel";
 import { shortId } from "./graph";
 import {
   chartLayout,
@@ -9,11 +15,21 @@ import {
   pointsBetween,
   timesUnder,
 } from "./cumulativeModel";
+import { Segmented } from "./Segmented";
 import { useT, useTime } from "./settings";
 
 /** The chart's series, each turned on and off in the legend (ADR 0047). */
 const SERIES = ["added", "deleted", "net", "candles", "bars"] as const;
 type Series = (typeof SERIES)[number];
+
+/** The timeframes offered beside the legend (ADR 0049). */
+const TIMEFRAMES = [
+  ["auto", "timeframeAuto"],
+  ["commit", "timeframeCommit"],
+  ["day", "timeframeDay"],
+  ["week", "timeframeWeek"],
+  ["month", "timeframeMonth"],
+] as const satisfies readonly (readonly [Timeframe, string])[];
 
 const LABEL = {
   added: "chartAdded",
@@ -30,7 +46,8 @@ const LABEL = {
  * of each period's lines sit on the same axes (ADR 0047). The legend names
  * every series and turns it on and off. Hovering names the nearest commit
  * and its sums, and the open, high, low and close and the lines of its
- * period while those show. Clicking lists the commits drawn under the
+ * period while those show. The candles and bars follow a timeframe chosen
+ * beside the legend (ADR 0049). Clicking lists the commits drawn under the
  * cursor in a panel beside the chart, each opening the commit menu
  * (ADR 0048).
  */
@@ -61,6 +78,7 @@ export function CumulativeChart({
     candles: true,
     bars: true,
   });
+  const [timeframe, setTimeframe] = useState<Timeframe>("auto");
   // The times whose commits are listed beside the chart (ADR 0048).
   const [listed, setListed] = useState<{ from: number; to: number } | null>(
     null,
@@ -92,9 +110,9 @@ export function CumulativeChart({
   const { points } = sums;
   const boxes = useMemo(() => {
     if (layout === null || points.length === 0) return [];
-    const period = candlePeriod(points[0].time, points[points.length - 1].time);
-    return candleBoxes(layout, candles(points, period));
-  }, [layout, points]);
+    const periods = byTimeframe(timeframe, points, layout);
+    return candleBoxes(layout, candles(points, periods));
+  }, [layout, points, timeframe]);
   const point = hovered === null ? undefined : points[hovered];
   const box = point && boxAt(boxes, point.time);
 
@@ -259,6 +277,12 @@ export function CumulativeChart({
               </li>
             ))}
           </ul>
+          <Segmented
+            name="timeframe"
+            value={timeframe}
+            options={TIMEFRAMES.map(([value, label]) => [value, t(label)])}
+            onChange={setTimeframe}
+          />
           {sums.counting > 0 && (
             <p className="chart-counting" data-testid="chart-counting">
               {t("chartCounting", { n: sums.counting })}

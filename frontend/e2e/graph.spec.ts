@@ -1009,6 +1009,30 @@ test.describe.serial("gitreant UI", () => {
     await expect(chart.locator(".chart-net")).toHaveCount(1);
   });
 
+  test("the timeframe cuts the candles and bars by commit, day, week or month", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page.getByTestId("cumulative-toggle").click();
+    const chart = page.getByTestId("cumulative-chart");
+    const candle = chart.locator(".chart-candle");
+    const bars = chart.locator(".chart-bar-added");
+    const timeframe = (name: string) => page.getByTestId(`timeframe-${name}`);
+
+    // Auto at first: repoA's commits fall on one day (ADR 0049).
+    await expect(timeframe("auto")).toBeChecked();
+    await expect(candle).toHaveCount(1);
+
+    // Its four first parents, seconds apart, each get a column of their own.
+    await timeframe("commit").check();
+    await expect(candle).toHaveCount(4);
+    await expect(bars).toHaveCount(4);
+
+    await timeframe("week").check();
+    await expect(candle).toHaveCount(1);
+    await expect(bars).toHaveCount(1);
+  });
+
   test("clicking the chart lists the commits under the cursor, each a way back to its row", async ({
     page,
   }) => {

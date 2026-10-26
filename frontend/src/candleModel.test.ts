@@ -5,9 +5,16 @@ import {
   candlePeriod,
   candles,
   boxAt,
+  byCalendar,
+  byColumn,
+  byTimeframe,
   periodStart,
 } from "./candleModel";
-import { chartLayout, type CumulativePoint } from "./cumulativeModel";
+import {
+  chartLayout,
+  cumulative,
+  type CumulativePoint,
+} from "./cumulativeModel";
 
 const DAY = 86_400;
 
@@ -52,7 +59,7 @@ test("a candle opens before the period's first commit and closes after its last"
     // No commit on the 21st: no candle for it.
     point(at(2026, 10, 22, 9), 5),
   ];
-  const result = candles(points, "day");
+  const result = candles(points, byCalendar("day"));
   expect(result.map((c) => c.start)).toEqual([
     at(2026, 10, 20),
     at(2026, 10, 22),
@@ -70,7 +77,7 @@ test("a candle counts the lines its period added and deleted", () => {
     sums(at(2026, 10, 20, 12), 30, 5),
     sums(at(2026, 10, 22, 9), 31, 25),
   ];
-  const result = candles(points, "day");
+  const result = candles(points, byCalendar("day"));
   expect(result.map((c) => [c.added, c.deleted])).toEqual([
     [30, 5],
     [1, 20],
@@ -86,7 +93,7 @@ test("candles sit inside the plot, green when they close at or above their open"
     { points, counting: 0 },
     { width: 400, height: 200 },
   );
-  const boxes = candleBoxes(layout, candles(points, "day"));
+  const boxes = candleBoxes(layout, candles(points, byCalendar("day")));
   expect(boxes.map((b) => b.up)).toEqual([true, false]);
   for (const box of boxes) {
     expect(box.x - box.width / 2).toBeGreaterThanOrEqual(layout.plot.left);
@@ -112,4 +119,52 @@ test("the candle of the period holding a time", () => {
   expect(boxAt(boxes, 150)).toBe(boxes[0]);
   expect(boxAt(boxes, 300)).toBe(boxes[1]);
   expect(boxAt(boxes, 250)).toBeUndefined();
+});
+
+/** A history of `times`, each commit adding one line, laid out 400 wide. */
+function history(times: number[]) {
+  const commits = times
+    .map((time, i) => ({
+      id: String(i),
+      row: 0,
+      lane: 0,
+      color: 0,
+      parents: i === 0 ? [] : [String(i - 1)],
+      summary: String(i),
+      author: "a",
+      time,
+      stat: { added: 1, deleted: 0 },
+    }))
+    .reverse() as CommitView[];
+  const sums = cumulative(commits, String(times.length - 1));
+  return {
+    points: sums.points,
+    layout: chartLayout(sums, { width: 400, height: 200 }),
+  };
+}
+
+test("by commit, the commits drawn in one column make one candle, their lines added up", () => {
+  // Over a long span, two commits a second apart share a column.
+  const { points, layout } = history([0, 1, 100_000]);
+  const result = candles(points, byColumn(layout));
+  expect(result.map((c) => [c.open, c.close, c.added])).toEqual([
+    [0, 2, 2],
+    [2, 3, 1],
+  ]);
+});
+
+test("by commit, a short history has a candle per commit", () => {
+  const { points, layout } = history([0, 10, 30, 40]);
+  expect(candles(points, byColumn(layout))).toHaveLength(4);
+});
+
+test("a timeframe picks how the time axis is cut", () => {
+  const start = at(2026, 10, 19, 9);
+  const { points, layout } = history([start, start + 3600, start + DAY]);
+  // Auto keeps the shortest calendar period that fits: a day here.
+  expect(candles(points, byTimeframe("auto", points, layout))).toHaveLength(2);
+  expect(candles(points, byTimeframe("week", points, layout))).toHaveLength(1);
+  expect(candles(points, byTimeframe("commit", points, layout))).toHaveLength(
+    3,
+  );
 });

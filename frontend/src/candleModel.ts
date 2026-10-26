@@ -1,7 +1,18 @@
 import type { ChartLayout, CumulativePoint } from "./cumulativeModel";
 
-/** How long one candle spans (ADR 0047). */
+/** How long one candle spans by the calendar (ADR 0047). */
 export type Period = "day" | "week" | "month";
+
+/** The candles' and bars' timeframe (ADR 0049): a calendar period, the
+ * calendar period that suits the span, or the chart's columns. */
+export type Timeframe = "auto" | "commit" | Period;
+
+/** A cut of the time axis into periods: the one holding `time`, from its
+ * start up to the next one's. */
+export type Periods = (time: number) => { start: number; end: number };
+
+/** How wide, in pixels, a column of the Commit timeframe is. */
+export const COLUMN = 4;
 
 /** The net change over one period: where it opened and closed, and how
  * high and low it went in between. */
@@ -59,21 +70,53 @@ function nextStart(start: number, period: Period): number {
   return next.getTime() / 1000;
 }
 
+/** Periods by the local calendar. */
+export function byCalendar(period: Period): Periods {
+  return (time) => {
+    const start = periodStart(time, period);
+    return { start, end: nextStart(start, period) };
+  };
+}
+
+/** Periods of `px`-wide columns of `layout`, from its first time: the
+ * commits drawn in one column share a period. */
+export function byColumn(layout: ChartLayout, px = COLUMN): Periods {
+  const { left, right } = layout.plot;
+  const first = layout.timeAt(left);
+  const length = ((layout.timeAt(right) - first) / (right - left)) * px;
+  return (time) => {
+    const start = first + Math.floor((time - first) / length) * length;
+    return { start, end: start + length };
+  };
+}
+
+/** The periods `timeframe` cuts `points` into, drawn on `layout`. */
+export function byTimeframe(
+  timeframe: Timeframe,
+  points: CumulativePoint[],
+  layout: ChartLayout,
+): Periods {
+  if (timeframe === "commit") return byColumn(layout);
+  if (timeframe !== "auto") return byCalendar(timeframe);
+  const first = points[0]?.time ?? 0;
+  return byCalendar(candlePeriod(first, points.at(-1)?.time ?? first));
+}
+
 /** The net change of `points`, oldest first, as a candle per period that
  * has commits. Each opens where the one before closed, from zero, and
  * counts the lines its period added and deleted. */
-export function candles(points: CumulativePoint[], period: Period): Candle[] {
+export function candles(points: CumulativePoint[], periods: Periods): Candle[] {
   const result: Candle[] = [];
   let close = 0;
   let added = 0;
   let deleted = 0;
   for (const point of points) {
-    const start = periodStart(point.time, period);
+    const { start, end } = periods(point.time);
     const last = result.at(-1);
     if (last === undefined || last.start !== start) {
       result.push({
         start,
-        end: nextStart(start, period),
+        end,
         open: close,
         high: close,
         low: close,

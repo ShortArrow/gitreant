@@ -2159,6 +2159,16 @@ mark.intra.eol-mark {
   background: var(--text);
 }
 
+/* The timeframe of the candles and bars (ADR 0049) takes clicks too. */
+.chart-head .segmented {
+  pointer-events: auto;
+  background: var(--bg-elev);
+}
+
+.chart-head .segment {
+  padding: 1px 8px;
+}
+
 .chart-counting {
   margin: 0;
   color: var(--muted);
