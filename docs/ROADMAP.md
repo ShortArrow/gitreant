@@ -150,3 +150,8 @@ keyed off the remote URL's host.
 - **Consolidate the git-running helpers** — three functions start
   `git -C <path>` (`run` in `branch.rs`, `run` in `status.rs`, `output` in
   `uncommitted.rs`) and differ only in lock handling and how errors return
+- **Lock the workflows' actions with gh-actions-lock** — actions are pinned
+  to commit SHAs by hand (ADR 0030); [gh-actions-lock](https://github.com/github/gh-actions-lock)
+  would also lock the actions they call and have the runner verify them at
+  job start. Wait for its 1.0 (it is a public preview) and check that
+  Dependabot's updates keep the lockfile valid
