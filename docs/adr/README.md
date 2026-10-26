@@ -58,3 +58,4 @@ are canonical; the files below are their English translations.
 | [0048](0048-chart-commits-under-cursor.md) | List the commits under the cursor of the chart of lines over time | Accepted |
 | [0049](0049-chart-timeframe.md) | Choose the timeframe of the candles and bars | Accepted |
 | [0050](0050-calendar.md) | A calendar of the history under the rows | Accepted |
+| [0051](0051-chart-range.md) | Narrow the chart's range, and cut it by quarter or year | Accepted |
