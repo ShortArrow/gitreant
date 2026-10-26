@@ -14,6 +14,7 @@ import {
   nearest,
   pointsBetween,
   timesUnder,
+  tipPlace,
 } from "./cumulativeModel";
 import { Segmented } from "./Segmented";
 import { useT, useTime } from "./settings";
@@ -71,6 +72,7 @@ export function CumulativeChart({
     null,
   );
   const [hovered, setHovered] = useState<number | null>(null);
+  const [pointerY, setPointerY] = useState(0);
   const [shown, setShown] = useState<Record<Series, boolean>>({
     added: true,
     deleted: true,
@@ -118,8 +120,9 @@ export function CumulativeChart({
 
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     if (layout === null) return;
-    const x = e.clientX - e.currentTarget.getBoundingClientRect().left;
-    setHovered(nearest(points, layout.timeAt(x)));
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHovered(nearest(points, layout.timeAt(e.clientX - rect.left)));
+    setPointerY(e.clientY - rect.top);
   };
   const onClick = () => {
     if (layout === null || hovered === null) return;
@@ -230,8 +233,16 @@ export function CumulativeChart({
             )}
           </svg>
         )}
-        {point && (
-          <div className="chart-tip" data-testid="chart-tip">
+        {point && size && layout && hovered !== null && (
+          <div
+            className="chart-tip"
+            data-testid="chart-tip"
+            style={{
+              top: "auto",
+              right: "auto",
+              ...tipPlace(layout.xs[hovered], pointerY, size),
+            }}
+          >
             <div>{point.commit.summary}</div>
             <div>{time(point.commit.time)}</div>
             <div>

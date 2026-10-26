@@ -8,6 +8,7 @@ import {
   pointsBetween,
   stepPath,
   timesUnder,
+  tipPlace,
 } from "./cumulativeModel";
 
 function commit(
@@ -161,4 +162,10 @@ test("the points between two times, both included, newest first", () => {
   expect(
     pointsBetween(sums.points, { from: 200, to: 400 }).map((p) => p.commit.id),
   ).toEqual(["merge", "m1"]);
+});
+
+test("the tip sits beside the cursor, toward the room the chart has", () => {
+  const size = { width: 400, height: 200 };
+  expect(tipPlace(100, 50, size)).toEqual({ left: 108, top: 58 });
+  expect(tipPlace(300, 150, size)).toEqual({ right: 108, bottom: 58 });
 });

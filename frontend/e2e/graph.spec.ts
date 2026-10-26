@@ -952,9 +952,19 @@ test.describe.serial("gitreant UI", () => {
     await page.mouse.move(box.x + box.width - 16, box.y + box.height / 2);
     await expect(tip).toContainText("merge feature");
     await expect(tip).toContainText("added 4, deleted 0, net 4");
+    // The tip sits beside the cursor's line: left of it near the right end,
+    // right of it near the left end, never across it.
+    const cursorX = async () =>
+      (await chart.locator(".chart-cursor").boundingBox())!.x;
+    let tipBox = (await tip.boundingBox())!;
+    expect(tipBox.x + tipBox.width).toBeLessThanOrEqual(await cursorX());
+    expect(tipBox.x + tipBox.width).toBeGreaterThan((await cursorX()) - 24);
     await page.mouse.move(box.x + 56, box.y + box.height / 2);
     await expect(tip).toContainText("root");
     await expect(tip).toContainText("added 1, deleted 0, net 1");
+    tipBox = (await tip.boundingBox())!;
+    expect(tipBox.x).toBeGreaterThanOrEqual(await cursorX());
+    expect(tipBox.x).toBeLessThan((await cursorX()) + 24);
 
     await toggle.click();
     await expect(page.getByTestId("commit-row")).not.toHaveCount(0);

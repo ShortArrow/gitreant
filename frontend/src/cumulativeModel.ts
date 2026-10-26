@@ -181,3 +181,23 @@ export function pointsBetween(
     .filter((p) => times.from <= p.time && p.time <= times.to)
     .reverse();
 }
+
+/** Where the tip goes for a cursor at `x` and a pointer at `y` on a chart of
+ * `size`: `gap` pixels beside the cursor's line and below the pointer,
+ * turned toward the left in the chart's right half and upward in its
+ * bottom half, so it stays inside and never crosses the line. */
+export function tipPlace(
+  x: number,
+  y: number,
+  size: { width: number; height: number },
+  gap = 8,
+): { left?: number; right?: number; top?: number; bottom?: number } {
+  return {
+    ...(x > size.width / 2
+      ? { right: size.width - x + gap }
+      : { left: x + gap }),
+    ...(y > size.height / 2
+      ? { bottom: size.height - y + gap }
+      : { top: y + gap }),
+  };
+}
