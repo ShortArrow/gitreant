@@ -54,6 +54,21 @@ jobs:
       - run: cargo build --verbose
       - run: cargo test --verbose
 
+  rustfmt:
+    # Formatting is the same on every platform, so one runner checks it.
+    name: Rust formatting
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt
+          rustup default stable
+      - run: cargo fmt --check
+
   android:
     # Termux ships from a cross build (rfd/open are cfg'd out on Android);
     # keep it compiling on every push so a tag never discovers the breakage.

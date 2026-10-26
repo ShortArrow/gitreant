@@ -86,6 +86,7 @@ responsibility for — is defined in [QUALITY.md](QUALITY.md).
 `.github/workflows/ci.yml` runs:
 
 - **rust**: `cargo build` + `cargo test` on Linux / macOS / Windows
+- **rustfmt**: `cargo fmt --check`; run `cargo fmt` before committing Rust
 - **web**: frontend `pnpm build` (includes type check) and `pnpm build-storybook`
 - **e2e**: Playwright E2E on Ubuntu
 - **docs-tandem**: bilingual documents update together — when both `X.jp.md`
