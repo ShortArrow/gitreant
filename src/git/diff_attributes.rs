@@ -68,7 +68,7 @@ impl<'repo> DiffAttributes<'repo> {
     }
 }
 
-/// A NUL byte within the first 8000 bytes, the same rule git uses (ADR 0006).
+/// A NUL byte within the first 8000 bytes, the same rule git uses.
 fn looks_binary(data: &[u8]) -> bool {
     data.iter().take(8000).any(|&b| b == 0)
 }

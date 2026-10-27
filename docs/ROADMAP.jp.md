@@ -57,7 +57,7 @@
 現状 GitHub 専用になっている機能を、リモート URL のホストからフォージを判定する抽象に載せ替える。
 
 - **対象機能**: パーマリンク形式（`blob/<commit>/<path>#L..`）、PR/MR バッジとリンク、squash マージの破線リンク
-- **方式**: ADR 0007/0013 の CLI 委譲パターンを踏襲
+- **方式**: fetch を git に、PR のリンクを gh に任せているのと同じく、フォージごとの CLI に任せ、認証は利用者のログインをそのまま使う
   - GitHub: `gh`（実装済み）
   - GitLab: `glab`（MR = Merge Request）
   - Codeberg / Forgejo / Gitea: `fj` または REST API

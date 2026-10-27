@@ -76,7 +76,8 @@ keyed off the remote URL's host.
 
 - **Affected features**: permalinks (`blob/<commit>/<path>#L..`), PR/MR
   badges and links, dashed squash-merge links
-- **Approach**: the CLI-delegation pattern of ADR 0007/0013
+- **Approach**: the forge's own CLI, as fetch goes through git and PR links
+  through gh, so the user's own login is used
   - GitHub: `gh` (implemented)
   - GitLab: `glab` (MR = merge request)
   - Codeberg / Forgejo / Gitea: `fj` or the REST API
