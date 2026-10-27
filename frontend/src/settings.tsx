@@ -92,21 +92,38 @@ export function storeSquashLinks(on: boolean) {
   }
 }
 
+/** How each row shows its line counts: as numbers, as bars, or not at all. */
+export type LineCounts = "numbers" | "bars" | "none";
+
+export const LINE_COUNTS_KEY = "gitreant-line-counts";
 export const LINE_BARS_KEY = "gitreant-line-bars";
 
-/** Whether each row's line counts are drawn as bars instead of numbers
- * (ADR 0046; default off). */
-export function storedLineBars(): boolean {
+/** The saved choice, or, while none is saved, the bars checkbox saved
+ * under `LINE_BARS_KEY` before it. */
+export function parseLineCounts(
+  value: string | null,
+  bars: string | null,
+): LineCounts {
+  if (value === "numbers" || value === "bars" || value === "none") {
+    return value;
+  }
+  return bars === "on" ? "bars" : "numbers";
+}
+
+export function storedLineCounts(): LineCounts {
   try {
-    return localStorage.getItem(LINE_BARS_KEY) === "on";
+    return parseLineCounts(
+      localStorage.getItem(LINE_COUNTS_KEY),
+      localStorage.getItem(LINE_BARS_KEY),
+    );
   } catch {
-    return false;
+    return "numbers";
   }
 }
 
-export function storeLineBars(on: boolean) {
+export function storeLineCounts(choice: LineCounts) {
   try {
-    localStorage.setItem(LINE_BARS_KEY, on ? "on" : "off");
+    localStorage.setItem(LINE_COUNTS_KEY, choice);
   } catch {
     // localStorage may be unavailable; the state change alone is enough.
   }
@@ -286,7 +303,7 @@ export const SettingsContext = createContext<{
   dateFormat: DateFormat;
   squashLinks: boolean;
   thickness: boolean;
-  lineBars: boolean;
+  lineCounts: LineCounts;
   stashInternals: boolean;
   avatars: boolean;
   submoduleLinks: boolean;
@@ -297,7 +314,7 @@ export const SettingsContext = createContext<{
   dateFormat: "iso",
   squashLinks: true,
   thickness: true,
-  lineBars: false,
+  lineCounts: "numbers",
   stashInternals: false,
   avatars: true,
   submoduleLinks: true,
@@ -322,9 +339,9 @@ export function useThickness(): boolean {
   return useContext(SettingsContext).thickness;
 }
 
-/** Whether each row's line counts are drawn as bars (ADR 0046). */
-export function useLineBars(): boolean {
-  return useContext(SettingsContext).lineBars;
+/** How each row shows its line counts. */
+export function useLineCounts(): LineCounts {
+  return useContext(SettingsContext).lineCounts;
 }
 
 /** Whether squash-merge links should be drawn. */

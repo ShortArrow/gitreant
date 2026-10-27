@@ -845,7 +845,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(stat("root")).toHaveText("+1 −0");
 
     await page.getByTestId("settings-toggle").click();
-    await page.getByTestId("line-bars-toggle").check();
+    await page.getByTestId("line-counts-bars").check();
     await page.keyboard.press("Escape");
 
     // Bars in place of the numbers, which stay in the tooltip (ADR 0046).
@@ -885,9 +885,38 @@ test.describe.serial("gitreant UI", () => {
     await page.locator('[data-repo-name="repoA"]').click();
     await expect(stat("main-2").locator(".stat-axis")).toHaveCount(1);
     await page.getByTestId("settings-toggle").click();
-    await page.getByTestId("line-bars-toggle").uncheck();
+    await page.getByTestId("line-counts-numbers").check();
     await page.keyboard.press("Escape");
     await expect(stat("main-2")).toHaveText("+2 −0");
+  });
+
+  test("a setting leaves the line counts out of the rows (ADR 0052)", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const row = (summary: string) =>
+      page
+        .getByTestId("commit-row")
+        .filter({ has: page.locator(".commit-summary", { hasText: summary }) });
+    await expect(row("main-2").getByTestId("commit-stat")).toHaveText("+2 −0");
+    const summaryX = async () =>
+      (await row("main-2").locator(".commit-summary").boundingBox())!.x;
+    const withNumbers = await summaryX();
+
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("line-counts-none").check();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("commit-stat")).toHaveCount(0);
+    expect(await summaryX()).toBeCloseTo(withNumbers, 0);
+
+    await page.reload();
+    await page.locator('[data-repo-name="repoA"]').click();
+    await expect(row("main-2")).toBeVisible();
+    await expect(page.getByTestId("commit-stat")).toHaveCount(0);
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("line-counts-numbers").check();
+    await page.keyboard.press("Escape");
+    await expect(row("main-2").getByTestId("commit-stat")).toHaveText("+2 −0");
   });
 
   test("the cumulative chart sums the lines along HEAD's first parents", async ({
@@ -2086,8 +2115,8 @@ test.describe.serial("gitreant UI", () => {
   test("the settings' choices are segmented buttons", async ({ page }) => {
     await page.getByTestId("settings-toggle").click();
     const groups = page.getByTestId("settings-panel").locator(".segmented");
-    // Buttons, language and date format.
-    await expect(groups).toHaveCount(3);
+    // Buttons, line counts, language and date format.
+    await expect(groups).toHaveCount(4);
 
     const segments = groups.first().locator(".segment");
     await expect(segments).toHaveCount(3);

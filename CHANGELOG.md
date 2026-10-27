@@ -64,7 +64,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([ADR 0051](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0051-chart-range.md)).
 - A setting draws each row's line counts as bars, deleted left of an axis
   and added right of it
-  ([ADR 0046](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0046-line-count-bars.md)).
+  ([ADR 0046](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0046-line-count-bars.md)),
+  or leaves them out of the rows
+  ([ADR 0052](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0052-line-counts-off.md)).
 
 ### Changed
 

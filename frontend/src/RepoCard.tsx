@@ -67,7 +67,7 @@ import {
   storedCollapsedSubmodules,
   useAvatars,
   useSquashLinks,
-  useLineBars,
+  useLineCounts,
   useThickness,
   useVimKeys,
   useStashInternals,
@@ -709,7 +709,7 @@ export function RepoCard({
 
   const showSquashLinks = useSquashLinks();
   const showThickness = useThickness();
-  const showLineBars = useLineBars();
+  const lineCounts = useLineCounts();
   const links = showSquashLinks ? squashLinks(view, mergedPrs) : [];
   // Submodule regions sit left of the main graph; everything main-graph
   // shaped below draws inside a group shifted by mainOffset. A thickness
@@ -1210,7 +1210,7 @@ export function RepoCard({
                 onClick={() => toggleSelected(commit.id)}
                 onContextMenu={(e) => openCommitMenu(e, commit)}
               >
-                {showLineBars &&
+                {lineCounts === "bars" &&
                   // At the row's start, so every row's axis lines up; a row
                   // not counted yet keeps the room (ADR 0046).
                   (commit.stat ? (
@@ -1343,7 +1343,7 @@ export function RepoCard({
                   {commit.summary}
                 </span>
                 <span className="commit-meta">
-                  {commit.stat && !showLineBars && (
+                  {commit.stat && lineCounts === "numbers" && (
                     <span
                       className="commit-stat"
                       data-testid="commit-stat"

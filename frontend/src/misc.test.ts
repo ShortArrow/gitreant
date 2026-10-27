@@ -12,6 +12,7 @@ import { clampWidth } from "./Resizer";
 import {
   collapsedSubmodulesIn,
   parseButtonStyle,
+  parseLineCounts,
   withCollapsedSubmodules,
 } from "./settings";
 import { resolveTheme, toggleTheme } from "./theme";
@@ -22,6 +23,16 @@ test("parseButtonStyle falls back to icon-label for unknown values", () => {
   expect(parseButtonStyle("icon-label")).toBe("icon-label");
   expect(parseButtonStyle(null)).toBe("icon-label");
   expect(parseButtonStyle("garbage")).toBe("icon-label");
+});
+
+test("parseLineCounts reads the choice, or the bars checkbox saved before it", () => {
+  expect(parseLineCounts("numbers", "on")).toBe("numbers");
+  expect(parseLineCounts("bars", null)).toBe("bars");
+  expect(parseLineCounts("none", "on")).toBe("none");
+  expect(parseLineCounts(null, "on")).toBe("bars");
+  expect(parseLineCounts(null, "off")).toBe("numbers");
+  expect(parseLineCounts(null, null)).toBe("numbers");
+  expect(parseLineCounts("garbage", "on")).toBe("bars");
 });
 
 test("signatureBadge maps the verification verdict to a label", () => {

@@ -62,7 +62,8 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   added and deleted against its first parent. The counts fill in after the
   graph shows. A setting draws them as bars at the start of each row
   instead, deleted left of an axis and added right of it, on the
-  thickness's logarithmic scale; the numbers stay in the tooltip.
+  thickness's logarithmic scale; the numbers stay in the tooltip. The
+  setting can also leave them out of the rows.
 - **Thickness.** The graph gives each counted commit a see-through
   thickness, green up and to the left by the lines it added and red down
   and to the right by the lines it deleted, on a logarithmic scale; the

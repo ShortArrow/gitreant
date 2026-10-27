@@ -46,10 +46,10 @@ import {
   storeLangSetting,
   storedLangSetting,
   storeSquashLinks,
-  storeLineBars,
+  storeLineCounts,
   storeThickness,
   storedSquashLinks,
-  storedLineBars,
+  storedLineCounts,
   storedThickness,
   storeVimKeys,
   storedVimKeys,
@@ -62,6 +62,7 @@ import {
   storeDateFormat,
   storedDateFormat,
   type ButtonStyle,
+  type LineCounts,
 } from "./settings";
 import type { DateFormat } from "./time";
 import { ThemeToggle } from "./ThemeToggle";
@@ -388,10 +389,10 @@ export function App() {
     setLangSetting(setting);
     storeLangSetting(setting);
   };
-  const [lineBars, setLineBars] = useState<boolean>(storedLineBars);
-  const changeLineBars = (on: boolean) => {
-    setLineBars(on);
-    storeLineBars(on);
+  const [lineCounts, setLineCounts] = useState<LineCounts>(storedLineCounts);
+  const changeLineCounts = (choice: LineCounts) => {
+    setLineCounts(choice);
+    storeLineCounts(choice);
   };
   const [thickness, setThickness] = useState<boolean>(storedThickness);
   const changeThickness = (on: boolean) => {
@@ -440,7 +441,7 @@ export function App() {
       dateFormat,
       squashLinks,
       thickness,
-      lineBars,
+      lineCounts,
       stashInternals,
       avatars,
       submoduleLinks,
@@ -452,7 +453,7 @@ export function App() {
       dateFormat,
       squashLinks,
       thickness,
-      lineBars,
+      lineCounts,
       stashInternals,
       avatars,
       submoduleLinks,
@@ -522,11 +523,6 @@ export function App() {
           run: () => changeThickness(!storedThickness()),
         },
         {
-          id: "line-bars",
-          title: m.cmdToggleLineBars,
-          run: () => changeLineBars(!storedLineBars()),
-        },
-        {
           id: "squash-links",
           title: m.cmdToggleSquashLinks,
           run: () => changeSquashLinks(!storedSquashLinks()),
@@ -580,6 +576,17 @@ export function App() {
           id: `date-format:${value}`,
           title: `${m.settingsDateFormat}: ${label}`,
           run: () => changeDateFormat(value),
+        })),
+        ...(
+          [
+            ["numbers", m.lineCountsNumbers],
+            ["bars", m.lineCountsBars],
+            ["none", m.lineCountsNone],
+          ] as const
+        ).map(([value, label]) => ({
+          id: `line-counts:${value}`,
+          title: `${m.settingsLineCounts}: ${label}`,
+          run: () => changeLineCounts(value),
         })),
         ...repos.map((repo) => ({
           id: `open:${repo.id}`,
@@ -724,15 +731,6 @@ export function App() {
                 <label className="settings-option">
                   <input
                     type="checkbox"
-                    data-testid="line-bars-toggle"
-                    checked={lineBars}
-                    onChange={(e) => changeLineBars(e.target.checked)}
-                  />
-                  {t("lineBarsSetting")}
-                </label>
-                <label className="settings-option">
-                  <input
-                    type="checkbox"
                     data-testid="squash-links-toggle"
                     checked={squashLinks}
                     onChange={(e) => changeSquashLinks(e.target.checked)}
@@ -775,6 +773,19 @@ export function App() {
                   />
                   {t("vimKeysSetting")}
                 </label>
+              </fieldset>
+              <fieldset className="settings-group">
+                <legend>{t("settingsLineCounts")}</legend>
+                <Segmented
+                  name="line-counts"
+                  value={lineCounts}
+                  options={[
+                    ["numbers", t("lineCountsNumbers")],
+                    ["bars", t("lineCountsBars")],
+                    ["none", t("lineCountsNone")],
+                  ]}
+                  onChange={changeLineCounts}
+                />
               </fieldset>
               <fieldset className="settings-group">
                 <legend>{t("settingsLanguage")}</legend>
