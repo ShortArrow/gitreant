@@ -20,6 +20,7 @@ import {
   withinRange,
 } from "./cumulativeModel";
 import { Segmented } from "./Segmented";
+import { countKey } from "./i18n";
 import { useT, useTime } from "./settings";
 
 /** The chart's series, each turned on and off in the legend (ADR 0047). */
@@ -332,9 +333,9 @@ export function CumulativeChart({
           <header className="chart-list-head">
             <span>{time(listedPoints[0]?.commit.time ?? listed.to)}</span>
             <span className="chart-list-count">
-              {listedPoints.length === 1
-                ? t("listedCommit")
-                : t("listedCommits", { n: listedPoints.length })}
+              {t(countKey("commitsCount", listedPoints.length), {
+                n: listedPoints.length,
+              })}
             </span>
             <button
               type="button"

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FileDiff } from "./api";
 import { InlineIcon, LineMenuIcon, SplitIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
+import { countKey } from "./i18n";
 import { useT } from "./settings";
 import { keyboardTaken } from "./keyboard";
 import { shortId } from "./graph";
@@ -321,10 +322,9 @@ function LineMenu({
       {open && (
         <div className="ctx-menu line-menu" data-testid="line-menu">
           <span className="ctx-menu-note">
-            {t(
-              selectedCells.length === 1 ? "lineSelected" : "linesSelected",
-              { n: selectedCells.length },
-            )}
+            {t(countKey("linesSelected", selectedCells.length), {
+              n: selectedCells.length,
+            })}
           </span>
           <button
             type="button"

@@ -59,7 +59,7 @@ import {
 } from "./thicknessModel";
 import { createThicknessView } from "./thicknessView";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
-import { format, MESSAGES } from "./i18n";
+import { countKey, format, MESSAGES } from "./i18n";
 import { useCommands, type PaletteCommand } from "./palette";
 import {
   SettingsContext,
@@ -1328,7 +1328,7 @@ export function RepoCard({
                       {t("uncommittedChanges")}
                     </span>
                     <span className="commit-meta">
-                      {t(uncommitted === 1 ? "fileCount" : "filesCount", {
+                      {t(countKey("filesCount", uncommitted), {
                         n: uncommitted,
                       })}
                     </span>

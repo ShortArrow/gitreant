@@ -1,5 +1,11 @@
 import { expect, test } from "vitest";
-import { format, parseLangSetting, resolveLang, MESSAGES } from "./i18n";
+import {
+  countKey,
+  format,
+  parseLangSetting,
+  resolveLang,
+  MESSAGES,
+} from "./i18n";
 
 test("parseLangSetting falls back to auto", () => {
   expect(parseLangSetting("en")).toBe("en");
@@ -24,6 +30,12 @@ test("format substitutes {placeholders}", () => {
   );
   expect(format("{n} commits", { n: 5 })).toBe("5 commits");
   expect(format("plain")).toBe("plain");
+});
+
+test("countKey takes the One form for a single thing", () => {
+  expect(countKey("filesCount", 1)).toBe("filesCountOne");
+  expect(countKey("filesCount", 0)).toBe("filesCount");
+  expect(countKey("filesCount", 2)).toBe("filesCount");
 });
 
 test("both dictionaries cover the same keys", () => {

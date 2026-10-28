@@ -11,6 +11,7 @@ import {
 } from "./calendarModel";
 import { periodStart } from "./candleModel";
 import { Segmented } from "./Segmented";
+import { countKey } from "./i18n";
 import { useLang, useT } from "./settings";
 
 /** A day's cell, and the room between cells, in pixels. */
@@ -225,9 +226,9 @@ export function Calendar({
             })}
           </div>
           <div>
-            {hovered.commits.length === 1
-              ? t("listedCommit")
-              : t("listedCommits", { n: hovered.commits.length })}
+            {t(countKey("commitsCount", hovered.commits.length), {
+              n: hovered.commits.length,
+            })}
           </div>
           <div className="commit-stat">
             <span className="stat-added">+{hovered.added}</span>{" "}

@@ -127,6 +127,7 @@ const en = {
   expand: "Expand",
   // Graph rows
   commitsCount: "{n} commits",
+  commitsCountOne: "{n} commit",
   cumulative: "Lines over time",
   calendar: "Calendar",
   calendarOlder: "Older",
@@ -154,8 +155,6 @@ const en = {
   range3m: "3M",
   range1m: "1M",
   showInRows: "Show in rows",
-  listedCommit: "1 commit",
-  listedCommits: "{n} commits",
   closeList: "Close the list",
   barsTip: "in the period: added {added}, deleted {deleted}",
   candleTip: "open {open}, high {high}, low {low}, close {close}",
@@ -193,7 +192,7 @@ const en = {
   signature: "Signature",
   parents: "Parents",
   filesCount: "{n} files",
-  fileCount: "{n} file",
+  filesCountOne: "{n} file",
   lineStat: "Lines added: {added}, deleted: {deleted}",
   diffAll: "Diff all",
   diffAllTitle: "Show every file's diff",
@@ -218,7 +217,7 @@ const en = {
   eolConversion: "Line endings only: {from} → {to}",
   eolMark: "Line ending: {eol}",
   linesSelected: "{n} lines selected",
-  lineSelected: "{n} line selected",
+  linesSelectedOne: "{n} line selected",
   copyLines: "Copy lines",
   copyPermalink: "Copy permalink",
   noGithubRemote: "No GitHub remote",
@@ -245,6 +244,16 @@ const en = {
 } as const;
 
 export type MsgKey = keyof typeof en;
+
+/** A message counting `{n}` things whose `One` form counts a single thing. */
+export type CountKey = {
+  [K in MsgKey]: `${K}One` extends MsgKey ? K : never;
+}[MsgKey];
+
+/** The key of the message for `n` things: the `One` form when `n` is 1. */
+export function countKey(key: CountKey, n: number): MsgKey {
+  return n === 1 ? `${key}One` : key;
+}
 
 const ja: Record<MsgKey, string> = {
   emptyPane: "左のドロワーからリポジトリを選択してください。",
@@ -340,6 +349,7 @@ const ja: Record<MsgKey, string> = {
   collapse: "たたむ",
   expand: "ひらく",
   commitsCount: "{n} コミット",
+  commitsCountOne: "{n} コミット",
   cumulative: "行数の推移",
   calendar: "カレンダー",
   calendarOlder: "さらに古く",
@@ -367,8 +377,6 @@ const ja: Record<MsgKey, string> = {
   range3m: "3か月",
   range1m: "1か月",
   showInRows: "行に移る",
-  listedCommit: "1 コミット",
-  listedCommits: "{n} コミット",
   closeList: "一覧を閉じる",
   barsTip: "期間中 追加 {added}、削除 {deleted}",
   candleTip: "始値 {open}、高値 {high}、安値 {low}、終値 {close}",
@@ -403,7 +411,7 @@ const ja: Record<MsgKey, string> = {
   signature: "署名",
   parents: "親",
   filesCount: "{n} ファイル",
-  fileCount: "{n} ファイル",
+  filesCountOne: "{n} ファイル",
   lineStat: "追加 {added} 行、削除 {deleted} 行",
   diffAll: "全差分",
   diffAllTitle: "全ファイルの差分を表示",
@@ -427,7 +435,7 @@ const ja: Record<MsgKey, string> = {
   eolConversion: "改行コードのみ: {from} → {to}",
   eolMark: "改行コード: {eol}",
   linesSelected: "{n} 行選択中",
-  lineSelected: "{n} 行選択中",
+  linesSelectedOne: "{n} 行選択中",
   copyLines: "行をコピー",
   copyPermalink: "パーマリンクをコピー",
   noGithubRemote: "GitHub リモートがありません",

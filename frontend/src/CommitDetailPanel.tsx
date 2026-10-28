@@ -5,6 +5,7 @@ import { CopyText } from "./CopyText";
 import { BodyToggleIcon, DiffAllIcon, FlatIcon, TreeIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { inlineSpans, messageBlocks } from "./message";
+import { countKey } from "./i18n";
 import { useT, useTime } from "./settings";
 import { buildFileTree, type FileTreeNode } from "./fileTree";
 import { shortId } from "./graph";
@@ -400,7 +401,7 @@ function DetailBody({
 
       <div className="files-head">
         <span className="files-count">
-          {t(detail.files.length === 1 ? "fileCount" : "filesCount", {
+          {t(countKey("filesCount", detail.files.length), {
             n: detail.files.length,
           })}
         </span>
