@@ -60,3 +60,4 @@ are canonical; the files below are their English translations.
 | [0050](0050-calendar.md) | A calendar of the history under the rows | Accepted |
 | [0051](0051-chart-range.md) | Narrow the chart's range, and cut it by quarter or year | Accepted |
 | [0052](0052-line-counts-off.md) | Let the rows leave out their line counts | Accepted |
+| [0053](0053-binary-files-in-the-list.md) | Name binary files in the changed-files list | Accepted |
