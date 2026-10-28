@@ -1275,6 +1275,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(listed.locator(".listed-commit-summary")).toHaveText([
       "main-1",
     ]);
+    await expect(list.locator(".chart-list-count")).toHaveText("1 commit");
     await expect(listed).toContainText("+1 −0");
     // The chart's head stays inside the room the list leaves it.
     const month = (await page.getByTestId("timeframe-month").boundingBox())!;

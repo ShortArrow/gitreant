@@ -332,7 +332,9 @@ export function CumulativeChart({
           <header className="chart-list-head">
             <span>{time(listedPoints[0]?.commit.time ?? listed.to)}</span>
             <span className="chart-list-count">
-              {t("listedCommits", { n: listedPoints.length })}
+              {listedPoints.length === 1
+                ? t("listedCommit")
+                : t("listedCommits", { n: listedPoints.length })}
             </span>
             <button
               type="button"
