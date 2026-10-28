@@ -1,4 +1,5 @@
 import type { CommitView, FileDiff } from "./api";
+import { FileCounts } from "./CommitDetailPanel";
 import { diffCounts } from "./diffModel";
 import { shortId } from "./graph";
 import { ResizeHandle, useStoredWidth } from "./Resizer";
@@ -83,10 +84,11 @@ export function CompareDetailPanel({
                     {file.status}
                   </span>
                   <span className="file-path">{file.path}</span>
-                  <span className="file-counts">
-                    <span className="file-additions">+{counts.additions}</span>{" "}
-                    <span className="file-deletions">−{counts.deletions}</span>
-                  </span>
+                  <FileCounts
+                    binary={file.binary}
+                    additions={counts.additions}
+                    deletions={counts.deletions}
+                  />
                 </li>
               );
             })}

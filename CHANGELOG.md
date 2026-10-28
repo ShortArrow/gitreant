@@ -67,6 +67,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([ADR 0046](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0046-line-count-bars.md)),
   or leaves them out of the rows
   ([ADR 0052](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0052-line-counts-off.md)).
+- The changed-files list labels a binary file "Binary" in place of its
+  `+0 −0`, which read the same as a text file with no line added or
+  deleted
+  ([ADR 0053](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0053-binary-files-in-the-list.md)).
 
 ### Changed
 

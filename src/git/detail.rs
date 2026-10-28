@@ -16,6 +16,8 @@ pub struct FileChange {
     /// The file changed nothing but its line endings (LF and CRLF swapped
     /// on some lines); its diff pairs every line with itself.
     pub eol_only: bool,
+    /// The file diffs as binary, so it has no lines to count.
+    pub binary: bool,
 }
 
 /// A single commit with everything the detail pane shows.
@@ -333,7 +335,8 @@ fn file_change(
         Change::Rewrite { source_id, id, .. } => ("R", blob(source_id.detach()), blob(id.detach())),
     };
     let path = change.location().to_string();
-    let (additions, deletions) = if attributes.binary(&path, &old, &new) {
+    let binary = attributes.binary(&path, &old, &new);
+    let (additions, deletions) = if binary {
         (0, 0)
     } else {
         line_counts(&old, &new)
@@ -344,6 +347,7 @@ fn file_change(
         additions,
         deletions,
         eol_only: status == "M" && differ_only_in_line_endings(&old, &new),
+        binary,
     })
 }
 

@@ -188,6 +188,10 @@ pub struct FileChangeView {
     /// Nothing changed but the line endings; absent otherwise.
     #[serde(skip_serializing_if = "is_false")]
     pub eol_only: bool,
+    /// The file diffs as binary, so it has no lines to count; absent
+    /// otherwise.
+    #[serde(skip_serializing_if = "is_false")]
+    pub binary: bool,
 }
 
 /// A single commit's details, as the SPA consumes them.
@@ -226,6 +230,7 @@ impl From<CommitDetail> for CommitDetailView {
                     additions: f.additions,
                     deletions: f.deletions,
                     eol_only: f.eol_only,
+                    binary: f.binary,
                 })
                 .collect(),
         }

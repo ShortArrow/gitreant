@@ -1901,7 +1901,9 @@ mark.intra {
   order: 1;
 }
 
+/* A binary file has no lines to count: its label stands in for them. */
 .file-eol,
+.file-binary,
 .diff-eol {
   flex: none;
   padding: 0 6px;

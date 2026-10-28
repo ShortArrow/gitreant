@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -3776,6 +3776,33 @@ test.describe.serial("gitreant UI", () => {
       "Line endings only: LF → CRLF",
     );
     await page.getByTestId("diff-close").click();
+
+    // A binary file is named so in place of its line counts.
+    const binaryLabel = (file: Locator) => file.getByTestId("file-binary");
+    const blob = detail
+      .getByTestId("detail-file")
+      .filter({ hasText: "blob.bin" });
+    await expect(binaryLabel(blob)).toHaveText("Binary");
+    await expect(blob.locator(".file-counts")).toHaveCount(0);
+    await expect(binaryLabel(wip)).toHaveCount(0);
+    await page.getByTestId("commit-row").filter({ hasText: "convert" }).click();
+    const data = detail
+      .getByTestId("detail-file")
+      .filter({ hasText: "data.bin" });
+    await expect(binaryLabel(data)).toHaveText("Binary");
+    await expect(data.locator(".file-counts")).toHaveCount(0);
+    await expect(binaryLabel(textFile)).toHaveCount(0);
+    await page.getByTestId("commit-row").filter({ hasText: "r-1" }).click();
+    await page
+      .getByTestId("commit-row")
+      .filter({ hasText: "convert" })
+      .click({ button: "right" });
+    await page.getByTestId("commit-menu-compare").click();
+    const compared = page
+      .getByTestId("compare-file")
+      .filter({ hasText: "data.bin" });
+    await expect(binaryLabel(compared)).toHaveText("Binary");
+    await expect(compared.locator(".file-counts")).toHaveCount(0);
 
     const repoR = page.locator('[data-repo-name="repoR"]');
     await repoR.hover();

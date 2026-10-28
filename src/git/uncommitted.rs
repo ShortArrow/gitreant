@@ -90,23 +90,14 @@ pub fn read_uncommitted(path: &Path) -> Result<CommitDetail, String> {
     let files = uncommitted_paths(path)
         .into_iter()
         .map(|entry| {
-            let (additions, deletions) = if entry.is_directory() {
-                (0, 0)
+            let lines = if entry.is_directory() {
+                Some((0, 0))
             } else if entry.untracked {
-                read_untracked(&path.join(&entry.path), UNTRACKED_READ_LIMIT)
-                    .ok()
-                    .flatten()
-                    .map(|data| {
-                        if attributes.binary(&entry.path, &[], &data) {
-                            (0, 0)
-                        } else {
-                            new_file_counts(&data)
-                        }
-                    })
-                    .unwrap_or((0, 0))
+                untracked_counts(&mut attributes, path, &entry.path)
             } else {
-                counts.get(&entry.path).copied().unwrap_or((0, 0))
+                counts.get(&entry.path).copied().unwrap_or(Some((0, 0)))
             };
+            let (additions, deletions) = lines.unwrap_or((0, 0));
             let eol_only = !entry.untracked
                 && additions + deletions > 0
                 && beyond_endings
@@ -118,6 +109,7 @@ pub fn read_uncommitted(path: &Path) -> Result<CommitDetail, String> {
                 additions,
                 deletions,
                 eol_only,
+                binary: lines.is_none(),
             }
         })
         .collect();
@@ -274,17 +266,32 @@ fn parse_status(out: &str) -> Vec<UncommittedPath> {
 }
 
 /// `diff --numstat -z`: NUL-separated `added<TAB>deleted<TAB>path` entries;
-/// a binary file counts as `-`, which reads as zero.
-fn parse_numstat(out: &str) -> HashMap<String, (usize, usize)> {
+/// a binary file counts as `-`, which reads as `None`.
+fn parse_numstat(out: &str) -> HashMap<String, Option<(usize, usize)>> {
     out.split('\0')
         .filter_map(|entry| {
             let mut parts = entry.splitn(3, '\t');
-            let additions = parts.next()?.trim().parse().unwrap_or(0);
-            let deletions = parts.next()?.trim().parse().unwrap_or(0);
+            let additions = parts.next()?.trim().parse().ok();
+            let deletions = parts.next()?.trim().parse().ok();
             let path = parts.next()?;
-            Some((path.to_string(), (additions, deletions)))
+            Some((path.to_string(), additions.zip(deletions)))
         })
         .collect()
+}
+
+/// An untracked file's line counts, or `None` when it reads as binary; a
+/// file that cannot be read counts nothing.
+fn untracked_counts(
+    attributes: &mut DiffAttributes,
+    root: &Path,
+    file: &str,
+) -> Option<(usize, usize)> {
+    match read_untracked(&root.join(file), UNTRACKED_READ_LIMIT) {
+        Err(_) => Some((0, 0)),
+        Ok(None) => None,
+        Ok(Some(data)) if attributes.binary(file, &[], &data) => None,
+        Ok(Some(data)) => Some(new_file_counts(&data)),
+    }
 }
 
 /// Reduce `git diff` output to what the detail-pane diff carries: the hunks
@@ -353,8 +360,8 @@ mod tests {
     #[test]
     fn parses_numstat_including_binary_dashes() {
         let counts = parse_numstat("3\t1\tsrc/a.rs\0-\t-\timage.png\0");
-        assert_eq!(counts["src/a.rs"], (3, 1));
-        assert_eq!(counts["image.png"], (0, 0));
+        assert_eq!(counts["src/a.rs"], Some((3, 1)));
+        assert_eq!(counts["image.png"], None);
         assert!(parse_numstat("").is_empty());
     }
 

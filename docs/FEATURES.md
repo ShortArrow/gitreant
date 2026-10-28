@@ -100,8 +100,9 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   date, signature state, parents and changed files. The author links to
   their GitHub profile; the email and the parent ids copy on click.
 - **Changed files.** Files show as a flat list or a directory tree, with
-  added and removed line counts. A file's context menu copies its relative
-  or absolute path, or opens it with the OS default handler.
+  added and removed line counts; a binary file is labelled "Binary"
+  instead. A file's context menu copies its relative or absolute path,
+  or opens it with the OS default handler.
 - **The diff pane.** Clicking a file opens its diff, inline or side by
   side, with the changed part of each line highlighted. "Diff all" opens
   every file's diff at once, and pressed again closes it.

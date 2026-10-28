@@ -105,9 +105,6 @@ keyed off the remote URL's host.
 
 ## Diff display (follow-ups to ADR 0029 / 0033)
 
-- **Tell binary files apart in the file list** — the list shows a binary
-  file as `+0 −0`, the same as text whose line count did not change; git's
-  numstat prints `- -`
 - **Show the end-of-file newline change** — removing or adding the final
   newline shows identical `-x` / `+x` lines, because git's
   "\ No newline at end of file" marker is dropped. The working-tree side

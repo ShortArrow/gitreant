@@ -373,8 +373,9 @@ function makeRepoQ(): { main: string; worktree: string } {
 }
 
 /** repoR: line-ending conversions, committed and uncommitted. "convert"
- * turns eol.txt from LF to CRLF and edits text.txt; the working tree then
- * converts text.txt as well. Endings stay byte-exact (no autocrlf). */
+ * turns eol.txt from LF to CRLF, edits text.txt and adds the binary
+ * data.bin; the working tree then converts text.txt as well and leaves the
+ * binary blob.bin untracked. Endings stay byte-exact (no autocrlf). */
 function makeRepoR(): string {
   const dir = initRepo("repoR");
   git(dir, ["config", "core.autocrlf", "false"]);
@@ -385,9 +386,11 @@ function makeRepoR(): string {
   commit(dir, "r-1", t);
   writeFileSync(path.join(dir, "eol.txt"), "one\r\ntwo\r\n");
   writeFileSync(path.join(dir, "text.txt"), "one\ntwo\n");
+  writeFileSync(path.join(dir, "data.bin"), Buffer.from([0, 1, 2, 3]));
   git(dir, ["add", "."]);
   commit(dir, "convert", t + 10);
   writeFileSync(path.join(dir, "text.txt"), "one\r\ntwo\r\n");
+  writeFileSync(path.join(dir, "blob.bin"), Buffer.from([0, 9, 9, 9]));
   return dir; // 2 commits, text.txt converted in the working tree
 }
 

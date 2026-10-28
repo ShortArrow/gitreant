@@ -303,12 +303,12 @@ fn commit_diffs_follow_the_diff_attribute() {
     repo_with_diff_attributes(dir);
     let head = read_repo(dir).expect("read repo").commits[0].id.clone();
 
-    let counts: HashMap<String, (usize, usize)> = read_commit(dir, &head)
-        .expect("read commit")
-        .files
-        .into_iter()
-        .map(|f| (f.path, (f.additions, f.deletions)))
+    let files = read_commit(dir, &head).expect("read commit").files;
+    let counts: HashMap<String, (usize, usize)> = files
+        .iter()
+        .map(|f| (f.path.clone(), (f.additions, f.deletions)))
         .collect();
+    let listed: HashMap<String, bool> = files.iter().map(|f| (f.path.clone(), f.binary)).collect();
     let binary: HashMap<String, bool> = read_commit_diff(dir, &head)
         .expect("commit diff")
         .into_iter()
@@ -317,11 +317,13 @@ fn commit_diffs_follow_the_diff_attribute() {
 
     for name in ["a.dat", "b.lock", "c.pdf", "sub/e.txt"] {
         assert_eq!(counts[name], (0, 0), "{name} counts no lines");
+        assert!(listed[name], "{name} is listed as binary");
         assert!(binary[name], "{name} diffs as binary");
         assert!(read_file_diff(dir, &head, name).unwrap().binary, "{name}");
     }
     for name in ["plain.txt", "d.raw"] {
         assert_eq!(counts[name], (1, 0), "{name} counts its line");
+        assert!(!listed[name], "{name} is listed as text");
         assert!(!binary[name], "{name} diffs as text");
     }
 }
@@ -366,8 +368,30 @@ fn an_untracked_file_follows_the_diff_attribute() {
     };
     assert_eq!(counts("new.dat"), (0, 0));
     assert_eq!(counts("new.raw"), (1, 0));
+    let listed = |name: &str| files.iter().find(|f| f.path == name).expect(name).binary;
+    assert!(listed("new.dat"));
+    assert!(!listed("new.raw"));
     assert!(read_uncommitted_diff(dir, "new.dat").unwrap().binary);
     assert!(!read_uncommitted_diff(dir, "new.raw").unwrap().binary);
+}
+
+#[test]
+fn a_tracked_binary_change_is_listed_as_binary() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    repo_with_diff_attributes(dir);
+    std::fs::write(dir.join("a.dat"), "one\ntwo\nthree\n").unwrap();
+    std::fs::write(dir.join("plain.txt"), "one\ntwo\nthree\n").unwrap();
+
+    let files = read_uncommitted(dir).expect("uncommitted").files;
+    let file = |name: &str| files.iter().find(|f| f.path == name).expect(name);
+    assert!(file("a.dat").binary);
+    assert_eq!((file("a.dat").additions, file("a.dat").deletions), (0, 0));
+    assert!(!file("plain.txt").binary);
+    assert_eq!(
+        (file("plain.txt").additions, file("plain.txt").deletions),
+        (1, 0)
+    );
 }
 
 #[test]

@@ -508,6 +508,33 @@ function TreeRows({
   );
 }
 
+/** A changed file's added and deleted lines, or a label for a binary file,
+ * which has none to count. */
+export function FileCounts({
+  binary,
+  additions,
+  deletions,
+}: {
+  binary?: boolean;
+  additions: number;
+  deletions: number;
+}) {
+  const t = useT();
+  if (binary) {
+    return (
+      <span className="file-binary" data-testid="file-binary">
+        {t("binaryLabel")}
+      </span>
+    );
+  }
+  return (
+    <span className="file-counts">
+      <span className="file-additions">+{additions}</span>{" "}
+      <span className="file-deletions">−{deletions}</span>
+    </span>
+  );
+}
+
 function FileRow({
   change,
   label,
@@ -539,10 +566,11 @@ function FileRow({
           {t("eolOnly")}
         </span>
       )}
-      <span className="file-counts">
-        <span className="file-additions">+{change.additions}</span>{" "}
-        <span className="file-deletions">−{change.deletions}</span>
-      </span>
+      <FileCounts
+        binary={change.binary}
+        additions={change.additions}
+        deletions={change.deletions}
+      />
     </li>
   );
 }

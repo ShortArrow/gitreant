@@ -118,6 +118,8 @@ export interface FileChange {
   deletions: number;
   /** Nothing changed but the line endings. */
   eol_only?: boolean;
+  /** The file diffs as binary, so it has no lines to count. */
+  binary?: boolean;
 }
 
 export interface CommitDetail {
