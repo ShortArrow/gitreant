@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
   countKey,
+  type CountKey,
   format,
   parseLangSetting,
   resolveLang,
@@ -36,6 +37,17 @@ test("countKey takes the One form for a single thing", () => {
   expect(countKey("filesCount", 1)).toBe("filesCountOne");
   expect(countKey("filesCount", 0)).toBe("filesCount");
   expect(countKey("filesCount", 2)).toBe("filesCount");
+});
+
+test("a count of one reads in the singular", () => {
+  const one = (key: CountKey) =>
+    format(MESSAGES.en[countKey(key, 1)], { n: 1 });
+
+  expect(one("commitsCount")).toBe("1 commit");
+  expect(one("unpushedCount")).toBe("1 unpushed commit");
+  expect(one("chartCounting")).toBe("1 commit still being counted");
+  expect(one("dirtyCount")).toBe("1 uncommitted change");
+  expect(one("localBranchCount")).toBe("1 local-only branch");
 });
 
 test("both dictionaries cover the same keys", () => {

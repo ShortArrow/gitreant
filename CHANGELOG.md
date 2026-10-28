@@ -96,6 +96,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The graph's thickness tilts smoothly in a long history: only the rows
   near the scroll are drawn thick
   ([ADR 0044](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0044-graph-thickness.md)).
+- A count of one reads in the singular in English: "1 commit" over a
+  repository and in the drawer, and likewise for unpushed commits,
+  uncommitted changes and local-only branches.
 
 ### Security
 

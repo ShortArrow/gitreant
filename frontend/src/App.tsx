@@ -38,7 +38,13 @@ import { applyTheme, currentTheme, toggleTheme } from "./theme";
 import { mergeLog, type UserAction } from "./logModel";
 import { RepoCard } from "./RepoCard";
 import { Segmented } from "./Segmented";
-import { resolveLang, MESSAGES, format, type LangSetting } from "./i18n";
+import {
+  countKey,
+  resolveLang,
+  MESSAGES,
+  format,
+  type LangSetting,
+} from "./i18n";
 import {
   SettingsContext,
   storeButtonStyle,
@@ -954,7 +960,7 @@ export function App() {
                     <div className="pane-empty" data-testid="pane-empty">
                       {t("analyzingRepo", { path: entry.path })}
                       {(analyzing.get(entry.id) ?? 0) > 0
-                        ? ` (${t("commitsCount", { n: analyzing.get(entry.id)! })})`
+                        ? ` (${t(countKey("commitsCount", analyzing.get(entry.id)!), { n: analyzing.get(entry.id)! })})`
                         : ""}
                     </div>
                   ) : (

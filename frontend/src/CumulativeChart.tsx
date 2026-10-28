@@ -323,7 +323,9 @@ export function CumulativeChart({
           />
           {sums.counting > 0 && (
             <p className="chart-counting" data-testid="chart-counting">
-              {t("chartCounting", { n: sums.counting })}
+              {t(countKey("chartCounting", sums.counting), {
+                n: sums.counting,
+              })}
             </p>
           )}
         </div>

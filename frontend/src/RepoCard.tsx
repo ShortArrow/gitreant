@@ -745,7 +745,7 @@ export function RepoCard({
         <h2>{repo.name}</h2>
         <span className="repo-path">{repo.path}</span>
         <span className="repo-count">
-          {t("commitsCount", { n: repo.total })}
+          {t(countKey("commitsCount", repo.total), { n: repo.total })}
         </span>
         <LabeledButton
           icon={<CumulativeIcon />}

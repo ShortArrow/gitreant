@@ -235,7 +235,11 @@ export function Calendar({
             <span className="stat-deleted">−{hovered.deleted}</span>
           </div>
           {hovered.counting > 0 && (
-            <div>{t("chartCounting", { n: hovered.counting })}</div>
+            <div>
+              {t(countKey("chartCounting", hovered.counting), {
+                n: hovered.counting,
+              })}
+            </div>
           )}
         </div>
       )}

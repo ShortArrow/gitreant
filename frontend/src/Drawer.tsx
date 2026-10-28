@@ -20,7 +20,7 @@ import {
 import { LabeledButton } from "./LabeledButton";
 import { ResizeHandle, useStoredWidth } from "./Resizer";
 import { useT } from "./settings";
-import type { MsgKey } from "./i18n";
+import { countKey, type MsgKey } from "./i18n";
 
 /** How the repository list is ordered: as added, or alphabetically by name
  * or path. */
@@ -102,7 +102,9 @@ export function analyzeNote(
   t: (key: MsgKey, params?: Record<string, string | number>) => string,
 ): string {
   const label = t("analyzing");
-  return commits > 0 ? `${label} (${t("commitsCount", { n: commits })})` : label;
+  return commits > 0
+    ? `${label} (${t(countKey("commitsCount", commits), { n: commits })})`
+    : label;
 }
 
 /** Small drawer indicators for a repository's uncommitted / unpushed state;
@@ -118,7 +120,7 @@ function RepoStats({ status }: { status?: RepoStatus }) {
         <span
           className="repo-stat repo-stat-dirty"
           data-testid="stat-dirty"
-          title={t("dirtyCount", { n: dirty })}
+          title={t(countKey("dirtyCount", dirty), { n: dirty })}
         >
           <DirtyIcon /> {dirty}
         </span>
@@ -127,7 +129,7 @@ function RepoStats({ status }: { status?: RepoStatus }) {
         <span
           className="repo-stat repo-stat-unpushed"
           data-testid="stat-unpushed"
-          title={t("unpushedCount", { n: unpushed })}
+          title={t(countKey("unpushedCount", unpushed), { n: unpushed })}
         >
           <UnpushedIcon /> {unpushed}
         </span>
@@ -136,7 +138,7 @@ function RepoStats({ status }: { status?: RepoStatus }) {
         <span
           className="repo-stat repo-stat-branch"
           data-testid="stat-branch"
-          title={t("localBranchCount", { n: local })}
+          title={t(countKey("localBranchCount", local), { n: local })}
         >
           <LocalBranchIcon /> {local}
         </span>
