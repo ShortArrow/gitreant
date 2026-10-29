@@ -72,3 +72,4 @@ are canonical; the files below are their English translations.
 | [0062](0062-open-with-editors.md) | Open a file with an editor from a list the user keeps | Accepted |
 | [0063](0063-request-token.md) | Require a secret made at each start on every API request | Accepted |
 | [0064](0064-prove-the-secret.md) | Trust a running server only once it proves it holds the secret | Accepted |
+| [0065](0065-thickness-joint-outline.md) | Outline a lane's two sides as one shape | Accepted |
