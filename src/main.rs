@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{CommandFactory, Parser, Subcommand};
+use gitreant::launch::detach;
 
 use gitreant::app::{canonical, Session};
 use gitreant::doctor;
@@ -106,6 +107,30 @@ enum Command {
         #[arg(long, conflicts_with = "verbose")]
         json: bool,
     },
+    /// Keep the editors the page opens files with, in config.toml.
+    Editor {
+        #[command(subcommand)]
+        action: EditorAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum EditorAction {
+    /// List the editors and where their file is.
+    List,
+    /// Add an editor, or replace the one of the same name. `{path}` and
+    /// `{line}` in its arguments are filled in; without `{path}`, the file
+    /// goes last.
+    Add {
+        name: String,
+        /// The program to run, as found on the PATH or by its path (on
+        /// Windows, name a `.cmd` or `.bat` with its extension).
+        program: String,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Remove the editor of this name.
+    Remove { name: String },
 }
 
 fn main() -> ExitCode {
@@ -115,6 +140,7 @@ fn main() -> ExitCode {
         Some(Command::Restart) => return restart(&cli),
         Some(Command::Refresh) => return refresh(&cli),
         Some(Command::List { verbose, json }) => return list(verbose, json),
+        Some(Command::Editor { ref action }) => return editor(action),
         None => {}
     }
     if cli.shutdown {
@@ -287,6 +313,62 @@ fn shutdown_all() -> ExitCode {
 
 /// Print the running servers, or that none runs (ADR 0039): a line each,
 /// with their repositories when `verbose`, or everything as JSON.
+/// `gitreant editor`: the only writer of the editors list, so the page that
+/// runs them can never choose what runs (ADR 0062).
+fn editor(action: &EditorAction) -> ExitCode {
+    let Some(dir) = gitreant::config::dir() else {
+        eprintln!("no configuration directory: set XDG_CONFIG_HOME or HOME");
+        return ExitCode::FAILURE;
+    };
+    let mut list = gitreant::config::editors(&dir);
+    match action {
+        EditorAction::List => {
+            println!("{}", dir.join("config.toml").display());
+            if list.is_empty() {
+                println!("no editors");
+            }
+            for editor in &list {
+                let command = std::iter::once(editor.program.as_str())
+                    .chain(editor.args.iter().map(String::as_str))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                println!("{}: {command}", editor.name);
+            }
+            return ExitCode::SUCCESS;
+        }
+        EditorAction::Add {
+            name,
+            program,
+            args,
+        } => {
+            let added = gitreant::config::Editor {
+                name: name.clone(),
+                program: program.clone(),
+                args: args.clone(),
+            };
+            match list.iter_mut().find(|editor| editor.name == *name) {
+                Some(existing) => *existing = added,
+                None => list.push(added),
+            }
+        }
+        EditorAction::Remove { name } => {
+            let before = list.len();
+            list.retain(|editor| editor.name != *name);
+            if list.len() == before {
+                eprintln!("no editor named {name}");
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+    match gitreant::config::save_editors(&dir, &list) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("write {}: {e}", dir.join("config.toml").display());
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn list(verbose: bool, json: bool) -> ExitCode {
     let running = running_servers();
     if json {
@@ -429,20 +511,6 @@ fn start_background(cli: &Cli, port: u16, paths: &[PathBuf], open: bool) -> Exit
     }
     eprintln!("server did not come up on port {port} in time");
     ExitCode::FAILURE
-}
-
-#[cfg(windows)]
-fn detach(command: &mut std::process::Command) {
-    use std::os::windows::process::CommandExt;
-    const DETACHED_PROCESS: u32 = 0x0000_0008;
-    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
-    command.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
-}
-
-#[cfg(unix)]
-fn detach(command: &mut std::process::Command) {
-    use std::os::unix::process::CommandExt;
-    command.process_group(0);
 }
 
 /// Hand the repositories to an already-running gitreant and exit. The running

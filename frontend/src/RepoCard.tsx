@@ -1458,7 +1458,7 @@ export function RepoCard({
           onOpenFile={(path) => {
             revealPath(repo.id, path).catch(() => {});
           }}
-          loadEditors={fetchEditors}
+          loadEditors={() => fetchEditors().then((list) => list.editors)}
           onOpenWith={(path, editor) => {
             openWith(repo.id, path, editor).catch(() => {});
           }}

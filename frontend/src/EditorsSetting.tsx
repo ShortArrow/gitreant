@@ -1,134 +1,53 @@
 import { useEffect, useState } from "react";
-import { fetchEditors, saveEditors, type Editor } from "./api";
-import { formatArgs, parseArgs } from "./editorArgs";
+import { fetchEditors, type EditorList } from "./api";
+import { formatArgs } from "./editorArgs";
 import { useT } from "./settings";
 
-/** An editor as the settings edit it: its arguments as one line. */
-interface EditorRow {
-  name: string;
-  program: string;
-  args: string;
-}
-
 /**
- * The editors a file opens with (ADR 0062), kept in the server's
- * configuration: a row per editor with its name, program and arguments,
- * where `{path}` and `{line}` are filled in, saved to the server at once.
+ * The editors a file opens with (ADR 0062), as the server's configuration
+ * lists them. Read only: the page may run the programs listed but never
+ * choose them, so the list is written with `gitreant editor` or by hand.
  */
 export function EditorsSetting({
   load = fetchEditors,
-  save = saveEditors,
 }: {
   /** Injectable for Storybook; defaults to the real API. */
-  load?: () => Promise<Editor[]>;
-  save?: (list: Editor[]) => Promise<void>;
+  load?: () => Promise<EditorList>;
 }) {
   const t = useT();
-  const [rows, setRows] = useState<EditorRow[]>([]);
-  const [status, setStatus] = useState<"saved" | string | null>(null);
+  const [list, setList] = useState<EditorList | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     load()
-      .then((list) =>
-        setRows(list.map((e) => ({ ...e, args: formatArgs(e.args) }))),
-      )
-      .catch((e) => setStatus(String(e)));
+      .then(setList)
+      .catch((e) => setError(String(e)));
   }, [load]);
 
-  const change = (index: number, field: keyof EditorRow, value: string) => {
-    setStatus(null);
-    setRows((prev) =>
-      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
-    );
-  };
-
-  const submit = async () => {
-    const list = rows
-      .filter((row) => row.name.trim() && row.program.trim())
-      .map((row) => ({
-        name: row.name.trim(),
-        program: row.program.trim(),
-        args: parseArgs(row.args),
-      }));
-    try {
-      await save(list);
-      setStatus("saved");
-    } catch (e) {
-      setStatus(String(e));
-    }
-  };
-
   return (
-    <fieldset className="settings-group editors-setting">
+    <fieldset
+      className="settings-group editors-setting"
+      data-testid="editors-setting"
+    >
       <legend>{t("settingsEditors")}</legend>
-      <p className="settings-note">{t("editorsHint")}</p>
-      {rows.map((row, i) => (
-        <div key={i} className="editor-row" data-testid="editor-row">
-          <input
-            type="text"
-            placeholder={t("editorName")}
-            aria-label={t("editorName")}
-            data-testid="editor-name"
-            value={row.name}
-            onChange={(e) => change(i, "name", e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder={t("editorProgram")}
-            aria-label={t("editorProgram")}
-            data-testid="editor-program"
-            value={row.program}
-            onChange={(e) => change(i, "program", e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder={t("editorArgs")}
-            aria-label={t("editorArgs")}
-            data-testid="editor-args"
-            value={row.args}
-            onChange={(e) => change(i, "args", e.target.value)}
-          />
-          <button
-            type="button"
-            className="icon-btn"
-            title={t("editorRemove")}
-            aria-label={t("editorRemove")}
-            data-testid="editor-remove"
-            onClick={() => {
-              setStatus(null);
-              setRows((prev) => prev.filter((_, j) => j !== i));
-            }}
-          >
-            ×
-          </button>
-        </div>
+      {error && <span className="detail-error">{error}</span>}
+      {list && list.editors.length === 0 && (
+        <p className="settings-note">{t("noEditors")}</p>
+      )}
+      {list?.editors.map((editor, i) => (
+        <code key={i} className="editor-row" data-testid="editor-row">
+          {editor.name}: {formatArgs([editor.program, ...editor.args])}
+        </code>
       ))}
-      <div className="editor-actions">
-        <button
-          type="button"
-          data-testid="editor-add"
-          onClick={() =>
-            setRows((prev) => [...prev, { name: "", program: "", args: "" }])
-          }
-        >
-          {t("editorAdd")}
-        </button>
-        <button
-          type="button"
-          data-testid="editors-save"
-          onClick={() => void submit()}
-        >
-          {t("editorsSave")}
-        </button>
-        {status === "saved" && (
-          <span className="settings-note" data-testid="editors-saved">
-            {t("editorsSaved")}
-          </span>
-        )}
-        {status && status !== "saved" && (
-          <span className="detail-error">{status}</span>
-        )}
-      </div>
+      <p className="settings-note">
+        {t("editorsHint")}{" "}
+        <code>gitreant editor add &lt;name&gt; &lt;program&gt; [args…]</code>
+      </p>
+      {list?.file && (
+        <p className="settings-note">
+          {t("editorsFile")} <code>{list.file}</code>
+        </p>
+      )}
     </fieldset>
   );
 }

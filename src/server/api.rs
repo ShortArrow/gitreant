@@ -452,7 +452,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/events", get(events))
         .route("/api/pick", post(pick_folder))
         .route("/api/reveal", post(reveal))
-        .route("/api/editors", get(list_editors).post(save_editors))
+        .route("/api/editors", get(list_editors))
         .route("/api/open-with", post(open_with))
         .route("/api/open-with-chooser", post(open_with_chooser))
         .route("/api/submodules", post(submodule_graphs))
@@ -811,31 +811,27 @@ async fn reveal(
     }
 }
 
-/// The editors the user keeps in the configuration file (ADR 0062); none
-/// when there is no configuration directory to read.
-async fn list_editors() -> Json<Vec<crate::config::Editor>> {
-    Json(
-        crate::config::dir()
-            .map(|dir| crate::config::editors(&dir))
-            .unwrap_or_default(),
-    )
+/// The editors the user keeps, and the file that keeps them.
+#[derive(Serialize)]
+struct EditorsView {
+    /// The configuration file's path; absent with no directory to keep it.
+    file: Option<String>,
+    editors: Vec<crate::config::Editor>,
 }
 
-/// Replace the configuration file's editors with the page's list.
-async fn save_editors(
-    Json(list): Json<Vec<crate::config::Editor>>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    let dir = crate::config::dir().ok_or((
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "no configuration directory: set XDG_CONFIG_HOME or HOME".to_string(),
-    ))?;
-    crate::config::save_editors(&dir, &list).map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("save editors: {e}"),
-        )
-    })?;
-    Ok(StatusCode::OK)
+/// The editors in the configuration file (ADR 0062). Read only: the page
+/// may run the programs listed but never choose them, so only `gitreant
+/// editor` or the user's own hand writes the file.
+async fn list_editors() -> Json<EditorsView> {
+    let dir = crate::config::dir();
+    Json(EditorsView {
+        file: dir
+            .as_ref()
+            .map(|dir| crate::config::file(dir).display().to_string()),
+        editors: dir
+            .map(|dir| crate::config::editors(&dir))
+            .unwrap_or_default(),
+    })
 }
 
 #[derive(Deserialize)]
@@ -878,16 +874,19 @@ async fn open_with(
             format!("no editor {} in the configuration", req.editor),
         ))?;
     let args = crate::config::arguments(&editor, &target, req.line.unwrap_or(1));
-    std::process::Command::new(&editor.program)
+    let mut command = std::process::Command::new(&editor.program);
+    command
         .args(args)
-        .spawn()
-        .map(drop)
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("run {}: {e}", editor.program),
-            )
-        })?;
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    crate::launch::detach(&mut command);
+    command.spawn().map(drop).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("run {}: {e}", editor.program),
+        )
+    })?;
     Ok(StatusCode::OK)
 }
 
@@ -1554,6 +1553,16 @@ mod tests {
         let root = Path::new("/repos/demo");
         assert_eq!(resolve_reveal_target(root, None).unwrap(), root);
         assert_eq!(resolve_reveal_target(root, Some("")).unwrap(), root);
+    }
+
+    /// An editor gets the file as an absolute path, so a file named like an
+    /// option never reaches it as one (ADR 0062).
+    #[test]
+    fn a_file_named_like_an_option_opens_as_a_path() {
+        let root = Path::new("/repos/demo");
+        let target = resolve_reveal_target(root, Some("-rf")).unwrap();
+        assert!(target.starts_with(root));
+        assert!(!target.display().to_string().starts_with('-'));
     }
 
     #[test]

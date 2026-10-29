@@ -189,10 +189,11 @@ quietly disappear. `gitreant doctor` reports which are available.
   (Monday, Sunday), how action buttons render (icon, icon with label,
   label), and the graph's optional layers (squash links, stash internals,
   author avatars, submodule graphs), and `hjkl` for moving the selection.
-  It also lists the editors a file opens with, each a name, a program and
-  its arguments, where `{path}` and `{line}` are filled in; the list is
-  kept in `config.toml` under `$XDG_CONFIG_HOME/gitreant`, else
-  `~/.config/gitreant`, on every system.
+  It also shows the editors a file opens with, each a name, a program and
+  its arguments, where `{path}` and `{line}` are filled in. They are kept
+  in `config.toml` under `$XDG_CONFIG_HOME/gitreant`, else
+  `~/.config/gitreant`, on every system, and written only with
+  `gitreant editor add`, `remove` and `list` or by hand.
 - **Theme.** Dark or light.
 - **Environment info.** The Info dialog gathers the CLI and page versions,
   the server and the browser, ready to copy in one go.

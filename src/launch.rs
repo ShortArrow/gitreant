@@ -8,6 +8,22 @@
 
 use std::path::{Path, PathBuf};
 
+/// Let a spawned program outlive this process and its console: its own
+/// process group, and on Windows no console of ours.
+#[cfg(windows)]
+pub fn detach(command: &mut std::process::Command) {
+    use std::os::windows::process::CommandExt;
+    const DETACHED_PROCESS: u32 = 0x0000_0008;
+    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+    command.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
+}
+
+#[cfg(unix)]
+pub fn detach(command: &mut std::process::Command) {
+    use std::os::unix::process::CommandExt;
+    command.process_group(0);
+}
+
 /// The command that opens `url` in a chromeless app window, or `None` when no
 /// Chromium-based browser could be found.
 pub fn app_window_command(url: &str) -> Option<(PathBuf, Vec<String>)> {

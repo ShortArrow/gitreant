@@ -35,6 +35,11 @@ fn dir_from(var: impl Fn(&str) -> Option<String>) -> Option<PathBuf> {
     Some(base.join("gitreant"))
 }
 
+/// The configuration file inside `dir`.
+pub fn file(dir: &Path) -> PathBuf {
+    dir.join(FILE)
+}
+
 /// The file's keys, or none when it is missing or not TOML.
 fn table(dir: &Path) -> toml::Table {
     std::fs::read_to_string(dir.join(FILE))

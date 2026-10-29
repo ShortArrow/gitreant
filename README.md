@@ -121,6 +121,14 @@ gitreant list         list the running servers, one line each: URL, pid, start
   --verbose           also list each server's repositories, with how and when
                       each came (at startup, from the CLI or from the browser)
   --json              print all of it as JSON
+gitreant editor list  list the editors a file opens with, kept in config.toml
+                      under $XDG_CONFIG_HOME/gitreant (else ~/.config/gitreant)
+gitreant editor add <name> <program> [args...]
+                      add an editor, or replace the one of that name; {path}
+                      and {line} in its arguments are filled in (on Windows,
+                      name a .cmd launcher with its extension, as code.cmd)
+gitreant editor remove <name>
+                      remove an editor
 ```
 
 ## Contributing

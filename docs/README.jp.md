@@ -88,6 +88,14 @@ gitreant list         稼働中のサーバを 1 行ずつ表示（URL・pid・�
   --verbose           各サーバのリポジトリと、それぞれがいつどう加わったか
                       （起動時・CLI・ブラウザ）も表示
   --json              すべてを JSON で出力
+gitreant editor list  ファイルを開くエディタの一覧を表示（$XDG_CONFIG_HOME/gitreant、
+                      なければ ~/.config/gitreant の config.toml にある）
+gitreant editor add <name> <program> [args...]
+                      エディタを足すか、同じ名前のものを置き換える。引数の
+                      {path} と {line} は置き換わる（Windows では code.cmd の
+                      ように .cmd の起動スクリプトを拡張子付きで書く）
+gitreant editor remove <name>
+                      エディタを消す
 ```
 
 ## コントリビュート

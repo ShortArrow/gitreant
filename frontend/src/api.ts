@@ -592,27 +592,21 @@ export interface Editor {
   args: string[];
 }
 
-/** The editors the server's configuration lists. */
-export async function fetchEditors(): Promise<Editor[]> {
+/** The editors the server's configuration lists, and its file. */
+export interface EditorList {
+  /** The configuration file's path; absent with no directory to keep it. */
+  file?: string;
+  editors: Editor[];
+}
+
+/** The editors the server's configuration lists. Read only: they are
+ * written with `gitreant editor` or by hand (ADR 0062). */
+export async function fetchEditors(): Promise<EditorList> {
   const response = await fetch("/api/editors");
   if (!response.ok) {
     throw new Error(`editors failed: ${response.status}`);
   }
   return response.json();
-}
-
-/** Replace the editors the server's configuration lists. */
-export async function saveEditors(list: Editor[]): Promise<void> {
-  const response = await fetch("/api/editors", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(list),
-  });
-  if (!response.ok) {
-    throw new Error(
-      (await response.text()) || `save failed: ${response.status}`,
-    );
-  }
 }
 
 /** Open a repository-relative file with the configuration's `editor`-th

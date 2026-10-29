@@ -86,9 +86,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   more above or below a hunk at a time, or the whole file with its changes
   marked
   ([ADR 0061](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0061-diff-context.md)).
-- A changed file opens with one of the editors kept in the settings, a
-  list saved to `config.toml` in the XDG configuration directory; on
-  Windows the file's menu also asks the system which application to use
+- A changed file opens with one of the editors listed in `config.toml` in
+  the XDG configuration directory, which `gitreant editor` writes and the
+  settings show; on Windows the file's menu also asks the system which
+  application to use
   ([ADR 0062](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0062-open-with-editors.md)).
 
 ### Changed

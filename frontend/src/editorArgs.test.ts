@@ -1,20 +1,9 @@
 import { expect, test } from "vitest";
-import { formatArgs, parseArgs } from "./editorArgs";
+import { formatArgs } from "./editorArgs";
 
-test("parseArgs splits on spaces and keeps quoted spaces", () => {
-  expect(parseArgs("--goto {path}:{line}")).toEqual([
-    "--goto",
-    "{path}:{line}",
-  ]);
-  expect(parseArgs(' -n  "C:/Program Files/x" ')).toEqual([
-    "-n",
-    "C:/Program Files/x",
-  ]);
-  expect(parseArgs("")).toEqual([]);
-});
-
-test("formatArgs quotes what has a space, so parseArgs reads it back", () => {
-  const args = ["--goto", "{path}:{line}", "a b"];
-  expect(formatArgs(args)).toBe('--goto {path}:{line} "a b"');
-  expect(parseArgs(formatArgs(args))).toEqual(args);
+test("formatArgs quotes the parts that have a space", () => {
+  expect(
+    formatArgs(["C:/Program Files/x.exe", "--goto", "{path}:{line}"]),
+  ).toBe('"C:/Program Files/x.exe" --goto {path}:{line}');
+  expect(formatArgs([])).toBe("");
 });

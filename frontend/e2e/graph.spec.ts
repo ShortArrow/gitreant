@@ -1,6 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { commit, git } from "./git";
 
@@ -412,23 +412,26 @@ test.describe.serial("gitreant UI", () => {
     expect(reveals[1].repo).toContain("repoA");
   });
 
-  test("the settings keep a list of editors a file opens with", async ({
+  test("a file opens with an editor the configuration lists", async ({
     page,
   }) => {
-    await page.getByTestId("settings-toggle").click();
-    await page.getByTestId("editor-add").click();
-    const row = page.getByTestId("editor-row").last();
-    await row.getByTestId("editor-name").fill("Probe");
-    await row.getByTestId("editor-program").fill("git");
-    await row.getByTestId("editor-args").fill("--version");
-    await page.getByTestId("editors-save").click();
-    await expect(page.getByTestId("editors-saved")).toBeVisible();
-    await page.keyboard.press("Escape");
+    // Only the CLI or the user's hand writes the list; the page reads it.
+    const config = path.join(process.cwd(), "e2e", ".tmp", "config");
+    mkdirSync(config, { recursive: true });
+    writeFileSync(
+      path.join(config, "config.toml"),
+      '[[editors]]\nname = "Probe"\nprogram = "git"\nargs = ["--version"]\n',
+    );
+    const write = await page.request.post("/api/editors", { data: [] });
+    expect(write.status()).toBe(405);
 
-    // The list is the server's: a new page reads it back.
-    await page.reload();
     await page.getByTestId("settings-toggle").click();
-    await expect(page.getByTestId("editor-name").last()).toHaveValue("Probe");
+    const editors = page.getByTestId("editors-setting");
+    await expect(editors.getByTestId("editor-row")).toHaveText([
+      "Probe: git --version",
+    ]);
+    await expect(editors).toContainText("config.toml");
+    await expect(editors.locator("input")).toHaveCount(0);
     await page.keyboard.press("Escape");
 
     // The file's menu names the editor and asks by its place in the list.
@@ -460,7 +463,7 @@ test.describe.serial("gitreant UI", () => {
     });
     expect(outside.status()).toBe(400);
 
-    await page.request.post("/api/editors", { data: [] });
+    rmSync(path.join(config, "config.toml"));
   });
 
   test("changed files can be shown as a directory tree", async ({ page }) => {

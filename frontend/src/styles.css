@@ -479,34 +479,16 @@ body {
   padding: 10px 14px;
 }
 
-/* An editor per row: its name, program and arguments (ADR 0062). */
+/* An editor per row: its name and command line (ADR 0062). */
 .editor-row {
-  display: grid;
-  grid-template-columns: 1fr 2fr 2fr auto;
-  gap: 6px;
-  align-items: center;
-}
-
-.editor-row input {
-  min-width: 0;
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 3px 6px;
   font-size: 12px;
+  word-break: break-all;
 }
 
 .settings-note {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
-}
-
-.editor-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
 }
 
 .settings-group legend {
