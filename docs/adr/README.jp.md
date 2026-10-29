@@ -67,3 +67,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0061](0061-diff-context.jp.md) | 差分の前後のファイルを読めるようにする | Accepted |
 | [0062](0062-open-with-editors.jp.md) | 利用者が持つ一覧のエディタでファイルを開く | Accepted |
 | [0063](0063-request-token.jp.md) | 起動ごとに作る秘密を API のすべてのリクエストに求める | Accepted |
+| [0064](0064-prove-the-secret.jp.md) | 動いているサーバは秘密を持つことを示してから信頼する | Accepted |
