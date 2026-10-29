@@ -140,6 +140,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A count of one reads in the singular in English: "1 commit" over a
   repository and in the drawer, and likewise for unpushed commits,
   uncommitted changes and local-only branches.
+- `gitreant doctor` and the check for whether signatures can be verified
+  look at the gpg git runs, named by `gpg.program` or found on the `PATH`,
+  rather than whichever `gpg` comes first; doctor names it and warns when
+  it is Git for Windows' own, which cannot see a GnuPG or Gpg4win keyring.
 
 ### Security
 

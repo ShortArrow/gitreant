@@ -173,7 +173,9 @@ each delegated to the git command. What it never does is listed in
   `gitreant refresh`.
 
 `gh` and `gpg` are optional; without them the features that need them
-quietly disappear. `gitreant doctor` reports which are available.
+quietly disappear. `gitreant doctor` reports which are available, and
+for gpg names the one git runs to check signatures, warning when that is
+Git for Windows' own, which cannot see a GnuPG or Gpg4win keyring.
 
 ## Keyboard and settings
 

@@ -113,7 +113,9 @@ gitreant [PATH...]
 gitreant doctor       check the environment: git (required), gh and gpg
                       (optional feature enablers), and whether a server is
                       already running on the port; exits non-zero when a
-                      required tool is missing
+                      required tool is missing. For gpg it names the one git
+                      runs, set by gpg.program or found on the PATH, and
+                      warns when that is Git for Windows' own
 gitreant restart      restart the running server, keeping the repositories it
                       shows; a fresh process re-verifies every signature and
                       picks up a rebuilt binary

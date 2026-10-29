@@ -11,11 +11,15 @@ use std::sync::OnceLock;
 
 use super::fetch::hide_console;
 
-/// Whether a `gpg` binary is on the PATH. Checked once per process.
+/// Whether the gpg git runs to check signatures answers. Checked once per
+/// process.
 pub fn gpg_available() -> bool {
     static AVAILABLE: OnceLock<bool> = OnceLock::new();
     *AVAILABLE.get_or_init(|| {
-        let mut command = Command::new("gpg");
+        let Some(gpg) = super::gpg::git_gpg() else {
+            return false;
+        };
+        let mut command = Command::new(gpg.program);
         command.arg("--version");
         hide_console(&mut command);
         command

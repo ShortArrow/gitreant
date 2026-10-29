@@ -12,6 +12,11 @@ pub struct ToolReport {
     pub purpose: &'static str,
     /// First line of `<tool> --version` when the tool answered.
     pub version: Option<String>,
+    /// Which program answered and what chose it, where that is not plain.
+    pub detail: Option<String>,
+    /// What to change for the tool to serve its purpose, when it answered
+    /// but will not.
+    pub advice: Option<String>,
 }
 
 const TOOLS: [(&str, bool, &str); 3] = [
@@ -28,22 +33,41 @@ const TOOLS: [(&str, bool, &str); 3] = [
     ("gpg", false, "commit signature verification"),
 ];
 
-/// Probe every external tool gitreant delegates to.
+/// Probe every external tool gitreant delegates to. gpg is the one git
+/// runs to check signatures, which its configuration may name.
 pub fn run_checks() -> Vec<ToolReport> {
     TOOLS
         .iter()
-        .map(|&(name, required, purpose)| ToolReport {
-            name,
-            required,
-            purpose,
-            version: probe(name),
+        .map(|&(name, required, purpose)| {
+            let gpg = (name == "gpg").then(crate::git::git_gpg).flatten();
+            let program = gpg.as_ref().map_or_else(
+                || std::ffi::OsString::from(name),
+                |gpg| gpg.program.clone().into(),
+            );
+            ToolReport {
+                name,
+                required,
+                purpose,
+                version: probe(&program),
+                detail: gpg.as_ref().map(|gpg| {
+                    let source = gpg
+                        .setting
+                        .map_or("on the PATH".to_string(), |key| format!("from {key}"));
+                    format!("{} ({source})", gpg.program.display())
+                }),
+                advice: gpg.filter(|gpg| gpg.bundled_with_git).map(|_| {
+                    "git runs Git for Windows' own gpg, which cannot see the keys of \
+                     GnuPG or Gpg4win: set gpg.program to their gpg.exe"
+                        .to_string()
+                }),
+            }
         })
         .collect()
 }
 
-/// `Some(version banner)` when `<name> --version` runs and succeeds.
-fn probe(name: &str) -> Option<String> {
-    let output = Command::new(name).arg("--version").output().ok()?;
+/// `Some(version banner)` when `<program> --version` runs and succeeds.
+fn probe(program: &std::ffi::OsStr) -> Option<String> {
+    let output = Command::new(program).arg("--version").output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -65,7 +89,16 @@ pub fn render(reports: &[ToolReport], server_running: bool, port: u16) -> String
     let mut lines: Vec<String> = reports
         .iter()
         .map(|report| match (&report.version, report.required) {
-            (Some(version), _) => format!("[ok] {version} - {}", report.purpose),
+            (Some(version), _) => {
+                let mut line = format!("[ok] {version} - {}", report.purpose);
+                if let Some(detail) = &report.detail {
+                    line.push_str(&format!("\n     {detail}"));
+                }
+                if let Some(advice) = &report.advice {
+                    line.push_str(&format!("\n[--] {advice}"));
+                }
+                line
+            }
             (None, true) => format!(
                 "[!!] {} not found - required for {}",
                 report.name, report.purpose
@@ -106,6 +139,8 @@ mod tests {
             required,
             purpose: "things",
             version: version.map(str::to_string),
+            detail: None,
+            advice: None,
         }
     }
 
@@ -126,6 +161,25 @@ mod tests {
         assert!(out.contains("[ok] git version 2.45.1"), "{out}");
         assert!(out.contains("[--] gh not found"), "{out}");
         assert!(out.contains("port 4000"), "{out}");
+        assert!(out.contains("No problems found."), "{out}");
+    }
+
+    #[test]
+    fn render_names_the_gpg_git_runs_and_warns_of_git_for_windows_own() {
+        let mut gpg = report("gpg", false, Some("gpg (GnuPG) 2.4.5"));
+        gpg.detail = Some(r"C:\Program Files\Git\usr\bin\gpg.exe (on the PATH)".to_string());
+        gpg.advice = Some("git runs Git for Windows' own gpg".to_string());
+        let out = render(&[gpg], false, 4000);
+        assert!(out.contains("[ok] gpg (GnuPG) 2.4.5"), "{out}");
+        assert!(
+            out.contains(r"     C:\Program Files\Git\usr\bin\gpg.exe (on the PATH)"),
+            "{out}"
+        );
+        assert!(
+            out.contains("[--] git runs Git for Windows' own gpg"),
+            "{out}"
+        );
+        // Advice on an optional tool leaves the verdict alone.
         assert!(out.contains("No problems found."), "{out}");
     }
 

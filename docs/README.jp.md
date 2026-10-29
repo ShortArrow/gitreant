@@ -85,6 +85,11 @@ gitreant [PATH...]
       --shutdown      稼働中の gitreant サーバを停止して終了
       --all           --shutdown と使い、稼働中のサーバをすべて停止
 
+gitreant doctor       環境を確かめる。git（必須）、gh と gpg（機能を有効にする
+                      任意のもの）、ポートでサーバが動いているか。必須のものが
+                      なければ 0 以外で終わる。gpg は、gpg.program で決めたか
+                      PATH で見つけた、git が使うものを示し、それが Git for
+                      Windows 付属のものなら注意を出す
 gitreant list         稼働中のサーバを 1 行ずつ表示（ページに要る秘密付きの
                       URL・pid・起動時刻・版・表示中のリポジトリの数）
   --verbose           各サーバのリポジトリと、それぞれがいつどう加わったか
