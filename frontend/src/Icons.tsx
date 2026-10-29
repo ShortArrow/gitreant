@@ -22,6 +22,8 @@ import {
   FileDirectoryIcon,
   FileDirectorySymlinkIcon,
   FileDirectoryOpenFillIcon,
+  FoldDownIcon,
+  FoldUpIcon,
   GearIcon,
   GitBranchIcon,
   GraphIcon,
@@ -34,6 +36,7 @@ import {
   SyncIcon,
   TerminalIcon,
   TriangleDownIcon,
+  UnfoldIcon,
 } from "@primer/octicons-react";
 
 const SIZE = 14;
@@ -76,6 +79,19 @@ export function DiffAllIcon() {
 /** A plus: add a repository. */
 export function AddIcon() {
   return <PlusIcon className="btn-icon" size={SIZE} />;
+}
+
+/** Show hidden lines above, below, or the whole file (ADR 0061). */
+export function ShowAboveIcon() {
+  return <FoldUpIcon className="btn-icon" size={SIZE} />;
+}
+
+export function ShowBelowIcon() {
+  return <FoldDownIcon className="btn-icon" size={SIZE} />;
+}
+
+export function WholeFileIcon() {
+  return <UnfoldIcon className="btn-icon" size={SIZE} />;
 }
 
 /** Lines added and deleted alike: shade by both. */

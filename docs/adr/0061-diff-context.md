@@ -30,10 +30,13 @@ file's content: every route returned a diff.
 - **"Whole file" opens every gap.** A button in each file's head shows the
   file in full, its changes marked where they are.
 - **The content is read on the first opening.** A file's content is asked
-  for only when one of its gaps is first opened. Until then the gap after
-  the last hunk offers to open without knowing how long it is; once the
-  content is read, it shows only if lines remain. A file whose content
-  cannot be read keeps its gaps closed and says so.
+  for only when one of its gaps is first opened. Each diff carries the
+  number of lines on its new side, so the gap after the last hunk shows
+  only when lines remain there, before anything is read; where that
+  number is unknown, the gap offers to open without telling its size. A
+  file whose content cannot be read keeps its gaps closed and says so.
+  A hunk that starts at the file's first line has nothing hidden above
+  it, so no `@@` line heads it.
 - **Opening clears the line selection,** as switching between inline and
   split does, since the rows it is counted in move.
 

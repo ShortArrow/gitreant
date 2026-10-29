@@ -82,6 +82,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   link named by the file and its lines, and the file's relative or
   absolute path; a button beside each file's name in the diff copies its
   path.
+- The diff shows the unchanged lines around its hunks on demand: twenty
+  more above or below a hunk at a time, or the whole file with its changes
+  marked
+  ([ADR 0061](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0061-diff-context.md)).
 
 ### Changed
 

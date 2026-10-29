@@ -8,6 +8,7 @@ mod detail;
 mod diff_attributes;
 mod diffstat;
 mod fetch;
+mod file;
 mod prs;
 mod repo;
 mod status;
@@ -28,6 +29,7 @@ pub use detail::{
 };
 pub use diffstat::{count_command, count_lines, LineCount};
 pub use fetch::{fetch_command, fetch_remotes, tag_remotes, RemoteTagList};
+pub use file::read_file;
 pub use prs::{
     gh_available, list_merged_prs, list_prs, merged_pr_command, pr_command, MergedPullRequest,
     PullRequest,

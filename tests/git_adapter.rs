@@ -7,9 +7,10 @@ use std::process::Command;
 
 use gitreant::domain::layout;
 use gitreant::git::{
-    gitlink_updates, read_commit, read_commit_diff, read_file_diff, read_range_diff, read_repo,
-    read_repo_with_progress, read_status, read_submodules, read_uncommitted, read_uncommitted_diff,
-    read_uncommitted_diffs, read_worktrees, uncommitted_paths, FileChange, UNCOMMITTED_ID,
+    gitlink_updates, read_commit, read_commit_diff, read_file, read_file_diff, read_range_diff,
+    read_repo, read_repo_with_progress, read_status, read_submodules, read_uncommitted,
+    read_uncommitted_diff, read_uncommitted_diffs, read_worktrees, uncommitted_paths, FileChange,
+    UNCOMMITTED_ID,
 };
 
 fn git(dir: &Path, args: &[&str]) {
@@ -1005,4 +1006,38 @@ fn line_ending_only_changes_are_flagged_and_keep_their_carriage_returns() {
     let diff = read_file_diff(dir, &head, "eol.txt").expect("commit eol diff");
     assert!(diff.text.contains("-one\n"), "got {:?}", diff.text);
     assert!(diff.text.contains("+one\r\n"), "got {:?}", diff.text);
+}
+
+#[test]
+fn reads_a_file_on_the_side_a_diff_leads_to() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    std::fs::write(dir.join("a.txt"), "one\ntwo\n").unwrap();
+    std::fs::write(dir.join("data.bin"), [0u8, 1, 2]).unwrap();
+    git(dir, &["add", "."]);
+    commit(dir, "root", 1000);
+    std::fs::write(dir.join("a.txt"), "one\ntwo\nthree\n").unwrap();
+    git(dir, &["add", "."]);
+    commit(dir, "grow", 1001);
+    std::fs::write(dir.join("a.txt"), "edited\n").unwrap();
+    let head = read_repo(dir).expect("read repo").commits[0].id.clone();
+
+    let at = |id: &str, file: &str| read_file(dir, id, file).expect(file);
+    assert_eq!(at(&head, "a.txt").as_deref(), Some("one\ntwo\nthree\n"));
+    assert_eq!(at(UNCOMMITTED_ID, "a.txt").as_deref(), Some("edited\n"));
+    assert_eq!(
+        at(&head, "data.bin"),
+        None,
+        "a binary file reads as nothing"
+    );
+    assert_eq!(at(&head, "missing.txt"), None);
+    assert_eq!(at(UNCOMMITTED_ID, "missing.txt"), None);
+
+    // A diff tells the new side's length, so its end needs no read.
+    let committed = read_file_diff(dir, &head, "a.txt").expect("diff");
+    assert_eq!(committed.lines, Some(3));
+    let working = read_uncommitted_diff(dir, "a.txt").expect("diff");
+    assert_eq!(working.lines, Some(1));
 }

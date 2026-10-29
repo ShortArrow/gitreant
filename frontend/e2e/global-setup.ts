@@ -413,6 +413,21 @@ function makeRepoS(): string {
   return parent;
 }
 
+/** repoT: a 60-line file whose 30th line "t-2" changes, so its diff hides
+ * unchanged lines above and below the one hunk. */
+function makeRepoT(): string {
+  const dir = initRepo("repoT");
+  const lines = Array.from({ length: 60 }, (_, i) => `line ${i + 1}`);
+  writeFileSync(path.join(dir, "long.txt"), lines.join("\n") + "\n");
+  git(dir, ["add", "."]);
+  commit(dir, "t-1", 1_700_000_000);
+  lines[29] = "line 30, changed";
+  writeFileSync(path.join(dir, "long.txt"), lines.join("\n") + "\n");
+  git(dir, ["add", "."]);
+  commit(dir, "t-2", 1_700_000_010);
+  return dir;
+}
+
 /** repoU: one commit of three lines, counted only by the test that adds it,
  * so its count is not already known when the test reads it. */
 function makeRepoU(): string {
@@ -503,6 +518,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoQ = makeRepoQ();
   const repoR = makeRepoR();
   const repoS = makeRepoS();
+  const repoT = makeRepoT();
   const repoU = makeRepoU();
   const repoV = makeRepoV();
   const repoW = makeRepoW();
@@ -536,6 +552,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoQWorktree: repoQ.worktree,
         repoR,
         repoS,
+        repoT,
         repoU,
         repoV,
         repoW,

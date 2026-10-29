@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use super::command::{git, Locks};
-use super::detail::{unified, CommitDetail, FileChange, FileDiff};
+use super::detail::{line_count, unified, CommitDetail, FileChange, FileDiff};
 use super::diff_attributes::DiffAttributes;
 
 /// The id the changes row carries in place of a commit hash. Never a valid
@@ -158,6 +158,7 @@ fn diff_entry(
             status: entry.status.clone(),
             binary: false,
             text: String::new(),
+            lines: None,
         });
     }
     if entry.untracked {
@@ -169,6 +170,7 @@ fn diff_entry(
             path: entry.path.clone(),
             status: entry.status.clone(),
             binary,
+            lines: data.as_deref().map(line_count),
             text: match data {
                 Some(data) if !binary => unified(&[], &data),
                 _ => String::new(),
@@ -190,11 +192,21 @@ fn diff_entry(
         ],
     )?;
     let (binary, text) = parse_diff(&out);
+    let on_disk = path.join(&entry.path);
+    let lines = if on_disk.exists() {
+        read_untracked(&on_disk, UNTRACKED_READ_LIMIT)
+            .ok()
+            .flatten()
+            .map(|data| line_count(&data))
+    } else {
+        Some(0)
+    };
     Ok(FileDiff {
         path: entry.path.clone(),
         status: entry.status.clone(),
         binary,
         text,
+        lines,
     })
 }
 
@@ -205,7 +217,7 @@ fn open(path: &Path) -> Result<gix::Repository, String> {
 /// An untracked file's bytes, as git would see them: a symbolic link is
 /// its target text, not the file it points at. `None` when the file is
 /// larger than `limit` — the caller treats it as binary.
-fn read_untracked(file: &Path, limit: u64) -> Result<Option<Vec<u8>>, String> {
+pub(super) fn read_untracked(file: &Path, limit: u64) -> Result<Option<Vec<u8>>, String> {
     let describe = |e: std::io::Error| format!("read {}: {e}", file.display());
     let meta = std::fs::symlink_metadata(file).map_err(describe)?;
     if meta.file_type().is_symlink() {

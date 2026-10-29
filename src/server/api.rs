@@ -438,6 +438,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/refresh", post(refresh))
         .route("/api/commit", post(commit_detail))
         .route("/api/diff", post(file_diff))
+        .route("/api/file", post(file_content))
         .route("/api/commit-diff", post(commit_diff))
         .route("/api/range-diff", post(range_diff))
         .route("/api/fetch", post(fetch_remotes))
@@ -939,6 +940,32 @@ async fn file_diff(
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     .map_err(|message| (StatusCode::NOT_FOUND, message))?;
     Ok(Json(diff.into()))
+}
+
+/// A file's text on the side a diff leads to, read when the diff pane first
+/// shows the unchanged lines around its hunks (ADR 0061).
+#[derive(Serialize)]
+struct FileContentView {
+    /// `None` when the file is absent there, binary or too large to read.
+    text: Option<String>,
+}
+
+async fn file_content(
+    State(state): State<AppState>,
+    Json(req): Json<FileDiffRequest>,
+) -> Result<Json<FileContentView>, (StatusCode, String)> {
+    let Some(repo) = state.repo_path(&req.repo) else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ));
+    };
+    let text =
+        tokio::task::spawn_blocking(move || crate::git::read_file(&repo, &req.id, &req.path))
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .map_err(|message| (StatusCode::NOT_FOUND, message))?;
+    Ok(Json(FileContentView { text }))
 }
 
 /// The unified diffs of every file changed by one commit, read on demand when

@@ -77,6 +77,10 @@ export interface SplitRow {
 export interface DiffHunk {
   header: string;
   rows: SplitRow[];
+  /** The `@@ -start,count +start,count @@` numbers of the header; a count
+   * of 0 places the hunk after its start line. */
+  old: { start: number; count: number };
+  new: { start: number; count: number };
 }
 
 /** Flatten split rows back into unified order (removals, additions, context).
@@ -212,12 +216,17 @@ export function parseUnified(text: string): DiffHunk[] {
   };
 
   for (const line of text.replace(/\n$/, "").split("\n")) {
-    const header = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(line);
+    const header = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(line);
     if (header) {
       flushRun();
       oldNo = Number(header[1]);
-      newNo = Number(header[2]);
-      current = { header: line, rows: [] };
+      newNo = Number(header[3]);
+      current = {
+        header: line,
+        rows: [],
+        old: { start: oldNo, count: Number(header[2] ?? 1) },
+        new: { start: newNo, count: Number(header[4] ?? 1) },
+      };
       hunks.push(current);
       continue;
     }
@@ -237,6 +246,90 @@ export function parseUnified(text: string): DiffHunk[] {
   }
   flushRun();
   return hunks;
+}
+
+/** How far a gap of unchanged lines is open: `down` lines below the hunk
+ * above it, `up` lines above the hunk below it. */
+export interface GapOpening {
+  up: number;
+  down: number;
+}
+
+/** A diff's display, top to bottom: rows of lines, and the gaps of
+ * unchanged lines still hidden between them. A gap is numbered by the hunk
+ * after it, the gap after the last hunk by their count; its `hidden` is null
+ * while the file's length is unknown, and `header` is the hunk's after it. */
+export type DiffBlock =
+  | { kind: "rows"; rows: SplitRow[] }
+  | { kind: "gap"; gap: number; hidden: number | null; header?: string };
+
+/** The first line of a side a hunk covers, and the first after it. */
+function span({ start, count }: { start: number; count: number }) {
+  return count === 0
+    ? { first: start + 1, next: start + 1 }
+    : { first: start, next: start + count };
+}
+
+/** `hunks` with the unchanged lines of the new side's `lines` shown where
+ * `opened` opens their gaps (ADR 0061). The lines shown read the same on
+ * both sides, numbered on the old side by the hunk next to them. Without
+ * `lines`, every gap stays closed, the last one's size known from the new
+ * side's `length` when given. */
+export function diffBlocks(
+  hunks: DiffHunk[],
+  lines: string[] | null,
+  opened: GapOpening[],
+  length: number | null = lines?.length ?? null,
+): DiffBlock[] {
+  if (hunks.length === 0) return [];
+  const blocks: DiffBlock[] = [];
+  const pushRows = (rows: SplitRow[]) => {
+    if (rows.length === 0) return;
+    const last = blocks.at(-1);
+    if (last?.kind === "rows") last.rows.push(...rows);
+    else blocks.push({ kind: "rows", rows: [...rows] });
+  };
+  const context = (from: number, to: number, shift: number): SplitRow[] =>
+    lines === null
+      ? []
+      : Array.from({ length: Math.max(0, to - from + 1) }, (_, i) => {
+          const no = from + i;
+          const text = lines[no - 1];
+          return {
+            left: { no: no + shift, text, kind: "context" as const },
+            right: { no, text, kind: "context" as const },
+          };
+        });
+  for (let gap = 0; gap <= hunks.length; gap++) {
+    const before = hunks[gap - 1];
+    const after = hunks[gap];
+    const from = before ? span(before.new).next : 1;
+    const to = after ? span(after.new).first - 1 : length;
+    const reference = after ?? before;
+    const shift = after
+      ? span(after.old).first - span(after.new).first
+      : span(reference.old).next - span(reference.new).next;
+    if (to === null) {
+      blocks.push({ kind: "gap", gap, hidden: null });
+    } else {
+      const size = Math.max(0, to - from + 1);
+      const open = lines === null ? { up: 0, down: 0 } : opened[gap];
+      const down = Math.min(open?.down ?? 0, size);
+      const up = Math.min(open?.up ?? 0, size - down);
+      pushRows(context(from, from + down - 1, shift));
+      if (size - down - up > 0) {
+        blocks.push({
+          kind: "gap",
+          gap,
+          hidden: size - down - up,
+          header: after?.header,
+        });
+      }
+      pushRows(context(to - up + 1, to, shift));
+    }
+    if (after) pushRows(after.rows);
+  }
+  return blocks;
 }
 
 /** The conversion a diff makes when it changes nothing but line endings:

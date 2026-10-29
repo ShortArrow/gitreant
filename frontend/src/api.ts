@@ -143,6 +143,8 @@ export interface FileDiff {
   status: string;
   /** True when either side looks binary; `text` is empty then. */
   binary: boolean;
+  /** How many lines the new side has; absent when it cannot be read. */
+  lines?: number;
   /** Unified diff hunks ("@@ ..." headers with -/+/context lines). */
   text: string;
 }
@@ -164,6 +166,28 @@ export async function fetchFileDiff(
     );
   }
   return response.json();
+}
+
+/** A file's text on the side a diff leads to: commit `id`'s tree, or the
+ * working tree for the uncommitted changes. Null when the file is absent
+ * there, binary or too large to read (ADR 0061). */
+export async function fetchFileContent(
+  repoId: string,
+  id: string,
+  path: string,
+): Promise<string | null> {
+  const response = await fetch("/api/file", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo: repoId, id, path }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || `file read failed: ${response.status}`,
+    );
+  }
+  const { text } = (await response.json()) as { text?: string | null };
+  return text ?? null;
 }
 
 export interface CommandLogEntry {

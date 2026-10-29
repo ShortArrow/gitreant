@@ -110,7 +110,9 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   or opens it with the OS default handler.
 - **The diff pane.** Clicking a file opens its diff, inline or side by
   side, with the changed part of each line highlighted. "Diff all" opens
-  every file's diff at once, and pressed again closes it.
+  every file's diff at once, and pressed again closes it. Where unchanged
+  lines are hidden, buttons show twenty more above or below a hunk, and
+  "Whole file" shows the file in full with its changes marked.
 - **Comparing two commits.** With a commit selected, another commit's
   context menu compares the two: the diff pane shows every file that
   differs, from the older (ancestor) commit to the newer, headed

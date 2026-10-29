@@ -99,6 +99,15 @@ pub struct FileDiff {
     pub binary: bool,
     /// Unified diff hunks ("@@ ..." headers with -/+/context lines).
     pub text: String,
+    /// How many lines the new side has, so the end of its unchanged lines
+    /// is known without reading it (ADR 0061); `None` when it cannot be read.
+    pub lines: Option<usize>,
+}
+
+/// How many lines `data` holds, the last one counted without its newline.
+pub(super) fn line_count(data: &[u8]) -> usize {
+    let breaks = data.iter().filter(|&&b| b == b'\n').count();
+    breaks + usize::from(data.last().is_some_and(|&b| b != b'\n'))
 }
 
 /// Diff one file of commit `id` against the first parent (or the empty tree).
@@ -150,7 +159,7 @@ fn diff_trees(
         .collect()
 }
 
-fn find_commit<'repo>(
+pub(super) fn find_commit<'repo>(
     repo: &'repo gix::Repository,
     id: &str,
 ) -> Result<gix::Commit<'repo>, String> {
@@ -189,6 +198,7 @@ fn diff_blobs(
         } else {
             unified(&old, &new)
         },
+        lines: Some(line_count(&new)),
     }))
 }
 
@@ -209,7 +219,7 @@ fn first_parent_tree<'repo>(
 }
 
 /// The blob contents at `path` inside `tree`, if a file exists there.
-fn blob_at(
+pub(super) fn blob_at(
     repo: &gix::Repository,
     tree: &gix::Tree<'_>,
     path: &str,

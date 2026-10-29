@@ -247,6 +247,9 @@ pub struct FileDiffView {
     pub binary: bool,
     /// Unified diff hunks ("@@ ..." headers with -/+/context lines).
     pub text: String,
+    /// How many lines the new side has; absent when it cannot be read.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lines: Option<usize>,
 }
 
 impl From<FileDiff> for FileDiffView {
@@ -256,6 +259,7 @@ impl From<FileDiff> for FileDiffView {
             status: diff.status,
             binary: diff.binary,
             text: diff.text,
+            lines: diff.lines,
         }
     }
 }

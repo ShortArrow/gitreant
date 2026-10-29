@@ -17,6 +17,7 @@ import {
   deleteTag,
   fetchCommitDetail,
   fetchCommitDiff,
+  fetchFileContent,
   fetchRangeDiff,
   fetchFileDiff,
   fetchPrs,
@@ -231,6 +232,7 @@ export function RepoCard({
   loadDiff = fetchFileDiff,
   loadCommitDiff = fetchCommitDiff,
   loadRangeDiff = fetchRangeDiff,
+  loadFile = fetchFileContent,
   loadPrs = fetchPrs,
   loadSubmodules = fetchSubmoduleGraphs,
 }: {
@@ -254,6 +256,7 @@ export function RepoCard({
     base: string,
     target: string,
   ) => Promise<FileDiff[]>;
+  loadFile?: (repoId: string, id: string, path: string) => Promise<string | null>;
   loadPrs?: (repoId: string) => Promise<PrLookupView>;
   loadSubmodules?: (repoId: string) => Promise<SubmoduleGraph[]>;
 }) {
@@ -908,6 +911,17 @@ export function RepoCard({
           range={diffTarget.kind === "range" ? diffTarget : undefined}
           githubUrl={repo.github_url}
           repoPath={repo.path}
+          loadFile={(path) =>
+            loadFile(
+              repo.id,
+              diffTarget.kind === "range"
+                ? diffTarget.target
+                : selectedCommit && selectedCommit.uncommitted === undefined
+                  ? selected!
+                  : UNCOMMITTED_ID,
+              path,
+            )
+          }
           onClose={() => setDiffTarget(null)}
         />
       ) : (

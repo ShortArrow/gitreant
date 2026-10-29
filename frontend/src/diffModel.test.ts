@@ -1,5 +1,6 @@
-import { expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import {
+  diffBlocks,
   diffCounts,
   eolChange,
   inlineCells,
@@ -9,6 +10,7 @@ import {
   permalinkFragment,
   selectedLines,
   typstLink,
+  type DiffBlock,
 } from "./diffModel";
 
 test("pairs runs of removals and additions row by row", () => {
@@ -235,4 +237,61 @@ test("a permalink reads as a Markdown or a Typst link named by its lines", () =>
     String.raw`#link("https://github.com/o/r/blob/abc/src/a_b.ts#L3-L5")[src/a\_b.ts\#L3-L5]`,
   );
   expect(typstLink('u"x', "a")).toBe('#link("u\\"x")[a]');
+});
+
+describe("diffBlocks", () => {
+  // Lines 10 to 12 of a 30-line file, the middle one changed; the old side
+  // had two lines more above them.
+  const hunks = parseUnified("@@ -12,3 +10,3 @@\n L10\n-old\n+L11\n L12\n");
+  const lines = Array.from({ length: 30 }, (_, i) => `L${i + 1}`);
+  const gaps = (blocks: DiffBlock[]) =>
+    blocks.flatMap((b) => (b.kind === "gap" ? [[b.gap, b.hidden]] : []));
+  const rows = (blocks: DiffBlock[]) =>
+    blocks.flatMap((b) => (b.kind === "rows" ? b.rows : []));
+
+  test("hides the unchanged lines around the hunks", () => {
+    // Before the file is read, its end is known from its length alone, and
+    // unknown without it.
+    expect(gaps(diffBlocks(hunks, null, [], 30))).toEqual([
+      [0, 9],
+      [1, 18],
+    ]);
+    expect(gaps(diffBlocks(hunks, null, []))).toEqual([
+      [0, 9],
+      [1, null],
+    ]);
+    expect(gaps(diffBlocks(hunks, lines, []))).toEqual([
+      [0, 9],
+      [1, 18],
+    ]);
+    expect(rows(diffBlocks(hunks, lines, []))).toHaveLength(3);
+  });
+
+  test("opens a gap up from the next hunk and down from the previous one", () => {
+    const blocks = diffBlocks(hunks, lines, [
+      { up: 5, down: 0 },
+      { up: 0, down: 4 },
+    ]);
+    expect(gaps(blocks)).toEqual([
+      [0, 4],
+      [1, 14],
+    ]);
+    const shown = rows(blocks);
+    // Lines 5 to 9 above, numbered on the old side by the hunk below them.
+    expect(shown[0].right).toMatchObject({ no: 5, text: "L5", kind: "context" });
+    expect(shown[0].left).toMatchObject({ no: 7, text: "L5", kind: "context" });
+    // Lines 13 to 16 below, numbered by the hunk above them.
+    expect(shown.at(-1)!.right).toMatchObject({ no: 16, text: "L16" });
+    expect(shown.at(-1)!.left).toMatchObject({ no: 18 });
+  });
+
+  test("opens the whole file when every gap opens all the way", () => {
+    const all = { up: 0, down: Infinity };
+    const blocks = diffBlocks(hunks, lines, [all, all]);
+    expect(gaps(blocks)).toEqual([]);
+    const shown = rows(blocks);
+    expect(shown[0].right?.no).toBe(1);
+    expect(shown.at(-1)!.right?.no).toBe(30);
+    expect(shown.filter((r) => r.right)).toHaveLength(30);
+  });
 });

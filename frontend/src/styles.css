@@ -1767,6 +1767,36 @@ body {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
+/* Where unchanged lines are hidden: buttons to show them (ADR 0061). */
+.diff-gap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diff-gap-btn,
+.diff-whole-file {
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-elev);
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.diff-gap-btn:hover,
+.diff-whole-file:hover {
+  border-color: var(--accent);
+}
+
+.diff-gap-count,
+.diff-gap-note {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .diff-line-add {
   color: var(--success);
   background: color-mix(in srgb, var(--success) 10%, transparent);

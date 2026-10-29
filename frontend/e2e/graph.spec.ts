@@ -31,6 +31,7 @@ const fixtures = JSON.parse(
   repoV: string;
   repoW: string;
   repoY: string;
+  repoT: string;
 };
 
 /** Add the repository at `repoPath` through the drawer, opening its add
@@ -366,7 +367,8 @@ test.describe.serial("gitreant UI", () => {
     const pane = page.getByTestId("diff-pane");
     await expect(pane).toBeVisible();
     await expect(pane).toContainText("README.md");
-    await expect(pane).toContainText("@@");
+    // The hunk covers the whole two-line file: nothing is hidden around it.
+    await expect(pane.getByTestId("diff-gap")).toHaveCount(0);
     await expect(pane.locator(".diff-line-add")).toContainText("+two");
     await expect(pane.locator(".diff-line-context")).toContainText(" one");
     await expect(page.getByTestId("graph")).toHaveCount(0);
@@ -2567,6 +2569,52 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("settings-toggle").click();
     await expect(page.getByTestId("squash-links-toggle")).not.toBeChecked();
     await page.keyboard.press("Escape");
+  });
+
+  test("a diff opens the unchanged lines around its hunks", async ({
+    page,
+  }) => {
+    await addRepo(page, fixtures.repoT);
+    await expect(page.locator('[data-tab-name="repoT"]')).toBeVisible();
+    await page.getByTestId("commit-row").filter({ hasText: "t-2" }).click();
+    await page
+      .getByTestId("detail-file")
+      .filter({ hasText: "long.txt" })
+      .click();
+    await page.getByTestId("diff-view-inline").click();
+    const pane = page.getByTestId("diff-pane");
+    const line = (no: number) =>
+      pane.locator('[data-testid="line-no"]', {
+        hasText: new RegExp(`^${no}$`),
+      });
+    const gaps = pane.getByTestId("diff-gap");
+
+    // Lines 27 to 33 show around the change; the rest hides above and below.
+    await expect(gaps).toHaveCount(2);
+    await expect(gaps.first()).toContainText("26 lines hidden");
+    await expect(gaps.last()).toContainText("27 lines hidden");
+    await expect(line(26)).toHaveCount(0);
+    // Twenty lines up from the hunk, then the six left at once.
+    await gaps.first().getByTestId("gap-up").click();
+    await expect(line(7)).toHaveCount(1);
+    await expect(line(6)).toHaveCount(0);
+    await gaps.first().getByTestId("gap-all").click();
+    await expect(line(1)).toHaveCount(1);
+    await expect(gaps).toHaveCount(1);
+    // Twenty down from the hunk leaves seven at the end.
+    await gaps.getByTestId("gap-down").click();
+    await expect(line(53)).toHaveCount(1);
+    await expect(gaps.getByTestId("gap-all")).toContainText("7");
+    // The whole file opens what is left.
+    await pane.getByTestId("diff-whole-file").click();
+    await expect(gaps).toHaveCount(0);
+    await expect(line(60)).toHaveCount(1);
+    await expect(pane.getByTestId("diff-whole-file")).toHaveCount(0);
+
+    const repoT = page.locator('[data-repo-name="repoT"]');
+    await repoT.hover();
+    await repoT.getByTestId("repo-remove").click();
+    await expect(repoT).toHaveCount(0);
   });
 
   test("diff lines can be selected, copied and permalinked", async ({

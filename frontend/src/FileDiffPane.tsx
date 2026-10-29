@@ -1,13 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FileDiff } from "./api";
 import { absolutePath } from "./CommitDetailPanel";
-import { CopyIcon, InlineIcon, LineMenuIcon, SplitIcon } from "./Icons";
+import {
+  CopyIcon,
+  InlineIcon,
+  LineMenuIcon,
+  ShowAboveIcon,
+  ShowBelowIcon,
+  SplitIcon,
+  WholeFileIcon,
+} from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { countKey } from "./i18n";
 import { useT } from "./settings";
 import { keyboardTaken } from "./keyboard";
 import { shortId } from "./graph";
 import {
+  diffBlocks,
   eolChange,
   inlineCells,
   markdownLink,
@@ -15,7 +24,8 @@ import {
   permalinkFragment,
   selectedLines,
   typstLink,
-  type DiffHunk,
+  type DiffBlock,
+  type GapOpening,
   type DiffSide,
   type SplitCell,
 } from "./diffModel";
@@ -51,6 +61,7 @@ export function FileDiffPane({
   range,
   githubUrl,
   repoPath,
+  loadFile,
   onClose,
 }: {
   /** null while loading; one entry per shown file. */
@@ -68,6 +79,9 @@ export function FileDiffPane({
   githubUrl?: string;
   /** The repository's directory, which absolute paths start from. */
   repoPath: string;
+  /** A file's text on the side the diffs lead to, for the unchanged lines
+   * around them; null when it cannot be read. */
+  loadFile?: (path: string) => Promise<string | null>;
   onClose: () => void;
 }) {
   const t = useT();
@@ -166,7 +180,9 @@ export function FileDiffPane({
             parentId={parentId}
             githubUrl={githubUrl}
             repoPath={repoPath}
+            loadFile={loadFile}
             onSelectLine={selectLine}
+            onClearSelection={() => setSelection(null)}
           />
         ))}
       </div>
@@ -182,7 +198,9 @@ function FileSection({
   parentId,
   githubUrl,
   repoPath,
+  loadFile,
   onSelectLine,
+  onClearSelection,
 }: {
   diff: FileDiff;
   view: DiffView;
@@ -191,30 +209,86 @@ function FileSection({
   parentId?: string;
   githubUrl?: string;
   repoPath: string;
+  loadFile?: (path: string) => Promise<string | null>;
   onSelectLine: (
     path: string,
     side: DiffSide,
     index: number,
     extend: boolean,
   ) => void;
+  onClearSelection: () => void;
 }) {
   const t = useT();
   const hunks = useMemo(() => parseUnified(diff.text), [diff.text]);
   const conversion = useMemo(() => eolChange(hunks), [hunks]);
+  const [opened, setOpened] = useState<GapOpening[]>([]);
+  const [content, setContent] = useState<string[] | "unreadable" | null>(
+    diff.status === "A" || diff.status === "D" ? [] : null,
+  );
+  const lines = Array.isArray(content) ? content : null;
+  const blocks = useMemo(
+    () => diffBlocks(hunks, lines, opened, lines?.length ?? diff.lines ?? null),
+    [hunks, lines, opened, diff.lines],
+  );
+  const rows = useMemo(
+    () => blocks.flatMap((b) => (b.kind === "rows" ? b.rows : [])),
+    [blocks],
+  );
+  const readLines = async (): Promise<string[] | null> => {
+    if (lines) return lines;
+    const text = loadFile ? await loadFile(diff.path).catch(() => null) : null;
+    if (text === null) {
+      setContent("unreadable");
+      return null;
+    }
+    const read = fileLines(text);
+    setContent(read);
+    return read;
+  };
+  const openGaps = async (open: (gaps: GapOpening[]) => GapOpening[]) => {
+    if (!(await readLines())) return;
+    onClearSelection();
+    setOpened(open);
+  };
+  const openGap = (gap: number, more: Partial<GapOpening>) =>
+    openGaps((prev) => {
+      const next = [...prev];
+      const now = prev[gap] ?? { up: 0, down: 0 };
+      next[gap] = {
+        up: now.up + (more.up ?? 0),
+        down: now.down + (more.down ?? 0),
+      };
+      return next;
+    });
+  const openAll = () =>
+    openGaps(() =>
+      Array.from({ length: hunks.length + 1 }, () => ({
+        up: 0,
+        down: Infinity,
+      })),
+    );
+  const hasGaps = blocks.some((b) => b.kind === "gap");
+  const gapRow = (block: Gap) => (
+    <GapRow
+      key={`gap-${block.gap}`}
+      block={block}
+      first={block.gap === 0}
+      last={block.gap === hunks.length}
+      unreadable={content === "unreadable"}
+      onOpen={(more) => void openGap(block.gap, more)}
+    />
+  );
   // The selected side's display lines; selection indices point into rows
   // (split) or the flattened inline cells.
   const selectedCells: (SplitCell | undefined)[] = useMemo(() => {
     if (!selection) return [];
     if (view === "inline") {
-      return hunks
-        .flatMap((h) => inlineCells(h.rows))
-        .slice(selection.from, selection.to + 1);
+      return inlineCells(rows).slice(selection.from, selection.to + 1);
     }
-    return hunks
-      .flatMap((h) => h.rows)
+    return rows
       .slice(selection.from, selection.to + 1)
       .map((r) => (selection.side === "new" ? r.right : r.left));
-  }, [hunks, view, selection]);
+  }, [rows, view, selection]);
 
   const isSelected = (index: number, side: DiffSide) =>
     selection !== null &&
@@ -269,12 +343,22 @@ function FileSection({
             {t("eolConversion", conversion)}
           </span>
         )}
+        {!diff.binary && hasGaps && content !== "unreadable" && (
+          <LabeledButton
+            icon={<WholeFileIcon />}
+            label={t("wholeFile")}
+            testId="diff-whole-file"
+            className="diff-whole-file"
+            onClick={() => void openAll()}
+          />
+        )}
       </div>
       {diff.binary ? (
         <p className="diff-binary">{t("binaryFile")}</p>
       ) : view === "inline" ? (
         <InlineDiff
-          hunks={hunks}
+          blocks={blocks}
+          gapRow={gapRow}
           isSelected={(i) => isSelected(i, "new")}
           onSelect={(i, extend) => handleSelect("new", i, extend)}
           anchorIndex={anchorIndex}
@@ -282,7 +366,8 @@ function FileSection({
         />
       ) : (
         <SplitDiff
-          hunks={hunks}
+          blocks={blocks}
+          gapRow={gapRow}
           isSelected={isSelected}
           onSelect={handleSelect}
           anchorIndex={anchorIndex}
@@ -291,6 +376,84 @@ function FileSection({
         />
       )}
     </section>
+  );
+}
+
+/** A diff's gap of hidden unchanged lines. */
+type Gap = Extract<DiffBlock, { kind: "gap" }>;
+
+/** How many unchanged lines one press of a gap's button shows. */
+const GAP_STEP = 20;
+
+/** A file's text as its lines, the line endings dropped. */
+function fileLines(text: string): string[] {
+  return text
+    .replace(/\r?\n$/, "")
+    .split("\n")
+    .map((line) => line.replace(/\r$/, ""));
+}
+
+/** Where unchanged lines are hidden (ADR 0061): buttons to show them down
+ * from the hunk above, up from the hunk below, or all at once when few
+ * remain, beside the next hunk's header. */
+function GapRow({
+  block,
+  first,
+  last,
+  unreadable,
+  onOpen,
+}: {
+  block: Gap;
+  first: boolean;
+  last: boolean;
+  unreadable: boolean;
+  onOpen: (more: Partial<GapOpening>) => void;
+}) {
+  const t = useT();
+  const few = block.hidden !== null && block.hidden <= GAP_STEP;
+  return (
+    <div className="diff-line diff-line-hunk diff-gap" data-testid="diff-gap">
+      {unreadable ? (
+        <span className="diff-gap-note">{t("contextUnreadable")}</span>
+      ) : few ? (
+        <LabeledButton
+          icon={<WholeFileIcon />}
+          label={t(countKey("showHiddenLines", block.hidden!), {
+            n: block.hidden!,
+          })}
+          testId="gap-all"
+          className="diff-gap-btn"
+          onClick={() => onOpen({ down: block.hidden! })}
+        />
+      ) : (
+        <>
+          {!first && (
+            <LabeledButton
+              icon={<ShowBelowIcon />}
+              label={t("showLinesBelow", { n: GAP_STEP })}
+              testId="gap-down"
+              className="diff-gap-btn"
+              onClick={() => onOpen({ down: GAP_STEP })}
+            />
+          )}
+          {!last && (
+            <LabeledButton
+              icon={<ShowAboveIcon />}
+              label={t("showLinesAbove", { n: GAP_STEP })}
+              testId="gap-up"
+              className="diff-gap-btn"
+              onClick={() => onOpen({ up: GAP_STEP })}
+            />
+          )}
+        </>
+      )}
+      {!unreadable && !few && block.hidden !== null && (
+        <span className="diff-gap-count">
+          {t(countKey("hiddenLines", block.hidden), { n: block.hidden })}
+        </span>
+      )}
+      <span className="diff-gap-header">{block.header}</span>
+    </div>
   );
 }
 
@@ -412,13 +575,15 @@ function LineMenu({
 const INLINE_PREFIX = { remove: "-", add: "+", context: " " } as const;
 
 function InlineDiff({
-  hunks,
+  blocks,
+  gapRow,
   isSelected,
   onSelect,
   anchorIndex,
   anchor,
 }: {
-  hunks: DiffHunk[];
+  blocks: DiffBlock[];
+  gapRow: (block: Gap) => React.ReactNode;
   isSelected: (index: number) => boolean;
   onSelect: (index: number, extend: boolean) => void;
   /** Display index carrying the selection dropdown (-1 for none). */
@@ -428,13 +593,13 @@ function InlineDiff({
   let base = 0;
   return (
     <pre className="diff-body">
-      {hunks.map((hunk) => {
-        const cells = inlineCells(hunk.rows);
+      {blocks.map((block, b) => {
+        if (block.kind === "gap") return gapRow(block);
+        const cells = inlineCells(block.rows);
         const offset = base;
         base += cells.length;
         return (
-          <div key={hunk.header}>
-            <div className="diff-line diff-line-hunk">{hunk.header}</div>
+          <div key={`rows-${b}`}>
             {cells.map((cell, i) => (
               <div
                 key={i}
@@ -512,14 +677,16 @@ function LineNo({
 }
 
 function SplitDiff({
-  hunks,
+  blocks,
+  gapRow,
   isSelected,
   onSelect,
   anchorIndex,
   anchorSide,
   anchor,
 }: {
-  hunks: DiffHunk[];
+  blocks: DiffBlock[];
+  gapRow: (block: Gap) => React.ReactNode;
   isSelected: (index: number, side: DiffSide) => boolean;
   onSelect: (side: DiffSide, index: number, extend: boolean) => void;
   /** Display index and side carrying the selection dropdown (-1 for none). */
@@ -530,13 +697,13 @@ function SplitDiff({
   let base = 0;
   return (
     <div className="diff-body diff-split">
-      {hunks.map((hunk) => {
+      {blocks.map((block, b) => {
+        if (block.kind === "gap") return gapRow(block);
         const offset = base;
-        base += hunk.rows.length;
+        base += block.rows.length;
         return (
-          <div key={hunk.header}>
-            <div className="diff-line diff-line-hunk">{hunk.header}</div>
-            {hunk.rows.map((row, i) => (
+          <div key={`rows-${b}`}>
+            {block.rows.map((row, i) => (
               <div key={i} className="split-row">
                 <SplitSide
                   cell={row.left}
