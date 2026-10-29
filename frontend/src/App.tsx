@@ -172,12 +172,14 @@ export function App() {
       if (seq === fetchSeq.current) {
         setRepos(list);
         setLoadError(null);
+        setLoaded(true);
         loadViews(list, seq);
       }
     } catch (e) {
-      if (seq === fetchSeq.current) setLoadError(String(e));
-    } finally {
-      setLoaded(true);
+      if (seq === fetchSeq.current) {
+        setLoadError(String(e));
+        setLoaded(true);
+      }
     }
   }, [loadViews]);
 
