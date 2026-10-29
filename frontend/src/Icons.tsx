@@ -14,7 +14,9 @@ import {
   StackIcon,
   TagIcon,
   ColumnsIcon,
+  DiffAddedIcon,
   DiffIcon,
+  DiffRemovedIcon,
   DotFillIcon,
   DownloadIcon,
   FileDirectoryIcon,
@@ -74,6 +76,21 @@ export function DiffAllIcon() {
 /** A plus: add a repository. */
 export function AddIcon() {
   return <PlusIcon className="btn-icon" size={SIZE} />;
+}
+
+/** Lines added and deleted alike: shade by both. */
+export function ShadingBothIcon() {
+  return <DiffIcon className="btn-icon" size={SIZE} />;
+}
+
+/** Lines added: shade by them alone. */
+export function ShadingAddedIcon() {
+  return <DiffAddedIcon className="btn-icon" size={SIZE} />;
+}
+
+/** Lines deleted: shade by them alone. */
+export function ShadingDeletedIcon() {
+  return <DiffRemovedIcon className="btn-icon" size={SIZE} />;
 }
 
 /** An open directory: browse for a folder. */

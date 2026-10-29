@@ -1189,6 +1189,33 @@ test.describe.serial("gitreant UI", () => {
     await expect(day).not.toHaveClass(/blank/);
   });
 
+  test("the calendar's shading buttons follow the button style", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page.getByTestId("calendar-toggle").click();
+    const added = page.getByTestId("shading-added").locator("..");
+    const style = async (name: string) => {
+      await page.getByTestId("settings-toggle").click();
+      await page.getByTestId(`button-style-${name}`).click();
+      await page.keyboard.press("Escape");
+    };
+
+    // Icon with label by default.
+    await expect(added.locator("svg")).toHaveCount(1);
+    await expect(added).toContainText("Added");
+
+    // The icon alone keeps the label as the tooltip.
+    await style("icon");
+    await expect(added.locator("svg")).toHaveCount(1);
+    await expect(added).not.toContainText("Added");
+    await expect(added).toHaveAttribute("title", "Added");
+
+    await style("label");
+    await expect(added.locator("svg")).toHaveCount(0);
+    await expect(added).toContainText("Added");
+  });
+
   test("scrolling the calendar to its oldest end reads older pages", async ({
     page,
   }) => {

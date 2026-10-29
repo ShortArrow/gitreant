@@ -81,6 +81,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The calendar's buttons for shading by both, added or deleted lines carry
+  diff icons and follow the button style setting like the other buttons
+  ([ADR 0057](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0057-segmented-button-style.md)).
 - A repository is added from an Add button in the drawer's head, which
   opens a path field (Enter adds it) and "Choose folder…"; the path field,
   Browse and Add buttons no longer sit above the filter

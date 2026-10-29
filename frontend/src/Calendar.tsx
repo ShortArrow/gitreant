@@ -10,6 +10,7 @@ import {
   type Shading,
 } from "./calendarModel";
 import { periodStart } from "./candleModel";
+import { ShadingAddedIcon, ShadingBothIcon, ShadingDeletedIcon } from "./Icons";
 import { Segmented } from "./Segmented";
 import { countKey } from "./i18n";
 import { useLang, useT, useWeekStart } from "./settings";
@@ -32,12 +33,12 @@ const PAGE_INTERVAL = 500;
  * Wednesday and Friday. */
 const LABELED_WEEKDAYS = [1, 3, 5];
 
-/** The shadings offered above the weeks. */
+/** The shadings offered above the weeks, with their icons. */
 const SHADINGS = [
-  ["both", "shadingBoth"],
-  ["added", "shadingAdded"],
-  ["deleted", "shadingDeleted"],
-] as const satisfies readonly (readonly [Shading, string])[];
+  ["both", "shadingBoth", <ShadingBothIcon />],
+  ["added", "shadingAdded", <ShadingAddedIcon />],
+  ["deleted", "shadingDeleted", <ShadingDeletedIcon />],
+] as const satisfies readonly (readonly [Shading, string, React.ReactNode])[];
 
 /** A day's fill: green to red by the share of lines added, faint to full by
  * how many lines changed. */
@@ -144,7 +145,11 @@ export function Calendar({
         <Segmented
           name="shading"
           value={shading}
-          options={SHADINGS.map(([value, label]) => [value, t(label)])}
+          options={SHADINGS.map(([value, label, icon]) => [
+            value,
+            t(label),
+            icon,
+          ])}
           onChange={setShading}
         />
       </div>

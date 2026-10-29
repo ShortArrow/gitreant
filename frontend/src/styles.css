@@ -466,6 +466,13 @@ body {
   cursor: pointer;
 }
 
+/* A segment with an icon lines it up with its label, as a button does. */
+.segment:has(.btn-icon) {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .segment + .segment {
   border-left: 1px solid var(--border);
 }
