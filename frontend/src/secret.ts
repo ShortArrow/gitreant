@@ -15,7 +15,7 @@ export function secretFrom(hash: string): string | null {
 }
 
 /** Take the secret from the address, keep it, and take it out of the
- * address so it stays out of history; else use the one kept. */
+ * address bar and the session's history; else use the one kept. */
 export function initSecret() {
   const handed = secretFrom(window.location.hash);
   if (handed) {
