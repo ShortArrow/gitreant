@@ -55,16 +55,24 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-repo-name="repoB"]')).toBeVisible();
   });
 
-  test("the add button in the drawer's head opens the add panel", async ({
-    page,
-  }) => {
+  test("a row at the end of the list adds a repository", async ({ page }) => {
     const input = page.getByTestId("add-input");
     await expect(input).toHaveCount(0);
     await expect(page.getByTestId("add-submit")).toHaveCount(0);
+    // The row ends the list, after the last repository, like a browser's
+    // vertical tabs end with a new tab.
+    const last = page.locator(".repo-list > li").last();
+    await expect(last.getByTestId("drawer-add")).toContainText(
+      "Add repository",
+    );
+    await expect(
+      page.locator(".drawer-head [data-testid=drawer-add]"),
+    ).toHaveCount(0);
 
-    // Opening focuses the path field; Escape closes it.
+    // Opening focuses the path field in the row's place; Escape closes it.
     await page.getByTestId("drawer-add").click();
     await expect(input).toBeFocused();
+    await expect(last.getByTestId("add-input")).toHaveCount(1);
     await expect(page.getByTestId("add-browse")).toContainText(
       "Choose folder…",
     );
@@ -2433,7 +2441,7 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("button-style-icon").click();
     await expect(add).not.toContainText("Add");
     await expect(add.locator("svg")).toHaveCount(1);
-    await expect(add).toHaveAttribute("title", "Add");
+    await expect(add).toHaveAttribute("title", "Add repository");
     await expect(reload).not.toContainText("Reload");
 
     // Label only: no icon.

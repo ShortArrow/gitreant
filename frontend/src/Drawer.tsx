@@ -318,14 +318,6 @@ export function Drawer({
       <div className="drawer-head">
         <span className="drawer-title">{t("repositories")}</span>
         <LabeledButton
-          icon={<AddIcon />}
-          label={t("add")}
-          testId="drawer-add"
-          className="icon-btn"
-          active={addOpen}
-          onClick={() => (addOpen ? closeAdd() : setAddOpen(true))}
-        />
-        <LabeledButton
           icon={<CollapseIcon />}
           label={t("collapse")}
           testId="drawer-collapse"
@@ -333,34 +325,6 @@ export function Drawer({
           onClick={onToggle}
         />
       </div>
-
-      {(addOpen || (loaded && repos.length === 0)) && (
-        <form
-          className="drawer-add"
-          onSubmit={submit}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") closeAdd();
-          }}
-        >
-          <input
-            type="text"
-            placeholder={t("addRepoPlaceholder")}
-            data-testid="add-input"
-            value={path}
-            autoFocus
-            onChange={(e) => setPath(e.target.value)}
-          />
-          <LabeledButton
-            icon={<BrowseIcon />}
-            label={t("browse")}
-            testId="add-browse"
-            className="browse"
-            onClick={browse}
-            disabled={adding}
-          />
-        </form>
-      )}
-      {error && <p className="drawer-error">{error}</p>}
 
       {repos.length > 0 && (
         <div className="drawer-arrange">
@@ -556,6 +520,43 @@ export function Drawer({
             {t("noReposMatch")}
           </li>
         )}
+        <li className="repo-add">
+          {addOpen || (loaded && repos.length === 0) ? (
+            <form
+              className="drawer-add"
+              onSubmit={submit}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") closeAdd();
+              }}
+            >
+              <input
+                type="text"
+                placeholder={t("addRepoPlaceholder")}
+                data-testid="add-input"
+                value={path}
+                autoFocus
+                onChange={(e) => setPath(e.target.value)}
+              />
+              <LabeledButton
+                icon={<BrowseIcon />}
+                label={t("browse")}
+                testId="add-browse"
+                className="browse"
+                onClick={browse}
+                disabled={adding}
+              />
+            </form>
+          ) : (
+            <LabeledButton
+              icon={<AddIcon />}
+              label={t("addRepository")}
+              testId="drawer-add"
+              className="repo-add-row"
+              onClick={() => setAddOpen(true)}
+            />
+          )}
+          {error && <p className="drawer-error">{error}</p>}
+        </li>
       </ul>
 
       {menu && (

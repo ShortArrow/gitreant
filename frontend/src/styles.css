@@ -151,8 +151,7 @@ body {
 .drawer-add {
   display: flex;
   gap: 6px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
+  padding: 4px 0;
 }
 
 .drawer-add input {
@@ -355,6 +354,42 @@ body {
 
 .repo-item:hover .repo-remove {
   opacity: 1;
+}
+
+/* The row that ends the list and adds to it, like a new tab ending a
+   browser's vertical tabs (ADR 0060). */
+.labeled-btn.repo-add-row {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.repo-add-row:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text);
+}
+
+/* Opened, the row gives the path field its whole width and puts the
+   folder picker under it. */
+.repo-add .drawer-add {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.repo-add .drawer-add input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.repo-add .drawer-error {
+  margin: 4px 0 0;
 }
 
 .repo-empty {
