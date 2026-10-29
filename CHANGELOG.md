@@ -71,6 +71,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `+0 −0`, which read the same as a text file with no line added or
   deleted
   ([ADR 0053](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0053-binary-files-in-the-list.md)).
+- The drawer's filter finds the submodules and worktrees nested under a
+  repository, a worktree also by its branch, and opens the repository to
+  them
+  ([ADR 0054](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0054-filter-nested-rows.md)).
 
 ### Changed
 

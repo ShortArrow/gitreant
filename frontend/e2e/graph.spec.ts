@@ -3549,6 +3549,38 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-repo-name="repoQ"]')).toHaveCount(0);
   });
 
+  test("the drawer filter finds a nested worktree by its branch", async ({
+    page,
+  }) => {
+    await page.getByTestId("add-input").fill(fixtures.repoQ);
+    await page.getByTestId("add-submit").click();
+    await expect(page.locator('[data-tab-name="repoQ"]')).toBeVisible();
+    const filter = page.getByTestId("repo-filter");
+    const rows = page.getByTestId("repo-item");
+    const worktree = page.getByTestId("repo-worktree");
+
+    // Its parent stays, opened to the worktree, though neither its name
+    // nor its path holds the branch.
+    await filter.fill("TOPIC");
+    await expect(rows).toHaveCount(1);
+    await expect(rows).toHaveAttribute("data-repo-name", "repoQ");
+    await expect(worktree).toHaveCount(1);
+    await expect(worktree.getByTestId("repo-worktree-branch")).toHaveText(
+      "topic",
+    );
+
+    // A parent that matches itself keeps its accordion as it was, closed.
+    await filter.fill("repoQ");
+    await expect(rows).toHaveCount(1);
+    await expect(worktree).toHaveCount(0);
+
+    await filter.fill("");
+    const repoQ = page.locator('[data-repo-name="repoQ"]');
+    await repoQ.hover();
+    await repoQ.getByTestId("repo-remove").click();
+    await expect(repoQ).toHaveCount(0);
+  });
+
   test("paging keeps the uncommitted row on top and loads every commit", async ({
     page,
   }) => {

@@ -1,6 +1,11 @@
 import { expect, test } from "vitest";
 import type { RepoListEntry } from "./api";
-import { activateOnKey, arrangeRepos, topLevelRepos } from "./Drawer";
+import {
+  activateOnKey,
+  arrangeRepos,
+  nestedMatches,
+  topLevelRepos,
+} from "./Drawer";
 
 const repos: RepoListEntry[] = [
   { id: "/w/Zeta", name: "Zeta", path: "/work/zeta" },
@@ -140,4 +145,47 @@ test("topLevelRepos nests a linked worktree only while its main is listed", () =
     ],
   };
   expect(topLevelRepos([linked, other]).map((r) => r.name)).toEqual(["wt", "wt2"]);
+});
+
+const app: RepoListEntry = {
+  id: "/p/app",
+  name: "app",
+  path: "/p/app",
+  submodules: [
+    { name: "core", path: "/p/app/libs/core" },
+    { name: "ui", path: "/p/app/libs/ui" },
+  ],
+  worktrees: [
+    { name: "app", path: "/p/app", branch: "main", main: true },
+    { name: "hotfix", path: "/p/hotfix", branch: "fix/login", main: false },
+  ],
+};
+
+test("arrangeRepos keeps a row whose nested rows match", () => {
+  const rows = [app, ...repos];
+  expect(arrangeRepos(rows, "CORE", "added").map((r) => r.name)).toEqual([
+    "app",
+  ]);
+  expect(arrangeRepos(rows, "/p/hotfix", "added").map((r) => r.name)).toEqual([
+    "app",
+  ]);
+  expect(arrangeRepos(rows, "login", "added").map((r) => r.name)).toEqual([
+    "app",
+  ]);
+});
+
+test("nestedMatches narrows the nested rows to those the filter finds", () => {
+  expect(nestedMatches(app, "core")).toEqual({
+    submodules: [{ name: "core", path: "/p/app/libs/core" }],
+    worktrees: [],
+  });
+  expect(nestedMatches(app, "Login")).toEqual({
+    submodules: [],
+    worktrees: [
+      { name: "hotfix", path: "/p/hotfix", branch: "fix/login", main: false },
+    ],
+  });
+  // No filter, or a parent that matches itself: its accordion as it is.
+  expect(nestedMatches(app, " ")).toBeNull();
+  expect(nestedMatches(app, "/p/app")).toBeNull();
 });

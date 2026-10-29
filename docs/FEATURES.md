@@ -21,7 +21,8 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 - **Submodules and worktrees nest.** A repository with submodules lists
   them under itself. Linked `git worktree` checkouts nest under their
   repository too, with the branch each has checked out. Clicking either
-  opens it as a view of its own.
+  opens it as a view of its own. The filter finds them too, a worktree
+  also by its branch, and opens their repository to the ones it finds.
 - **Live updates and read progress.** Adding or removing a repository
   reaches every open browser through Server-Sent Events, and the reload
   button re-reads from disk. A large repository shows how many commits have

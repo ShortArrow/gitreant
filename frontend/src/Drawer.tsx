@@ -4,6 +4,8 @@ import {
   type AddReason,
   type RepoListEntry,
   type RepoStatus,
+  type SubmoduleEntry,
+  type WorktreeEntry,
 } from "./api";
 import { ContextMenu } from "./ContextMenu";
 import {
@@ -45,22 +47,46 @@ export function storeRepoSort(sort: RepoSort) {
   }
 }
 
-/** Filter by a case-insensitive substring of the name or path, then order.
- * "added" keeps the server's order; the alphabetical sorts are locale-aware
- * and case-insensitive. Pure, so the ordering is unit-testable. */
+/** Whether any of the texts holds the needle, a lower-cased substring. */
+function holds(needle: string, ...texts: (string | undefined)[]): boolean {
+  return texts.some((text) => text?.toLowerCase().includes(needle));
+}
+
+/** The nested rows a filter finds under a row whose own name and path it
+ * does not: submodules by name or path, worktrees by name, path or branch.
+ * `null` when there is no filter or the row matches itself, so its
+ * accordion shows as the user left it. */
+export function nestedMatches(
+  repo: RepoListEntry,
+  filter: string,
+): { submodules: SubmoduleEntry[]; worktrees: WorktreeEntry[] } | null {
+  const needle = filter.trim().toLowerCase();
+  if (!needle || holds(needle, repo.name, repo.path)) return null;
+  return {
+    submodules: (repo.submodules ?? []).filter((s) =>
+      holds(needle, s.name, s.path),
+    ),
+    worktrees: (repo.worktrees ?? []).filter((w) =>
+      holds(needle, w.name, w.path, w.branch),
+    ),
+  };
+}
+
+/** Filter by a case-insensitive substring of the name or path, of the row
+ * or of a row nested under it, then order. "added" keeps the server's
+ * order; the alphabetical sorts are locale-aware and case-insensitive.
+ * Pure, so the ordering is unit-testable. */
 export function arrangeRepos(
   repos: RepoListEntry[],
   filter: string,
   sort: RepoSort,
 ): RepoListEntry[] {
-  const needle = filter.trim().toLowerCase();
-  const filtered = needle
-    ? repos.filter(
-        (r) =>
-          r.name.toLowerCase().includes(needle) ||
-          r.path.toLowerCase().includes(needle),
-      )
-    : repos;
+  const filtered = repos.filter((r) => {
+    const nested = nestedMatches(r, filter);
+    return (
+      nested === null || nested.submodules.length + nested.worktrees.length > 0
+    );
+  });
   if (sort === "added") return filtered;
   return [...filtered].sort((a, b) =>
     a[sort].localeCompare(b[sort], undefined, { sensitivity: "base" }),
@@ -346,9 +372,10 @@ export function Drawer({
 
       <ul className="repo-list">
         {arranged.map((repo) => {
-          const subs = repo.submodules ?? [];
-          const worktrees = repo.worktrees ?? [];
-          const isOpen = expanded.has(repo.id);
+          const found = nestedMatches(repo, filter);
+          const subs = found?.submodules ?? repo.submodules ?? [];
+          const worktrees = found?.worktrees ?? repo.worktrees ?? [];
+          const isOpen = found !== null || expanded.has(repo.id);
           return (
             <Fragment key={repo.id}>
               <li

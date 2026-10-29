@@ -97,8 +97,6 @@ keyed off the remote URL's host.
 - **Stage, commit and discard from the uncommitted row** — writes, so a
   QUALITY.md revision and an ADR come first
 - **Create and remove worktrees** — likewise
-- **Let the drawer filter find nested worktrees** — today it only looks at
-  top-level rows
 - **Keep a worktree on a disconnected network drive from stalling the
   list** — check existence with a timeout, or leave it out of the list and
   resolve it later
