@@ -311,8 +311,6 @@ fn shutdown_all() -> ExitCode {
     code
 }
 
-/// Print the running servers, or that none runs (ADR 0039): a line each,
-/// with their repositories when `verbose`, or everything as JSON.
 /// `gitreant editor`: the only writer of the editors list, so the page that
 /// runs them can never choose what runs (ADR 0062).
 fn editor(action: &EditorAction) -> ExitCode {
@@ -369,6 +367,8 @@ fn editor(action: &EditorAction) -> ExitCode {
     }
 }
 
+/// Print the running servers, or that none runs (ADR 0039): a line each,
+/// with their repositories when `verbose`, or everything as JSON.
 fn list(verbose: bool, json: bool) -> ExitCode {
     let running = running_servers();
     if json {
