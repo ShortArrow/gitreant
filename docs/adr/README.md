@@ -67,3 +67,4 @@ are canonical; the files below are their English translations.
 | [0057](0057-segmented-button-style.md) | Let the calendar's shading buttons follow the button style | Accepted |
 | [0058](0058-thickness-depth-order.md) | Order the thickness by depth, the added side in front | Accepted |
 | [0059](0059-thickness-outline-setting.md) | Make the thickness's outline a setting, off by default | Accepted |
+| [0060](0060-add-row.md) | Add a repository from a row at the end of the list | Accepted |

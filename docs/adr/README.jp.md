@@ -63,3 +63,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0057](0057-segmented-button-style.jp.md) | カレンダーの塗り方のボタンをボタンの表示の設定に従わせる | Accepted |
 | [0058](0058-thickness-depth-order.jp.md) | 厚みを奥行きの順に描き、加えた側を手前にする | Accepted |
 | [0059](0059-thickness-outline-setting.jp.md) | 厚みの輪郭を設定にし、既定では出さない | Accepted |
+| [0060](0060-add-row.jp.md) | リポジトリの追加を一覧の末尾の行から行う | Accepted |
