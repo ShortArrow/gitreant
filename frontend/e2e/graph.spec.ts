@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -32,6 +32,12 @@ const fixtures = JSON.parse(
   repoW: string;
   repoY: string;
 };
+
+/** Add the repository at `repoPath` through the drawer. */
+async function addRepo(page: Page, repoPath: string) {
+  await page.getByTestId("add-input").fill(repoPath);
+  await page.getByTestId("add-submit").click();
+}
 
 test.describe.serial("gitreant UI", () => {
   test.beforeEach(async ({ page }) => {
@@ -471,8 +477,7 @@ test.describe.serial("gitreant UI", () => {
   });
 
   test("reload button re-reads repositories from disk", async ({ page }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoE);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoE);
     await expect(page.locator('[data-tab-name="repoE"]')).toBeVisible();
     await expect(page.getByTestId("commit-row")).toHaveCount(1);
 
@@ -494,8 +499,7 @@ test.describe.serial("gitreant UI", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 400 });
-    await page.getByTestId("add-input").fill(fixtures.repoD);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoD);
     await expect(page.getByTestId("commit-row")).toHaveCount(13);
 
     await page
@@ -615,8 +619,7 @@ test.describe.serial("gitreant UI", () => {
   test("fetch button pulls new remote commits into the graph", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoF);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoF);
     await expect(page.locator('[data-tab-name="repoF"]')).toBeVisible();
     await expect(page.getByTestId("commit-row")).toHaveCount(1);
 
@@ -684,8 +687,7 @@ test.describe.serial("gitreant UI", () => {
   test("a merge spanning many rows bends once, then runs vertically", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoD);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoD);
     await expect(page.locator('[data-tab-name="repoD"]')).toBeVisible();
     await expect(page.getByTestId("commit-row")).toHaveCount(13);
 
@@ -1130,8 +1132,7 @@ test.describe.serial("gitreant UI", () => {
       localStorage.setItem("gitreant-page-size", "60"),
     );
     await page.reload();
-    await page.getByTestId("add-input").fill(fixtures.repoY);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoY);
     await page.locator('[data-repo-name="repoY"]').click();
     await page.getByTestId("calendar-toggle").click();
     const weeks = page.getByTestId("calendar").locator(".calendar-week");
@@ -1184,8 +1185,7 @@ test.describe.serial("gitreant UI", () => {
   test("the range narrows the chart, and quarters and years cut it", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoY);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoY);
     await page.locator('[data-repo-name="repoY"]').click();
     await expect(page.getByTestId("commit-row")).toHaveCount(208);
     await page.getByTestId("cumulative-toggle").click();
@@ -1385,8 +1385,7 @@ test.describe.serial("gitreant UI", () => {
 
   test("only the rows near the view are drawn thick", async ({ page }) => {
     // Drawing every row's thickness made a long history too slow to tilt.
-    await page.getByTestId("add-input").fill(fixtures.repoW);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoW);
     await page.locator('[data-repo-name="repoW"]').click();
     const stat = (summary: RegExp) =>
       page
@@ -1431,8 +1430,7 @@ test.describe.serial("gitreant UI", () => {
       await route.continue();
     });
     await page.reload();
-    await page.getByTestId("add-input").fill(fixtures.repoU);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoU);
     await expect(page.locator('[data-tab-name="repoU"]')).toBeVisible();
     await expect(page.getByTestId("commit-stat")).toHaveText("+3 −0");
 
@@ -1456,8 +1454,7 @@ test.describe.serial("gitreant UI", () => {
       }
       await route.fulfill({ response, json: view });
     });
-    await page.getByTestId("add-input").fill(fixtures.repoV);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoV);
     await expect(page.locator('[data-tab-name="repoV"]')).toBeVisible();
     const stat = page.getByTestId("commit-stat");
     await expect(stat).toHaveText("+2 −0");
@@ -1710,8 +1707,7 @@ test.describe.serial("gitreant UI", () => {
   });
 
   test("adding and removing a repository via the drawer", async ({ page }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoC);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoC);
 
     await expect(page.getByTestId("repo-item")).toHaveCount(3);
     await expect(page.locator('[data-repo-name="repoC"]')).toBeVisible();
@@ -1739,8 +1735,7 @@ test.describe.serial("gitreant UI", () => {
       await route.continue();
     });
 
-    await page.getByTestId("add-input").fill(fixtures.repoC);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoC);
 
     // While the server analyzes, the drawer shows a pending entry and the
     // empty pane says what is being worked on.
@@ -1919,8 +1914,7 @@ test.describe.serial("gitreant UI", () => {
     await page.locator('[data-repo-name="repoA"]').click();
     await expect(page.locator(".repo-header h2")).toHaveText("repoA");
 
-    await page.getByTestId("add-input").fill(fixtures.repoC);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoC);
     await expect(page.locator('[data-repo-name="repoC"]')).toBeVisible();
 
     // The pane being read stays put; no tab was forced open.
@@ -1957,8 +1951,7 @@ test.describe.serial("gitreant UI", () => {
   test("fetch failures surface as an error and clear on success", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoG);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoG);
     await expect(page.locator('[data-repo-name="repoG"]')).toBeVisible();
 
     // repoG's remote is unreachable, so fetching reports it.
@@ -1978,8 +1971,7 @@ test.describe.serial("gitreant UI", () => {
   test("signed commits show a badge, ordered badge-author-hash", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoH);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoH);
     await expect(page.locator('[data-tab-name="repoH"]')).toBeVisible();
 
     const signed = page
@@ -2007,8 +1999,7 @@ test.describe.serial("gitreant UI", () => {
     context,
   }) => {
     test.skip(!fixtures.repoI, "gpg is not installed on this machine");
-    await page.getByTestId("add-input").fill(fixtures.repoI!);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoI!);
     // Adding repoI verifies its signature through gpg subprocesses; allow
     // more than the default 5 seconds on a loaded machine.
     await expect(page.locator('[data-tab-name="repoI"]')).toBeVisible({
@@ -2454,8 +2445,7 @@ test.describe.serial("gitreant UI", () => {
     context,
   }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.getByTestId("add-input").fill(fixtures.repoK);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoK);
     await expect(page.locator('[data-tab-name="repoK"]')).toBeVisible();
 
     await page.getByTestId("commit-row").filter({ hasText: "k-2" }).click();
@@ -2537,8 +2527,7 @@ test.describe.serial("gitreant UI", () => {
     context,
   }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.getByTestId("add-input").fill(fixtures.repoK);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoK);
     await expect(page.locator('[data-tab-name="repoK"]')).toBeVisible();
 
     const node = page.getByTestId("graph-node").first();
@@ -2587,8 +2576,7 @@ test.describe.serial("gitreant UI", () => {
     // the default 30s per-test budget cannot hold them all.
     test.setTimeout(90_000);
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.getByTestId("add-input").fill(fixtures.repoJ);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoJ);
     await expect(page.locator('[data-tab-name="repoJ"]')).toBeVisible();
     await expect(page.getByTestId("commit-row")).toHaveCount(3);
 
@@ -2652,8 +2640,7 @@ test.describe.serial("gitreant UI", () => {
   test("tags and the stash render apart from branch badges", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoL);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoL);
     await expect(page.locator('[data-tab-name="repoL"]')).toBeVisible();
 
     const tag = page.locator(".badge-kind-tag", { hasText: "v1.0" });
@@ -2698,8 +2685,7 @@ test.describe.serial("gitreant UI", () => {
   test("a stash folds to one node until its internals toggle on", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoM);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoM);
     await expect(page.locator('[data-tab-name="repoM"]')).toBeVisible();
 
     // Folded by default: no dashed helper links, the stash reads as one node.
@@ -2734,8 +2720,7 @@ test.describe.serial("gitreant UI", () => {
   test("a noreply author gets a GitHub avatar the toggle can hide", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoN);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoN);
     await expect(page.locator('[data-tab-name="repoN"]')).toBeVisible();
     await page.locator('[data-repo-name="repoN"]').click();
 
@@ -2768,8 +2753,7 @@ test.describe.serial("gitreant UI", () => {
   test("a superproject groups its submodules in an accordion", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoO);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoO);
     await expect(page.locator('[data-tab-name="repoO"]')).toBeVisible();
 
     const repoO = page.locator('[data-repo-name="repoO"]');
@@ -2821,8 +2805,7 @@ test.describe.serial("gitreant UI", () => {
     context,
   }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    await page.getByTestId("add-input").fill(fixtures.repoO);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoO);
     await page.locator('[data-repo-name="repoO"]').click();
     const node = page.getByTestId("submodule-node");
     await expect(node).toHaveCount(1);
@@ -2862,8 +2845,7 @@ test.describe.serial("gitreant UI", () => {
   test("a submodule region's menu opens the submodule in a tab", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoO);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoO);
     await page.locator('[data-repo-name="repoO"]').click();
     await expect(page.getByTestId("submodule-node")).toHaveCount(1);
 
@@ -2910,8 +2892,7 @@ test.describe.serial("gitreant UI", () => {
   test("a submodule two levels down opens from its region and stays open", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoS);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoS);
     await page.locator('[data-repo-name="repoS"]').click();
     await expect(page.getByTestId("submodule-node")).toHaveCount(1);
 
@@ -2942,8 +2923,7 @@ test.describe.serial("gitreant UI", () => {
   test("a submodule graph collapses to a strip and stays collapsed", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoO);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoO);
     await page.locator('[data-repo-name="repoO"]').click();
     const region = page.getByTestId("submodule-region");
     await expect(page.getByTestId("submodule-node")).toHaveCount(1);
@@ -2993,8 +2973,7 @@ test.describe.serial("gitreant UI", () => {
   test("a superproject draws its submodule graph with dashed pointer links", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoO);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoO);
     await expect(page.locator('[data-tab-name="repoO"]')).toBeVisible();
     await page.locator('[data-repo-name="repoO"]').click();
 
@@ -3043,8 +3022,7 @@ test.describe.serial("gitreant UI", () => {
   test("tags can be created on a commit and deleted from their badge", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoL);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoL);
     await expect(page.locator('[data-tab-name="repoL"]')).toBeVisible();
 
     // Right-clicking a commit row opens an action list; picking "create
@@ -3430,8 +3408,7 @@ test.describe.serial("gitreant UI", () => {
   test("uncommitted changes show as a row above HEAD with their diffs", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoP);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoP);
     await expect(page.locator('[data-tab-name="repoP"]')).toBeVisible();
 
     // The working tree sits above HEAD as its own row, drawn apart from
@@ -3495,8 +3472,7 @@ test.describe.serial("gitreant UI", () => {
   test("a repository lists its linked worktrees and marks their branches", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoQ);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoQ);
     await expect(page.locator('[data-tab-name="repoQ"]')).toBeVisible();
 
     // The branch checked out in the linked worktree carries a marker, and
@@ -3552,8 +3528,7 @@ test.describe.serial("gitreant UI", () => {
   test("the drawer filter finds a nested worktree by its branch", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoQ);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoQ);
     await expect(page.locator('[data-tab-name="repoQ"]')).toBeVisible();
     const filter = page.getByTestId("repo-filter");
     const rows = page.getByTestId("repo-item");
@@ -3590,8 +3565,7 @@ test.describe.serial("gitreant UI", () => {
       localStorage.setItem("gitreant-page-size", "1"),
     );
     await page.reload();
-    await page.getByTestId("add-input").fill(fixtures.repoP);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoP);
     await expect(page.locator('[data-tab-name="repoP"]')).toBeVisible();
 
     const rows = page.getByTestId("commit-row");
@@ -3611,8 +3585,7 @@ test.describe.serial("gitreant UI", () => {
   test("a linked worktree and its main worktree share one drawer entry", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoQ);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoQ);
     await expect(page.locator('[data-tab-name="repoQ"]')).toBeVisible();
     const repoQ = page.locator('[data-repo-name="repoQ"]');
     await repoQ.getByTestId("repo-disclosure").click();
@@ -3621,8 +3594,7 @@ test.describe.serial("gitreant UI", () => {
 
     // Adding the linked worktree by path again dedupes to the same view: it
     // stays a nested row, marked active, never a second top-level entry.
-    await page.getByTestId("add-input").fill(fixtures.repoQWorktree);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoQWorktree);
     await expect(page.getByTestId("repo-worktree")).toHaveCount(1);
     await expect(page.getByTestId("repo-worktree")).toHaveClass(/active/);
     await expect(
@@ -3659,8 +3631,7 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("settings-toggle").click();
     await page.getByTestId("language-ja").click();
     await page.keyboard.press("Escape");
-    await page.getByTestId("add-input").fill(fixtures.repoP);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoP);
     await expect(page.locator('[data-tab-name="repoP"]')).toBeVisible();
 
     const wip = page.getByTestId("commit-row").first();
@@ -3675,8 +3646,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(detail.locator(".detail-summary")).toHaveText("未コミットの変更");
     await expect(detail).toContainText("比較対象");
 
-    await page.getByTestId("add-input").fill(fixtures.repoQ);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoQ);
     const repoQ = page.locator('[data-repo-name="repoQ"]');
     await expect(repoQ.getByTestId("repo-disclosure")).toHaveAttribute(
       "title",
@@ -3711,8 +3681,7 @@ test.describe.serial("gitreant UI", () => {
   test("the changes panel does not outlive the changes it showed", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoP);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoP);
     await expect(page.locator('[data-tab-name="repoP"]')).toBeVisible();
     await page.getByTestId("commit-row").first().click();
     const detail = page.getByTestId("commit-detail");
@@ -3744,8 +3713,7 @@ test.describe.serial("gitreant UI", () => {
     const twin = path.join(path.dirname(fixtures.repoQ), "repoQ-twin");
     git(fixtures.repoQ, ["worktree", "add", "-q", "--force", twin, "main"]);
     try {
-      await page.getByTestId("add-input").fill(fixtures.repoQ);
-      await page.getByTestId("add-submit").click();
+      await addRepo(page, fixtures.repoQ);
       await expect(page.locator('[data-tab-name="repoQ"]')).toBeVisible();
 
       const main = page.locator(".badge-kind-branch", { hasText: "main" });
@@ -3772,8 +3740,7 @@ test.describe.serial("gitreant UI", () => {
   test("a line-ending conversion is named and drawn, not shown as a rewrite", async ({
     page,
   }) => {
-    await page.getByTestId("add-input").fill(fixtures.repoR);
-    await page.getByTestId("add-submit").click();
+    await addRepo(page, fixtures.repoR);
     await expect(page.locator('[data-tab-name="repoR"]')).toBeVisible();
 
     // The committed conversion: the file list names it apart from the edit.
