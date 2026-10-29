@@ -50,12 +50,14 @@ export async function buildAndServe(
   const server = spawn(
     binary,
     ["--foreground", "--no-open", "--port", String(port), ...repoPaths],
-    // Keep its record (ADR 0039) out of the user's own directory.
+    // Keep its record (ADR 0039) and its configuration (ADR 0062) out of
+    // the user's own directories.
     {
       stdio: "ignore",
       env: {
         ...process.env,
         GITREANT_STATE_DIR: path.join(frontendDir, "e2e", ".tmp", "servers"),
+        GITREANT_CONFIG_DIR: path.join(frontendDir, "e2e", ".tmp", "config"),
       },
     },
   );

@@ -24,6 +24,9 @@ import {
   fetchSubmoduleGraphs,
   mergeRef,
   revealPath,
+  fetchEditors,
+  openWith,
+  openWithChooser,
   type BranchOpResult,
   type CommitDetail,
   type CommitView,
@@ -1455,6 +1458,17 @@ export function RepoCard({
           onOpenFile={(path) => {
             revealPath(repo.id, path).catch(() => {});
           }}
+          loadEditors={fetchEditors}
+          onOpenWith={(path, editor) => {
+            openWith(repo.id, path, editor).catch(() => {});
+          }}
+          onOpenWithChooser={
+            navigator.userAgent.includes("Windows")
+              ? (path) => {
+                  openWithChooser(repo.id, path).catch(() => {});
+                }
+              : undefined
+          }
           allDiffsShown={diffTarget?.kind === "all"}
           onToggleAllDiffs={() =>
             setDiffTarget((target) =>

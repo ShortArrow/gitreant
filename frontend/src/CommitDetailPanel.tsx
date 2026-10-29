@@ -1,5 +1,10 @@
-import { useState } from "react";
-import { UNCOMMITTED_ID, type CommitDetail, type FileChange } from "./api";
+import { useEffect, useState } from "react";
+import {
+  UNCOMMITTED_ID,
+  type CommitDetail,
+  type Editor,
+  type FileChange,
+} from "./api";
 import { ContextMenu } from "./ContextMenu";
 import { CopyText } from "./CopyText";
 import { BodyToggleIcon, DiffAllIcon, FlatIcon, TreeIcon } from "./Icons";
@@ -107,6 +112,9 @@ export function CommitDetailPanel({
   signatureKey,
   onSelectFile,
   onOpenFile,
+  loadEditors,
+  onOpenWith,
+  onOpenWithChooser,
   allDiffsShown,
   onToggleAllDiffs,
   onClose,
@@ -126,6 +134,12 @@ export function CommitDetailPanel({
   onSelectFile: (path: string) => void;
   /** Open a changed file with the OS default handler. */
   onOpenFile: (path: string) => void;
+  /** The editors a file can also open with, read when its menu opens. */
+  loadEditors?: () => Promise<Editor[]>;
+  /** Open a changed file with the `editor`-th of them (ADR 0062). */
+  onOpenWith?: (path: string, editor: number) => void;
+  /** Ask the system which application opens it, where it can. */
+  onOpenWithChooser?: (path: string) => void;
   /** Every changed file's diff is open. */
   allDiffsShown: boolean;
   /** Opens every changed file's diff at once, or closes it when open. */
@@ -140,6 +154,13 @@ export function CommitDetailPanel({
     y: number;
     path: string;
   } | null>(null);
+  const [editors, setEditors] = useState<Editor[]>([]);
+  useEffect(() => {
+    if (!fileMenu || !loadEditors) return;
+    loadEditors()
+      .then(setEditors)
+      .catch(() => setEditors([]));
+  }, [fileMenu, loadEditors]);
   const toggleBody = () => {
     setBodyOpen((open) => {
       try {
@@ -222,6 +243,22 @@ export function CommitDetailPanel({
               label: t("openInEditor"),
               run: () => onOpenFile(fileMenu.path),
             },
+            ...(onOpenWith
+              ? editors.map((editor, i) => ({
+                  id: `file-open-with-${i}`,
+                  label: t("openWith", { name: editor.name }),
+                  run: () => onOpenWith(fileMenu.path, i),
+                }))
+              : []),
+            ...(onOpenWithChooser
+              ? [
+                  {
+                    id: "file-open-with-chooser",
+                    label: t("openWithChooser"),
+                    run: () => onOpenWithChooser(fileMenu.path),
+                  },
+                ]
+              : []),
             {
               id: "file-copy-relative-path",
               label: t("copyRelativePath"),

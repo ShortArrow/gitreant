@@ -107,7 +107,9 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 - **Changed files.** Files show as a flat list or a directory tree, with
   added and removed line counts; a binary file is labelled "Binary"
   instead. A file's context menu copies its relative or absolute path,
-  or opens it with the OS default handler.
+  opens it with the OS default handler or with one of the editors listed
+  in the settings, and on Windows asks the system which application to
+  open it with.
 - **The diff pane.** Clicking a file opens its diff, inline or side by
   side, with the changed part of each line highlighted. "Diff all" opens
   every file's diff at once, and pressed again closes it. Where unchanged
@@ -187,6 +189,10 @@ quietly disappear. `gitreant doctor` reports which are available.
   (Monday, Sunday), how action buttons render (icon, icon with label,
   label), and the graph's optional layers (squash links, stash internals,
   author avatars, submodule graphs), and `hjkl` for moving the selection.
+  It also lists the editors a file opens with, each a name, a program and
+  its arguments, where `{path}` and `{line}` are filled in; the list is
+  kept in `config.toml` under `$XDG_CONFIG_HOME/gitreant`, else
+  `~/.config/gitreant`, on every system.
 - **Theme.** Dark or light.
 - **Environment info.** The Info dialog gathers the CLI and page versions,
   the server and the browser, ready to copy in one go.

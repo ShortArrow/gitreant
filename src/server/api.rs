@@ -452,6 +452,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/events", get(events))
         .route("/api/pick", post(pick_folder))
         .route("/api/reveal", post(reveal))
+        .route("/api/editors", get(list_editors).post(save_editors))
+        .route("/api/open-with", post(open_with))
+        .route("/api/open-with-chooser", post(open_with_chooser))
         .route("/api/submodules", post(submodule_graphs))
         .route("/api/shutdown", post(shutdown))
         .fallback(assets::static_handler)
@@ -806,6 +809,115 @@ async fn reveal(
             "revealing files is not available on Android".to_string(),
         ))
     }
+}
+
+/// The editors the user keeps in the configuration file (ADR 0062); none
+/// when there is no configuration directory to read.
+async fn list_editors() -> Json<Vec<crate::config::Editor>> {
+    Json(
+        crate::config::dir()
+            .map(|dir| crate::config::editors(&dir))
+            .unwrap_or_default(),
+    )
+}
+
+/// Replace the configuration file's editors with the page's list.
+async fn save_editors(
+    Json(list): Json<Vec<crate::config::Editor>>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let dir = crate::config::dir().ok_or((
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "no configuration directory: set XDG_CONFIG_HOME or HOME".to_string(),
+    ))?;
+    crate::config::save_editors(&dir, &list).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("save editors: {e}"),
+        )
+    })?;
+    Ok(StatusCode::OK)
+}
+
+#[derive(Deserialize)]
+struct OpenWithRequest {
+    /// The repository id (its canonical path).
+    repo: String,
+    /// Repository-relative file to open.
+    path: String,
+    /// The editor's place in the configuration file's list.
+    #[serde(default)]
+    editor: usize,
+    /// The line to open at, where the editor's arguments name one.
+    #[serde(default)]
+    line: Option<u32>,
+}
+
+/// The repository's file a request names, inside the repository only.
+fn file_to_open(state: &AppState, repo: &str, path: &str) -> Result<PathBuf, (StatusCode, String)> {
+    let root = state
+        .repo_path(repo)
+        .ok_or((StatusCode::NOT_FOUND, format!("unknown repository: {repo}")))?;
+    resolve_reveal_target(&root, Some(path)).map_err(|e| (StatusCode::BAD_REQUEST, e))
+}
+
+/// Open a file with one of the user's editors: its program runs directly,
+/// never through a shell, with `{path}` and `{line}` filled into its
+/// arguments (ADR 0062).
+async fn open_with(
+    State(state): State<AppState>,
+    Json(req): Json<OpenWithRequest>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let target = file_to_open(&state, &req.repo, &req.path)?;
+    let editor = crate::config::dir()
+        .map(|dir| crate::config::editors(&dir))
+        .unwrap_or_default()
+        .into_iter()
+        .nth(req.editor)
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            format!("no editor {} in the configuration", req.editor),
+        ))?;
+    let args = crate::config::arguments(&editor, &target, req.line.unwrap_or(1));
+    std::process::Command::new(&editor.program)
+        .args(args)
+        .spawn()
+        .map(drop)
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("run {}: {e}", editor.program),
+            )
+        })?;
+    Ok(StatusCode::OK)
+}
+
+#[derive(Deserialize)]
+struct OpenWithChooserRequest {
+    repo: String,
+    path: String,
+}
+
+/// Ask Windows which application to open a file with: its own "Open with"
+/// dialog. Other systems have no such dialog to call (ADR 0062).
+async fn open_with_chooser(
+    State(state): State<AppState>,
+    Json(req): Json<OpenWithChooserRequest>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let target = file_to_open(&state, &req.repo, &req.path)?;
+    if !cfg!(windows) {
+        let _ = target;
+        return Err((
+            StatusCode::NOT_IMPLEMENTED,
+            "choosing an application is only available on Windows".to_string(),
+        ));
+    }
+    std::process::Command::new("rundll32.exe")
+        .arg("shell32.dll,OpenAs_RunDLL")
+        .arg(target)
+        .spawn()
+        .map(drop)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("open with: {e}")))?;
+    Ok(StatusCode::OK)
 }
 
 #[derive(Deserialize)]

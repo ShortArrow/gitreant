@@ -479,6 +479,36 @@ body {
   padding: 10px 14px;
 }
 
+/* An editor per row: its name, program and arguments (ADR 0062). */
+.editor-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr 2fr auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.editor-row input {
+  min-width: 0;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
+
+.settings-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .settings-group legend {
   color: var(--muted);
   padding: 0 4px;

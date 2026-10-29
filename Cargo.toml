@@ -41,6 +41,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1.52.3", features = ["rt-multi-thread", "macros", "net", "signal", "sync", "time"] }
 tokio-stream = { version = "0.1.18", features = ["sync"] }
+toml = "0.8"
 
 # Desktop conveniences with no Android backend (Termux): the browser/file
 # opener and the native folder picker degrade gracefully there instead.

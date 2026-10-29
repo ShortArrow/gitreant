@@ -584,6 +584,74 @@ export async function revealPath(repo: string, path?: string): Promise<void> {
   }
 }
 
+/** An editor a file opens with, as the server's configuration keeps it
+ * (ADR 0062): `{path}` and `{line}` in its arguments are filled in. */
+export interface Editor {
+  name: string;
+  program: string;
+  args: string[];
+}
+
+/** The editors the server's configuration lists. */
+export async function fetchEditors(): Promise<Editor[]> {
+  const response = await fetch("/api/editors");
+  if (!response.ok) {
+    throw new Error(`editors failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+/** Replace the editors the server's configuration lists. */
+export async function saveEditors(list: Editor[]): Promise<void> {
+  const response = await fetch("/api/editors", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(list),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || `save failed: ${response.status}`,
+    );
+  }
+}
+
+/** Open a repository-relative file with the configuration's `editor`-th
+ * editor, at `line` where its arguments name one. */
+export async function openWith(
+  repo: string,
+  path: string,
+  editor: number,
+  line?: number,
+): Promise<void> {
+  const response = await fetch("/api/open-with", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo, path, editor, line }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || `open failed: ${response.status}`,
+    );
+  }
+}
+
+/** Ask Windows which application to open a repository-relative file with. */
+export async function openWithChooser(
+  repo: string,
+  path: string,
+): Promise<void> {
+  const response = await fetch("/api/open-with-chooser", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo, path }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || `open failed: ${response.status}`,
+    );
+  }
+}
+
 /** Drop the server's cached signature verdicts and re-verify — the SPA
  * reloads on the resulting update. Use after adding a key to gpg. */
 export async function refreshVerdicts(): Promise<void> {

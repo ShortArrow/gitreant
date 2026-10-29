@@ -6,6 +6,7 @@
 //! disappear in a minor or patch release.
 
 pub mod app;
+pub mod config;
 pub mod doctor;
 pub mod domain;
 pub mod git;

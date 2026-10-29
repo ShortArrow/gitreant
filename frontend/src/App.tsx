@@ -37,6 +37,7 @@ import {
 import { applyTheme, currentTheme, toggleTheme } from "./theme";
 import { mergeLog, type UserAction } from "./logModel";
 import { RepoCard } from "./RepoCard";
+import { EditorsSetting } from "./EditorsSetting";
 import { Segmented } from "./Segmented";
 import {
   countKey,
@@ -878,6 +879,7 @@ export function App() {
                   onChange={changeDateFormat}
                 />
               </fieldset>
+              <EditorsSetting />
               <fieldset className="settings-group">
                 <legend>{t("settingsMaintenance")}</legend>
                 <button
