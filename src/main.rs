@@ -14,13 +14,11 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{CommandFactory, Parser, Subcommand};
-use gitreant::launch::detach;
+use gitreant::launch::{self, detach};
 
 use gitreant::app::{canonical, Session};
 use gitreant::doctor;
 use gitreant::git::discover_repo;
-#[cfg(not(target_os = "android"))]
-use gitreant::launch;
 use gitreant::records::{self, Record, Target};
 use gitreant::server::{
     bind, get_repo_list, get_repo_paths, ping, post_refresh, post_repo, post_shutdown, serve,
