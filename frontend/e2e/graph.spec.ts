@@ -33,10 +33,15 @@ const fixtures = JSON.parse(
   repoY: string;
 };
 
-/** Add the repository at `repoPath` through the drawer. */
+/** Add the repository at `repoPath` through the drawer, opening its add
+ * panel when it is closed. */
 async function addRepo(page: Page, repoPath: string) {
-  await page.getByTestId("add-input").fill(repoPath);
-  await page.getByTestId("add-submit").click();
+  const input = page.getByTestId("add-input");
+  if (!(await input.isVisible())) {
+    await page.getByTestId("drawer-add").click();
+  }
+  await input.fill(repoPath);
+  await input.press("Enter");
 }
 
 test.describe.serial("gitreant UI", () => {
@@ -48,6 +53,39 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("repo-item")).toHaveCount(2);
     await expect(page.locator('[data-repo-name="repoA"]')).toBeVisible();
     await expect(page.locator('[data-repo-name="repoB"]')).toBeVisible();
+  });
+
+  test("the add button in the drawer's head opens the add panel", async ({
+    page,
+  }) => {
+    const input = page.getByTestId("add-input");
+    await expect(input).toHaveCount(0);
+    await expect(page.getByTestId("add-submit")).toHaveCount(0);
+
+    // Opening focuses the path field; Escape closes it.
+    await page.getByTestId("drawer-add").click();
+    await expect(input).toBeFocused();
+    await expect(page.getByTestId("add-browse")).toContainText(
+      "Choose folder…",
+    );
+    await page.keyboard.press("Escape");
+    await expect(input).toHaveCount(0);
+
+    // A failed add keeps the panel open with the error; a good one closes it.
+    await page.getByTestId("drawer-add").click();
+    await input.fill(path.join(fixtures.repoC, "no-such-dir"));
+    await input.press("Enter");
+    await expect(page.locator(".drawer-error")).toBeVisible();
+    await expect(input).toBeVisible();
+    await input.fill(fixtures.repoC);
+    await input.press("Enter");
+    const repoC = page.locator('[data-repo-name="repoC"]');
+    await expect(repoC).toBeVisible();
+    await expect(input).toHaveCount(0);
+
+    await repoC.hover();
+    await repoC.getByTestId("repo-remove").click();
+    await expect(repoC).toHaveCount(0);
   });
 
   test("repository rows are focusable buttons, not bare list items", async ({
@@ -2299,7 +2337,7 @@ test.describe.serial("gitreant UI", () => {
     page,
   }) => {
     // Default: icon + label, in the drawer and the top bar alike.
-    const add = page.getByTestId("add-submit");
+    const add = page.getByTestId("drawer-add");
     const reload = page.getByTestId("reload");
     await expect(add).toContainText("Add");
     await expect(add.locator("svg")).toHaveCount(1);
@@ -2323,7 +2361,7 @@ test.describe.serial("gitreant UI", () => {
 
     // The choice survives a reload; the modal is gone after it.
     await page.reload();
-    await expect(page.getByTestId("add-submit").locator("svg")).toHaveCount(0);
+    await expect(page.getByTestId("drawer-add").locator("svg")).toHaveCount(0);
 
     // The settings dialog is a modal that closes with Escape.
     await page.getByTestId("settings-toggle").click();
@@ -2334,7 +2372,7 @@ test.describe.serial("gitreant UI", () => {
 
   test("the language setting switches the UI language", async ({ page }) => {
     // The test browser reports an English locale, so "auto" starts English.
-    const add = page.getByTestId("add-submit");
+    const add = page.getByTestId("drawer-add");
     await expect(add).toContainText("Add");
 
     await page.getByTestId("settings-toggle").click();
@@ -2344,10 +2382,10 @@ test.describe.serial("gitreant UI", () => {
 
     // The choice survives a reload; back to English restores the labels.
     await page.reload();
-    await expect(page.getByTestId("add-submit")).toContainText("追加");
+    await expect(page.getByTestId("drawer-add")).toContainText("追加");
     await page.getByTestId("settings-toggle").click();
     await page.getByTestId("language-en").click();
-    await expect(page.getByTestId("add-submit")).toContainText("Add");
+    await expect(page.getByTestId("drawer-add")).toContainText("Add");
     await page.keyboard.press("Escape");
   });
 
@@ -3818,6 +3856,7 @@ test.describe.serial("gitreant UI", () => {
       route.fulfill({ json: { path: fixtures.repoC } }),
     );
 
+    await page.getByTestId("drawer-add").click();
     await page.getByTestId("add-browse").click();
     await expect(page.locator('[data-repo-name="repoC"]')).toBeVisible();
     await expect(page.locator('[data-tab-name="repoC"]')).toBeVisible();

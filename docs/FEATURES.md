@@ -8,8 +8,9 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 ## Repositories side by side
 
 - **Several repositories on one page.** The drawer on the left lists them;
-  add, remove, filter by name or path, and sort. Add one by typing its path
-  or through the native folder picker.
+  add, remove, filter by name or path, and sort. The Add button in its head
+  opens a field: type a path and press Enter, or choose a folder through
+  the native folder picker.
 - **Joins the running server.** Running `gitreant` from another directory
   adds that repository to the server already running, on the same page.
 - **Tabs and two panes.** Each open repository is a tab. A tab's or a

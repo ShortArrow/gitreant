@@ -224,6 +224,7 @@ export function Drawer({
   const [path, setPath] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(
     null,
   );
@@ -269,6 +270,7 @@ export function Drawer({
     try {
       await onAdd(value, "add");
       setPath("");
+      setAddOpen(false);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -280,6 +282,11 @@ export function Drawer({
     e.preventDefault();
     const value = path.trim();
     if (value) await runAdd(value);
+  };
+
+  const closeAdd = () => {
+    setAddOpen(false);
+    setError(null);
   };
 
   const browse = async () => {
@@ -311,6 +318,14 @@ export function Drawer({
       <div className="drawer-head">
         <span className="drawer-title">{t("repositories")}</span>
         <LabeledButton
+          icon={<AddIcon />}
+          label={t("add")}
+          testId="drawer-add"
+          className="icon-btn"
+          active={addOpen}
+          onClick={() => (addOpen ? closeAdd() : setAddOpen(true))}
+        />
+        <LabeledButton
           icon={<CollapseIcon />}
           label={t("collapse")}
           testId="drawer-collapse"
@@ -319,30 +334,32 @@ export function Drawer({
         />
       </div>
 
-      <form className="drawer-add" onSubmit={submit}>
-        <input
-          type="text"
-          placeholder={t("addRepoPlaceholder")}
-          data-testid="add-input"
-          value={path}
-          onChange={(e) => setPath(e.target.value)}
-        />
-        <LabeledButton
-          icon={<BrowseIcon />}
-          label={t("browse")}
-          testId="add-browse"
-          className="browse"
-          onClick={browse}
-          disabled={adding}
-        />
-        <LabeledButton
-          icon={<AddIcon />}
-          label={adding ? "…" : t("add")}
-          testId="add-submit"
-          type="submit"
-          disabled={adding}
-        />
-      </form>
+      {(addOpen || (loaded && repos.length === 0)) && (
+        <form
+          className="drawer-add"
+          onSubmit={submit}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") closeAdd();
+          }}
+        >
+          <input
+            type="text"
+            placeholder={t("addRepoPlaceholder")}
+            data-testid="add-input"
+            value={path}
+            autoFocus
+            onChange={(e) => setPath(e.target.value)}
+          />
+          <LabeledButton
+            icon={<BrowseIcon />}
+            label={t("browse")}
+            testId="add-browse"
+            className="browse"
+            onClick={browse}
+            disabled={adding}
+          />
+        </form>
+      )}
       {error && <p className="drawer-error">{error}</p>}
 
       {repos.length > 0 && (
