@@ -85,6 +85,8 @@ const BACKGROUND_BATCH: usize = 256;
 /// Shared, cloneable server state.
 #[derive(Clone)]
 pub struct AppState {
+    /// The secret every API request carries (ADR 0063).
+    secret: super::guard::Secret,
     session: Arc<Mutex<Session>>,
     updates: broadcast::Sender<ServerEvent>,
     shutdown: watch::Sender<bool>,
@@ -115,6 +117,7 @@ impl AppState {
         let (updates, _) = broadcast::channel(16);
         let (shutdown, _) = watch::channel(false);
         Self {
+            secret: super::guard::Secret::generate(),
             session: Arc::new(Mutex::new(session)),
             updates,
             shutdown,
@@ -127,6 +130,17 @@ impl AppState {
             verifying: Arc::new(Mutex::new(std::collections::HashSet::new())),
             counting: Arc::new(Mutex::new(std::collections::HashSet::new())),
         }
+    }
+
+    /// The same state with `secret` in place of the one drawn at start,
+    /// for a caller that already holds one.
+    pub fn with_secret(self, secret: super::guard::Secret) -> Self {
+        Self { secret, ..self }
+    }
+
+    /// The secret every API request must carry.
+    pub fn secret(&self) -> &super::guard::Secret {
+        &self.secret
     }
 
     /// Work through what a read of the repository at `path` left

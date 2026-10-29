@@ -1,5 +1,5 @@
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const frontendDir = process.cwd();
@@ -23,6 +23,14 @@ async function waitForServer(port: number, timeoutMs: number) {
     await new Promise((r) => setTimeout(r, 150));
   }
   throw new Error("gitreant server did not start in time");
+}
+
+/** The secret the server on `port` wrote in its record (ADR 0063), which
+ * the page is opened with and the tests' own API requests carry. */
+export function serverSecret(port: number): string {
+  const dir = path.join(frontendDir, "e2e", ".tmp", "servers");
+  const record = path.join(dir, `${port}.json`);
+  return (JSON.parse(readFileSync(record, "utf8")) as { token: string }).token;
 }
 
 /**

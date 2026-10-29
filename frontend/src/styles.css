@@ -470,6 +470,17 @@ body {
   font-size: 13px;
 }
 
+/* Over everything: the page lacks the server's secret (ADR 0063). */
+.secret-missing {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 100;
+  padding: 10px 16px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 13px;
+}
+
 .settings-group {
   display: flex;
   flex-direction: column;

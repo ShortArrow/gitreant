@@ -208,5 +208,10 @@ quietly disappear. `gitreant doctor` reports which are available.
   and `refresh` find the only one without `--port`. With `--verbose` it
   also shows how each repository came: at startup, from the CLI or from the
   browser.
+- **A secret per start.** Every API request carries a secret the server
+  makes when it starts, so another account on the same machine cannot
+  read or change the repositories it shows. `gitreant` opens the page with
+  it, and `gitreant list` prints each server's address with it; a page
+  opened without it says so.
 - **A dedicated window.** `--app` opens it as a window without an address
   bar (needs a Chromium-based browser).

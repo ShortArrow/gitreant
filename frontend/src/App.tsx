@@ -39,6 +39,7 @@ import { mergeLog, type UserAction } from "./logModel";
 import { RepoCard } from "./RepoCard";
 import { EditorsSetting } from "./EditorsSetting";
 import { Segmented } from "./Segmented";
+import { eventsUrl, onUnauthorized } from "./secret";
 import {
   countKey,
   resolveLang,
@@ -189,6 +190,10 @@ export function App() {
     }
   }, [loadViews]);
 
+  // The server refused a request for want of its secret (ADR 0063).
+  const [secretMissing, setSecretMissing] = useState(false);
+  useEffect(() => onUnauthorized(() => setSecretMissing(true)), []);
+
   // Running commit counters of the server-side reads in flight, by repo id.
   const [analyzing, setAnalyzing] = useState<Map<string, number>>(new Map());
 
@@ -196,7 +201,7 @@ export function App() {
     // Subscribe before the first list request: a server still reading its
     // startup repositories answers that request late, and the progress
     // events streamed meanwhile must not be missed.
-    const events = new EventSource("/api/events");
+    const events = new EventSource(eventsUrl());
     reload();
     // The stream connects some time after it is created, and again after
     // a drop: whatever was announced before then, such as a batch of counts
@@ -657,6 +662,11 @@ export function App() {
     <SettingsContext.Provider value={settings}>
     <CommandRegistryContext.Provider value={registryContext}>
     <div className={`layout${collapsed ? " layout-collapsed" : ""}`}>
+      {secretMissing && (
+        <div className="secret-missing" role="alert" data-testid="secret-missing">
+          {t("secretMissing")} <code>gitreant list</code>
+        </div>
+      )}
       <Drawer
         repos={repos}
         activeId={focusedActiveId}

@@ -204,14 +204,14 @@ fn restart(cli: &Cli) -> ExitCode {
     };
     let mut paths: Vec<PathBuf> = cli.paths.clone();
     if ping(port) {
-        match get_repo_paths(port) {
+        match get_repo_paths(port, token_of(port).as_deref()) {
             Ok(existing) => paths.extend(existing.into_iter().map(PathBuf::from)),
             Err(e) => {
                 eprintln!("could not read the running server's repositories: {e}");
                 return ExitCode::FAILURE;
             }
         }
-        if let Err(e) = post_shutdown(port) {
+        if let Err(e) = post_shutdown(port, token_of(port).as_deref()) {
             eprintln!("failed to stop the running server: {e}");
             return ExitCode::FAILURE;
         }
@@ -260,7 +260,7 @@ fn refresh(cli: &Cli) -> ExitCode {
         eprintln!("no gitreant running on port {port}");
         return ExitCode::FAILURE;
     }
-    match post_refresh(port) {
+    match post_refresh(port, token_of(port).as_deref()) {
         Ok(()) => {
             println!("re-verifying signatures on port {port}");
             ExitCode::SUCCESS
@@ -284,7 +284,7 @@ fn shutdown_running(cli: &Cli) -> ExitCode {
 }
 
 fn shutdown_port(port: u16) -> ExitCode {
-    match post_shutdown(port) {
+    match post_shutdown(port, token_of(port).as_deref()) {
         Ok(()) => {
             println!("gitreant on port {port} shut down");
             ExitCode::SUCCESS
@@ -386,13 +386,13 @@ fn list(verbose: bool, json: bool) -> ExitCode {
 }
 
 fn server_json(record: &Record) -> serde_json::Value {
-    let repos: Vec<serde_json::Value> = get_repo_list(record.port)
+    let repos: Vec<serde_json::Value> = get_repo_list(record.port, Some(&record.token))
         .unwrap_or_default()
         .into_iter()
         .map(|entry| serde_json::json!({ "path": entry["path"], "added": entry["added"] }))
         .collect();
     serde_json::json!({
-        "url": format!("http://127.0.0.1:{}", record.port),
+        "url": launch::page_url(record.port, Some(&record.token)),
         "port": record.port,
         "pid": record.pid,
         "started": record.started,
@@ -404,7 +404,7 @@ fn server_json(record: &Record) -> serde_json::Value {
 /// A server's line, then each repository with how and when it came.
 fn describe_verbose(record: &Record) -> String {
     let mut block = server_line(record, None);
-    for entry in get_repo_list(record.port).unwrap_or_default() {
+    for entry in get_repo_list(record.port, Some(&record.token)).unwrap_or_default() {
         let path = entry["path"].as_str().unwrap_or_default();
         block.push_str(&format!("\n  {path}  ({})", how_added(&entry["added"])));
     }
@@ -435,7 +435,8 @@ fn describe(servers: &[Record]) -> String {
     servers
         .iter()
         .map(|record| {
-            let count = get_repo_paths(record.port).map_or(0, |repos| repos.len());
+            let count =
+                get_repo_paths(record.port, Some(&record.token)).map_or(0, |repos| repos.len());
             server_line(record, Some(count))
         })
         .collect::<Vec<_>>()
@@ -444,8 +445,8 @@ fn describe(servers: &[Record]) -> String {
 
 fn server_line(record: &Record, repos: Option<usize>) -> String {
     let mut line = format!(
-        "http://127.0.0.1:{}  pid {}  started {}  v{}",
-        record.port,
+        "{}  pid {}  started {}  v{}",
+        launch::page_url(record.port, Some(&record.token)),
         record.pid,
         started_at(record.started),
         record.version
@@ -491,13 +492,13 @@ fn start_background(cli: &Cli, port: u16, paths: &[PathBuf], open: bool) -> Exit
     };
     for _ in 0..100 {
         if ping(port) {
+            let url = launch::page_url(port, token_of(port).as_deref());
             println!(
-                "gitreant serving on http://127.0.0.1:{} (pid {}, stop with `gitreant --shutdown`)",
-                port,
+                "gitreant serving on {url} (pid {}, stop with `gitreant --shutdown`)",
                 child.id()
             );
             if open {
-                open_browser(cli);
+                open_browser(cli, &url);
             }
             return ExitCode::SUCCESS;
         }
@@ -518,12 +519,19 @@ fn start_background(cli: &Cli, port: u16, paths: &[PathBuf], open: bool) -> Exit
 fn forward_to_running(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
     for path in paths {
         let absolute = canonical(path);
-        match post_repo(cli.port(), &absolute.to_string_lossy()) {
+        match post_repo(
+            cli.port(),
+            token_of(cli.port()).as_deref(),
+            &absolute.to_string_lossy(),
+        ) {
             Ok(()) => println!("added {} to running gitreant", absolute.display()),
             Err(e) => eprintln!("failed to add {}: {e}", absolute.display()),
         }
     }
-    println!("already serving on http://127.0.0.1:{}", cli.port());
+    println!(
+        "already serving on {}",
+        launch::page_url(cli.port(), token_of(cli.port()).as_deref())
+    );
     ExitCode::SUCCESS
 }
 
@@ -556,7 +564,8 @@ fn run_server(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
                 return ExitCode::FAILURE;
             }
         };
-        let url = format!("http://127.0.0.1:{}", addr.port());
+        let state = AppState::new(session);
+        let url = launch::page_url(addr.port(), Some(state.secret().as_str()));
         println!("gitreant serving on {url}");
         let record_dir = records::dir();
         if let Some(dir) = &record_dir {
@@ -565,13 +574,14 @@ fn run_server(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
                 pid: std::process::id(),
                 started: unix_now(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
+                token: state.secret().as_str().to_string(),
             };
             if let Err(e) = records::write(dir, &record) {
                 eprintln!("could not record this server in {}: {e}", dir.display());
             }
         }
-        open_browser(cli);
-        let served = serve(listener, AppState::new(session)).await;
+        open_browser(cli, &url);
+        let served = serve(listener, state).await;
         if let Some(dir) = &record_dir {
             records::remove(dir, addr.port());
         }
@@ -583,16 +593,20 @@ fn run_server(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
     })
 }
 
+/// The secret the server on `port` keeps in its record (ADR 0063).
+fn token_of(port: u16) -> Option<String> {
+    records::dir().and_then(|dir| records::token(&dir, port))
+}
+
 #[cfg(not(target_os = "android"))]
-fn open_browser(cli: &Cli) {
+fn open_browser(cli: &Cli, url: &str) {
     if cli.no_open {
         return;
     }
-    let url = format!("http://127.0.0.1:{}", cli.port());
-    if cli.app && open_app_window(&url) {
+    if cli.app && open_app_window(url) {
         return;
     }
-    let _ = open::that(&url);
+    let _ = open::that(url);
 }
 
 /// Try to open `url` as a chromeless window, reporting whether it worked so
@@ -616,11 +630,10 @@ fn open_app_window(url: &str) -> bool {
 /// Termux has no desktop opener; try its own URL handler and always print
 /// the address so the user can tap or paste it.
 #[cfg(target_os = "android")]
-fn open_browser(cli: &Cli) {
-    let url = format!("http://127.0.0.1:{}", cli.port());
+fn open_browser(cli: &Cli, url: &str) {
     if !cli.no_open {
         let _ = std::process::Command::new("termux-open-url")
-            .arg(&url)
+            .arg(url)
             .spawn();
     }
     println!("gitreant is serving on {url}");

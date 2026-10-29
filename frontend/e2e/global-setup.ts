@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { FullConfig } from "@playwright/test";
 import { atTime, commit, git, initRepo as initRepoAt } from "./git";
-import { buildAndServe } from "./server";
+import { buildAndServe, serverSecret } from "./server";
 
 const PORT = 4599;
 
@@ -526,6 +526,7 @@ export default async function globalSetup(_config: FullConfig) {
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
+  const secret = serverSecret(PORT);
 
   // Expose the extra fixture paths to the specs.
   writeFileSync(
@@ -557,6 +558,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoV,
         repoW,
         repoY,
+        secret,
       },
       null,
       2,

@@ -8,6 +8,7 @@ mod guard;
 
 pub use api::{router, AppState};
 pub use client::{get_repo_list, get_repo_paths, ping, post_refresh, post_repo, post_shutdown};
+pub use guard::Secret;
 
 use std::net::SocketAddr;
 
@@ -35,8 +36,9 @@ pub async fn serve(listener: TcpListener, state: AppState) -> Result<(), String>
     let port = listener.local_addr().map_err(|e| e.to_string())?.port();
     let graceful = state.shutdown_requested();
     let deadline = state.shutdown_requested();
+    let secret = state.secret().clone();
     let app = router(state).layer(axum::middleware::from_fn(move |request, next| {
-        guard::guard(port, request, next)
+        guard::guard(port, secret.clone(), request, next)
     }));
     let server = axum::serve(listener, app).with_graceful_shutdown(wait_shutdown(graceful));
     tokio::select! {

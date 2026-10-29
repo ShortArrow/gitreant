@@ -14,6 +14,10 @@ pub struct Record {
     /// Unix seconds.
     pub started: i64,
     pub version: String,
+    /// The secret its API requests carry (ADR 0063); empty in a record from
+    /// before it.
+    #[serde(default)]
+    pub token: String,
 }
 
 /// The server a command that talks to a running one should act on.
@@ -47,11 +51,32 @@ fn dir_from(var: impl Fn(&str) -> Option<String>) -> Option<PathBuf> {
     Some(base.join("gitreant").join("servers"))
 }
 
-/// Write `record` as `<port>.json` in `dir`, creating the directory.
+/// Write `record` as `<port>.json` in `dir`, creating the directory. It
+/// holds the server's secret, so on Unix only its owner may read it; the
+/// directory on Windows is the user's own.
 pub fn write(dir: &Path, record: &Record) -> std::io::Result<()> {
+    use std::io::Write;
     std::fs::create_dir_all(dir)?;
     let text = serde_json::to_string(record).map_err(std::io::Error::other)?;
-    std::fs::write(path_of(dir, record.port), text)
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    let path = path_of(dir, record.port);
+    options.open(&path)?.write_all(text.as_bytes())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+    }
+    Ok(())
+}
+
+/// The secret the server on `port` wrote in its record, if any.
+pub fn token(dir: &Path, port: u16) -> Option<String> {
+    let text = std::fs::read_to_string(path_of(dir, port)).ok()?;
+    let record: Record = serde_json::from_str(&text).ok()?;
+    Some(record.token).filter(|token| !token.is_empty())
 }
 
 /// Delete the record of `port`, if any.
@@ -109,7 +134,33 @@ mod tests {
             pid: 100 + u32::from(port),
             started: 1_700_000_000,
             version: "0.3.0".to_string(),
+            token: format!("secret-{port}"),
         }
+    }
+
+    #[test]
+    fn a_record_keeps_its_servers_secret_for_its_owner_only() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("servers");
+        write(&dir, &record(4000)).unwrap();
+        assert_eq!(token(&dir, 4000).as_deref(), Some("secret-4000"));
+        assert_eq!(token(&dir, 4001), None);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(dir.join("4000.json"))
+                .unwrap()
+                .permissions()
+                .mode();
+            assert_eq!(mode & 0o777, 0o600);
+        }
+        // A record from before the secret reads as one without it.
+        std::fs::write(
+            dir.join("4100.json"),
+            r#"{"port":4100,"pid":1,"started":0,"version":"0.3.0"}"#,
+        )
+        .unwrap();
+        assert_eq!(token(&dir, 4100), None);
     }
 
     #[test]

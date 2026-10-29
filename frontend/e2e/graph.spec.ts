@@ -1,4 +1,10 @@
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import {
+  test,
+  expect,
+  type APIRequestContext,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -31,8 +37,28 @@ const fixtures = JSON.parse(
   repoV: string;
   repoW: string;
   repoY: string;
+  /** The test server's secret (ADR 0063), from the record it wrote. */
+  secret: string;
   repoT: string;
 };
+
+/** The test's own API requests, carrying the secret in their header; the
+ * page's requests must carry it by themselves (ADR 0063). */
+function api(page: Page) {
+  type Options = Parameters<APIRequestContext["post"]>[1];
+  const withSecret = (options: Options = {}): Options => ({
+    ...options,
+    headers: { ...options.headers, "x-gitreant-token": fixtures.secret },
+  });
+  return {
+    get: (url: string, options?: Options) =>
+      page.request.get(url, withSecret(options)),
+    post: (url: string, options?: Options) =>
+      page.request.post(url, withSecret(options)),
+    delete: (url: string, options?: Options) =>
+      page.request.delete(url, withSecret(options)),
+  };
+}
 
 /** Add the repository at `repoPath` through the drawer, opening its add
  * panel when it is closed. */
@@ -47,7 +73,22 @@ async function addRepo(page: Page, repoPath: string) {
 
 test.describe.serial("gitreant UI", () => {
   test.beforeEach(async ({ page }) => {
+    await page.goto(`/#token=${fixtures.secret}`);
+  });
+
+  test("the page keeps the secret its address hands over", async ({ page }) => {
+    // Taken out of the address, so it stays out of history.
+    await expect(page.locator('[data-repo-name="repoA"]')).toBeVisible();
+    expect(page.url()).not.toContain("token");
+    await expect(page.getByTestId("secret-missing")).toHaveCount(0);
+
+    // Without it, the page says how to open one that has it.
+    await page.evaluate(() => localStorage.clear());
     await page.goto("/");
+    await expect(page.getByTestId("secret-missing")).toContainText(
+      "gitreant list",
+    );
+    await expect(page.locator('[data-repo-name="repoA"]')).toHaveCount(0);
   });
 
   test("drawer lists the served repositories", async ({ page }) => {
@@ -172,7 +213,7 @@ test.describe.serial("gitreant UI", () => {
   }) => {
     // The fixtures are clean, so stub the per-repo status: repoA is dirty
     // and ahead, repoB is clean (no indicators).
-    const list = (await (await page.request.get("/api/list")).json()) as {
+    const list = (await (await api(page).get("/api/list")).json()) as {
       id: string;
       name: string;
     }[];
@@ -422,7 +463,7 @@ test.describe.serial("gitreant UI", () => {
       path.join(config, "config.toml"),
       '[[editors]]\nname = "Probe"\nprogram = "git"\nargs = ["--version"]\n',
     );
-    const write = await page.request.post("/api/editors", { data: [] });
+    const write = await api(page).post("/api/editors", { data: [] });
     expect(write.status()).toBe(405);
 
     await page.getByTestId("settings-toggle").click();
@@ -453,12 +494,12 @@ test.describe.serial("gitreant UI", () => {
     await page.unroute("**/api/open-with");
 
     // The server runs the editor's program with its arguments.
-    const ran = await page.request.post("/api/open-with", {
+    const ran = await api(page).post("/api/open-with", {
       data: { repo: opens[0].repo, path: "README.md", editor: 0 },
     });
     expect(ran.status()).toBe(200);
     // A path out of the repository is refused.
-    const outside = await page.request.post("/api/open-with", {
+    const outside = await api(page).post("/api/open-with", {
       data: { repo: opens[0].repo, path: "../README.md", editor: 0 },
     });
     expect(outside.status()).toBe(400);
@@ -1610,7 +1651,7 @@ test.describe.serial("gitreant UI", () => {
   }) => {
     // Hold the event stream back, so the view is read, counted and
     // announced before the page is listening (ADR 0041).
-    await page.route("**/api/events", async (route) => {
+    await page.route("**/api/events?*", async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       await route.continue();
     });
@@ -1619,7 +1660,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-tab-name="repoU"]')).toBeVisible();
     await expect(page.getByTestId("commit-stat")).toHaveText("+3 −0");
 
-    await page.unroute("**/api/events");
+    await page.unroute("**/api/events?*");
     const repoU = page.locator('[data-repo-name="repoU"]');
     await repoU.hover();
     await repoU.getByTestId("repo-remove").click();
@@ -1666,7 +1707,7 @@ test.describe.serial("gitreant UI", () => {
     // A reload the pointer did not cause, as a batch of counts or
     // verdicts arriving brings (ADR 0037, ADR 0041).
     const reread = page.waitForResponse((r) => r.url().endsWith("/api/view"));
-    await page.request.post("/api/refresh");
+    await api(page).post("/api/refresh");
     await reread;
     await page.waitForTimeout(200);
     await expect(tip).toHaveText(label!);
@@ -1945,11 +1986,11 @@ test.describe.serial("gitreant UI", () => {
   }) => {
     // Fixture repos read instantly, so the real SSE stream never keeps an
     // analyzing phase open long enough to observe; serve a synthetic one.
-    const repos = (await (await page.request.get("/api/list")).json()) as {
+    const repos = (await (await api(page).get("/api/list")).json()) as {
       id: string;
     }[];
     const progress = { id: repos[0].id, commits: 1500 };
-    await page.route("**/api/events", (route) =>
+    await page.route("**/api/events?*", (route) =>
       route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
@@ -1974,7 +2015,7 @@ test.describe.serial("gitreant UI", () => {
   test("the analyzing note clears when the read finishes", async ({
     page,
   }) => {
-    const repos = (await (await page.request.get("/api/list")).json()) as {
+    const repos = (await (await api(page).get("/api/list")).json()) as {
       id: string;
     }[];
     const progress = JSON.stringify({ id: repos[0].id, commits: 900 });
@@ -1984,7 +2025,7 @@ test.describe.serial("gitreant UI", () => {
     // gap in which the reconnect could reach the real, never-ending SSE
     // stream and stick there.
     let finished = false;
-    await page.route("**/api/events", (route) =>
+    await page.route("**/api/events?*", (route) =>
       route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
@@ -2007,13 +2048,13 @@ test.describe.serial("gitreant UI", () => {
   test("a read finishing within the debounce never shows the note", async ({
     page,
   }) => {
-    const repos = (await (await page.request.get("/api/list")).json()) as {
+    const repos = (await (await api(page).get("/api/list")).json()) as {
       id: string;
     }[];
     const progress = JSON.stringify({ id: repos[0].id, commits: 0 });
     // Analyzing and analyzed arrive back to back, like any routine
     // millisecond read: the 300ms debounce must swallow the pair.
-    await page.route("**/api/events", (route) =>
+    await page.route("**/api/events?*", (route) =>
       route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
@@ -2050,14 +2091,14 @@ test.describe.serial("gitreant UI", () => {
   }) => {
     // Hold the graph read open and feed a synthetic counter: the opened
     // pane must name the running commit count, not a stale zero.
-    const list = (await (await page.request.get("/api/list")).json()) as {
+    const list = (await (await api(page).get("/api/list")).json()) as {
       id: string;
     }[];
     await page.route("**/api/view", async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await route.continue();
     });
-    await page.route("**/api/events", (route) =>
+    await page.route("**/api/events?*", (route) =>
       route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
@@ -2118,14 +2159,14 @@ test.describe.serial("gitreant UI", () => {
   }) => {
     // Add via the HTTP API instead of this page's UI: only the SSE update
     // event can bring the change to the already-open page.
-    const added = await page.request.post("/api/repos", {
+    const added = await api(page).post("/api/repos", {
       data: { path: fixtures.repoC },
     });
     expect(added.ok()).toBeTruthy();
     await expect(page.locator('[data-repo-name="repoC"]')).toBeVisible();
 
     const { id } = (await added.json()) as { id: string };
-    const removed = await page.request.delete("/api/repos", {
+    const removed = await api(page).delete("/api/repos", {
       data: { path: id },
     });
     expect(removed.ok()).toBeTruthy();
@@ -2371,12 +2412,12 @@ test.describe.serial("gitreant UI", () => {
   }) => {
     // PR data comes from the user's gh CLI on the server; stub the endpoint
     // and verify the badge and squash-link wiring end to end.
-    const list = (await (await page.request.get("/api/list")).json()) as {
+    const list = (await (await api(page).get("/api/list")).json()) as {
       id: string;
       name: string;
     }[];
     const repoAView = (await (
-      await page.request.post("/api/view", {
+      await api(page).post("/api/view", {
         data: { repo: list.find((r) => r.name === "repoA")!.id },
       })
     ).json()) as { commits: { id: string; summary: string }[] };
@@ -3028,7 +3069,7 @@ test.describe.serial("gitreant UI", () => {
 
     // The server records that the page opened it as a submodule, and that
     // repoO came through the drawer's input (ADR 0039).
-    const list = (await (await page.request.get("/api/list")).json()) as {
+    const list = (await (await api(page).get("/api/list")).json()) as {
       name: string;
       added?: { via: string; reason?: string };
     }[];
@@ -3114,7 +3155,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(menu.getByTestId("region-open-right")).toBeVisible();
     await menu.getByTestId("region-open").click();
     await expect(page.locator('[data-tab-name="sub"]')).toHaveClass(/\bactive\b/);
-    const list = (await (await page.request.get("/api/list")).json()) as {
+    const list = (await (await api(page).get("/api/list")).json()) as {
       name: string;
       added?: { via: string; reason?: string };
     }[];
@@ -3401,7 +3442,7 @@ test.describe.serial("gitreant UI", () => {
       await page.locator(".badge-kind-branch", { hasText: "feature" }).hover();
       await expect(faded).toHaveCount(2);
       git(fixtures.repoA, ["branch", "-f", "feature", "feature~1"]);
-      await page.request.post("/api/refresh");
+      await api(page).post("/api/refresh");
       await expect(
         rows.filter({ hasText: "main-1" }).locator(".badge-kind-branch"),
       ).toHaveCount(1);
@@ -3409,7 +3450,7 @@ test.describe.serial("gitreant UI", () => {
       await expect(faded).toHaveCount(0);
     } finally {
       git(fixtures.repoA, ["branch", "-f", "feature", featureTip]);
-      await page.request.post("/api/refresh");
+      await api(page).post("/api/refresh");
     }
   });
 
@@ -3618,7 +3659,7 @@ test.describe.serial("gitreant UI", () => {
       expect(branch).toBe("HEAD");
     } finally {
       git(fixtures.repoA, ["switch", "-q", "main"]);
-      await page.request.post("/api/refresh");
+      await api(page).post("/api/refresh");
     }
     await expect(row("merge feature").locator(".badge-head")).toBeVisible();
   });

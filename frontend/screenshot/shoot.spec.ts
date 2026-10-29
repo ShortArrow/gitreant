@@ -13,7 +13,7 @@ const outDir = path.resolve(process.cwd(), "..", "docs", "images");
 
 /** Open every scenario repo as a tab, leaving the featured one active. */
 async function openRepos(page: Page) {
-  await page.goto("/");
+  await page.goto(`/#token=${process.env.GITREANT_SECRET}`);
   for (const s of [sidekick, toolkit, site, infra, featured]) {
     await page.locator(`[data-repo-name="${s.name}"]`).click();
   }

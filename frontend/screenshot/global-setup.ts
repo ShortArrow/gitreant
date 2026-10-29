@@ -2,7 +2,7 @@ import { type ChildProcess } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import type { FullConfig } from "@playwright/test";
-import { buildAndServe } from "../e2e/server";
+import { buildAndServe, serverSecret } from "../e2e/server";
 import { buildScenario } from "./build";
 import { scenarios } from "./scenario";
 
@@ -26,6 +26,8 @@ export default async function globalSetup(_config: FullConfig) {
     PORT,
     repos.filter(([s]) => s.serve !== false).map(([, dir]) => dir),
   );
+  // The specs open the page with the server's secret (ADR 0063).
+  process.env.GITREANT_SECRET = serverSecret(PORT);
 
   return async () => {
     server?.kill();

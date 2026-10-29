@@ -7,7 +7,11 @@ use std::path::Path;
 use std::process::Command;
 
 use gitreant::app::Session;
-use gitreant::server::{bind, ping, post_repo, post_shutdown, serve, AppState};
+use gitreant::server::{bind, ping, post_repo, post_shutdown, serve, AppState, Secret};
+
+/// The secret every test server holds and every test request carries
+/// (ADR 0063).
+const SECRET: &str = "test-secret";
 
 fn init_repo_with_commit(dir: &Path) {
     let run = |args: &[&str]| {
@@ -35,7 +39,7 @@ fn http_get(port: u16, path: &str) -> String {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
     write!(
         stream,
-        "GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
+        "GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Gitreant-Token: {SECRET}\r\nConnection: close\r\n\r\n"
     )
     .unwrap();
     let mut resp = String::new();
@@ -69,7 +73,7 @@ fn http_request_json(port: u16, method: &str, path: &str, body: &str) -> String 
     let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
     write!(
         stream,
-        "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}",
+        "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Gitreant-Token: {SECRET}\r\nConnection: close\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}",
         body.len()
     )
     .unwrap();
@@ -87,9 +91,12 @@ async fn ping_add_dedupe_and_serve_spa() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
-            .await
-            .unwrap();
+        serve(
+            listener,
+            AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
 
     // Wait until the server answers.
@@ -108,12 +115,12 @@ async fn ping_add_dedupe_and_serve_spa() {
 
     // Adding a valid repo succeeds; adding it again is a no-op (dedupe).
     let p = repo_path.clone();
-    tokio::task::spawn_blocking(move || post_repo(port, &p))
+    tokio::task::spawn_blocking(move || post_repo(port, Some(SECRET), &p))
         .await
         .unwrap()
         .expect("first add");
     let p = repo_path.clone();
-    tokio::task::spawn_blocking(move || post_repo(port, &p))
+    tokio::task::spawn_blocking(move || post_repo(port, Some(SECRET), &p))
         .await
         .unwrap()
         .expect("second add (dedupe)");
@@ -135,7 +142,7 @@ async fn ping_add_dedupe_and_serve_spa() {
     // Adding a non-repository path is rejected with 400.
     let bad = tempfile::tempdir().unwrap();
     let bad_path = bad.path().to_string_lossy().into_owned();
-    let err = tokio::task::spawn_blocking(move || post_repo(port, &bad_path))
+    let err = tokio::task::spawn_blocking(move || post_repo(port, Some(SECRET), &bad_path))
         .await
         .unwrap();
     assert!(err.is_err(), "expected error for non-repo path");
@@ -164,7 +171,12 @@ async fn analyzing_progress_streams_over_sse() {
     let mut session = Session::new();
     session.add(tmp.path()).unwrap();
     tokio::spawn(async move {
-        serve(listener, AppState::new(session)).await.unwrap();
+        serve(
+            listener,
+            AppState::new(session).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -186,7 +198,7 @@ async fn analyzing_progress_streams_over_sse() {
             .unwrap();
         write!(
             stream,
-            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/event-stream\r\n\r\n"
+            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Gitreant-Token: {SECRET}\r\nAccept: text/event-stream\r\n\r\n"
         )
         .unwrap();
         // Give the subscription a moment to register before triggering
@@ -260,7 +272,12 @@ async fn refresh_notifies_clients_to_reload() {
     let mut session = Session::new();
     session.add(tmp.path()).unwrap();
     tokio::spawn(async move {
-        serve(listener, AppState::new(session)).await.unwrap();
+        serve(
+            listener,
+            AppState::new(session).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -282,7 +299,7 @@ async fn refresh_notifies_clients_to_reload() {
             .unwrap();
         write!(
             stream,
-            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/event-stream\r\n\r\n"
+            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Gitreant-Token: {SECRET}\r\nAccept: text/event-stream\r\n\r\n"
         )
         .unwrap();
         std::thread::sleep(std::time::Duration::from_millis(300));
@@ -347,7 +364,12 @@ async fn listing_auto_learns_pushed_tags() {
     let mut session = Session::new();
     session.add(&clone).unwrap();
     tokio::spawn(async move {
-        serve(listener, AppState::new(session)).await.unwrap();
+        serve(
+            listener,
+            AppState::new(session).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -405,7 +427,12 @@ async fn list_and_per_repo_view_endpoints() {
     let mut session = Session::new();
     session.add(tmp.path()).unwrap();
     tokio::spawn(async move {
-        serve(listener, AppState::new(session)).await.unwrap();
+        serve(
+            listener,
+            AppState::new(session).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -478,9 +505,12 @@ async fn commit_endpoint_returns_detail() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
-            .await
-            .unwrap();
+        serve(
+            listener,
+            AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -497,7 +527,7 @@ async fn commit_endpoint_returns_detail() {
 
     let repo_path = dir.to_string_lossy().into_owned();
     let p = repo_path.clone();
-    tokio::task::spawn_blocking(move || post_repo(port, &p))
+    tokio::task::spawn_blocking(move || post_repo(port, Some(SECRET), &p))
         .await
         .unwrap()
         .expect("add repo");
@@ -568,9 +598,12 @@ async fn diff_endpoint_returns_unified_hunks() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
-            .await
-            .unwrap();
+        serve(
+            listener,
+            AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -586,7 +619,7 @@ async fn diff_endpoint_returns_unified_hunks() {
     assert!(up, "server did not come up");
 
     let repo_path = dir.to_string_lossy().into_owned();
-    tokio::task::spawn_blocking(move || post_repo(port, &repo_path))
+    tokio::task::spawn_blocking(move || post_repo(port, Some(SECRET), &repo_path))
         .await
         .unwrap()
         .expect("add repo");
@@ -687,9 +720,12 @@ async fn fetch_endpoint_updates_remote_refs() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
-            .await
-            .unwrap();
+        serve(
+            listener,
+            AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -705,7 +741,7 @@ async fn fetch_endpoint_updates_remote_refs() {
     assert!(up, "server did not come up");
 
     let clone_path = clone.to_string_lossy().into_owned();
-    tokio::task::spawn_blocking(move || post_repo(port, &clone_path))
+    tokio::task::spawn_blocking(move || post_repo(port, Some(SECRET), &clone_path))
         .await
         .unwrap()
         .expect("add clone");
@@ -797,9 +833,12 @@ async fn fetch_endpoint_reports_per_repo_errors() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
-            .await
-            .unwrap();
+        serve(
+            listener,
+            AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -815,7 +854,7 @@ async fn fetch_endpoint_reports_per_repo_errors() {
     assert!(up, "server did not come up");
 
     let repo_path = dir.to_string_lossy().into_owned();
-    tokio::task::spawn_blocking(move || post_repo(port, &repo_path))
+    tokio::task::spawn_blocking(move || post_repo(port, Some(SECRET), &repo_path))
         .await
         .unwrap()
         .expect("add repo");
@@ -863,9 +902,12 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
-            .await
-            .unwrap();
+        serve(
+            listener,
+            AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -881,7 +923,7 @@ async fn checkout_and_merge_endpoints_mutate_the_repository() {
     assert!(up, "server did not come up");
 
     let repo_path = dir.to_string_lossy().into_owned();
-    tokio::task::spawn_blocking(move || post_repo(port, &repo_path))
+    tokio::task::spawn_blocking(move || post_repo(port, Some(SECRET), &repo_path))
         .await
         .unwrap()
         .expect("add repo");
@@ -984,9 +1026,12 @@ async fn branch_create_endpoint_adds_a_branch_without_checkout() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
-            .await
-            .unwrap();
+        serve(
+            listener,
+            AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -1002,7 +1047,7 @@ async fn branch_create_endpoint_adds_a_branch_without_checkout() {
     assert!(up, "server did not come up");
 
     let repo_path = tmp.path().to_string_lossy().into_owned();
-    tokio::task::spawn_blocking(move || post_repo(port, &repo_path))
+    tokio::task::spawn_blocking(move || post_repo(port, Some(SECRET), &repo_path))
         .await
         .unwrap()
         .expect("add repo");
@@ -1049,9 +1094,12 @@ async fn tag_endpoints_create_and_delete_tags() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
-            .await
-            .unwrap();
+        serve(
+            listener,
+            AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -1067,7 +1115,7 @@ async fn tag_endpoints_create_and_delete_tags() {
     assert!(up, "server did not come up");
 
     let repo_path = tmp.path().to_string_lossy().into_owned();
-    tokio::task::spawn_blocking(move || post_repo(port, &repo_path))
+    tokio::task::spawn_blocking(move || post_repo(port, Some(SECRET), &repo_path))
         .await
         .unwrap()
         .expect("add repo");
@@ -1137,9 +1185,12 @@ async fn prs_endpoint_answers_empty_without_github_and_404_for_unknown_repos() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
-            .await
-            .unwrap();
+        serve(
+            listener,
+            AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -1155,7 +1206,7 @@ async fn prs_endpoint_answers_empty_without_github_and_404_for_unknown_repos() {
     assert!(up, "server did not come up");
 
     let repo_path = tmp.path().to_string_lossy().into_owned();
-    tokio::task::spawn_blocking(move || post_repo(port, &repo_path))
+    tokio::task::spawn_blocking(move || post_repo(port, Some(SECRET), &repo_path))
         .await
         .unwrap()
         .expect("add repo");
@@ -1184,7 +1235,10 @@ async fn prs_endpoint_answers_empty_without_github_and_404_for_unknown_repos() {
 async fn shutdown_completes_while_an_sse_connection_is_open() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
-    let server = tokio::spawn(serve(listener, AppState::new(Session::new())));
+    let server = tokio::spawn(serve(
+        listener,
+        AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+    ));
 
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -1205,7 +1259,7 @@ async fn shutdown_completes_while_an_sse_connection_is_open() {
         let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
         write!(
             stream,
-            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/event-stream\r\n\r\n"
+            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Gitreant-Token: {SECRET}\r\nAccept: text/event-stream\r\n\r\n"
         )
         .unwrap();
         let mut first = [0u8; 256];
@@ -1219,7 +1273,7 @@ async fn shutdown_completes_while_an_sse_connection_is_open() {
     .await
     .unwrap();
 
-    tokio::task::spawn_blocking(move || post_shutdown(port))
+    tokio::task::spawn_blocking(move || post_shutdown(port, Some(SECRET)))
         .await
         .unwrap()
         .expect("shutdown request");
@@ -1236,7 +1290,10 @@ async fn shutdown_completes_while_an_sse_connection_is_open() {
 async fn shutdown_endpoint_stops_the_server() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
-    let server = tokio::spawn(serve(listener, AppState::new(Session::new())));
+    let server = tokio::spawn(serve(
+        listener,
+        AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+    ));
 
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -1251,7 +1308,7 @@ async fn shutdown_endpoint_stops_the_server() {
     .unwrap();
     assert!(up, "server did not come up");
 
-    tokio::task::spawn_blocking(move || post_shutdown(port))
+    tokio::task::spawn_blocking(move || post_shutdown(port, Some(SECRET)))
         .await
         .unwrap()
         .expect("shutdown request");
@@ -1287,9 +1344,12 @@ async fn listing_carries_linked_worktrees_with_their_branches() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
-        serve(listener, AppState::new(Session::new()))
-            .await
-            .unwrap();
+        serve(
+            listener,
+            AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let up = tokio::task::spawn_blocking(move || {
         for _ in 0..50 {
@@ -1305,7 +1365,7 @@ async fn listing_carries_linked_worktrees_with_their_branches() {
     assert!(up, "server did not come up");
 
     let p = main.to_string_lossy().into_owned();
-    tokio::task::spawn_blocking(move || post_repo(port, &p))
+    tokio::task::spawn_blocking(move || post_repo(port, Some(SECRET), &p))
         .await
         .unwrap()
         .expect("add the main worktree");
@@ -1346,7 +1406,7 @@ async fn listing_carries_linked_worktrees_with_their_branches() {
         "view path must be canonical like the list's: {view}"
     );
 
-    let _ = tokio::task::spawn_blocking(move || post_shutdown(port))
+    let _ = tokio::task::spawn_blocking(move || post_shutdown(port, Some(SECRET)))
         .await
         .unwrap();
 }
@@ -1385,7 +1445,12 @@ async fn a_submodule_graph_names_its_submodule_by_its_id() {
     let mut session = Session::new();
     session.add(&main).unwrap();
     tokio::spawn(async move {
-        serve(listener, AppState::new(session)).await.unwrap();
+        serve(
+            listener,
+            AppState::new(session).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let id = gitreant::app::canonical(&main)
         .to_string_lossy()
@@ -1415,7 +1480,7 @@ async fn a_submodule_graph_names_its_submodule_by_its_id() {
         .into_owned();
     assert_eq!(graphs[0]["path"], expected);
 
-    let _ = tokio::task::spawn_blocking(move || post_shutdown(port))
+    let _ = tokio::task::spawn_blocking(move || post_shutdown(port, Some(SECRET)))
         .await
         .unwrap();
 }
@@ -1490,7 +1555,12 @@ async fn signatures_are_checked_after_the_view_answers() {
     let mut session = Session::new();
     session.add(tmp.path()).unwrap();
     tokio::spawn(async move {
-        serve(listener, AppState::new(session)).await.unwrap();
+        serve(
+            listener,
+            AppState::new(session).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let (first, stream_text, second) = tokio::task::spawn_blocking(move || {
         assert!((0..50).any(|_| {
@@ -1503,7 +1573,7 @@ async fn signatures_are_checked_after_the_view_answers() {
             .unwrap();
         write!(
             stream,
-            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/event-stream\r\n\r\n"
+            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Gitreant-Token: {SECRET}\r\nAccept: text/event-stream\r\n\r\n"
         )
         .unwrap();
         std::thread::sleep(std::time::Duration::from_millis(300));
@@ -1562,7 +1632,12 @@ async fn line_counts_arrive_after_the_view_answers() {
     let mut session = Session::new();
     session.add(tmp.path()).unwrap();
     tokio::spawn(async move {
-        serve(listener, AppState::new(session)).await.unwrap();
+        serve(
+            listener,
+            AppState::new(session).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let (first, stream_text, second, log) = tokio::task::spawn_blocking(move || {
         assert!((0..50).any(|_| {
@@ -1575,7 +1650,7 @@ async fn line_counts_arrive_after_the_view_answers() {
             .unwrap();
         write!(
             stream,
-            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nAccept: text/event-stream\r\n\r\n"
+            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Gitreant-Token: {SECRET}\r\nAccept: text/event-stream\r\n\r\n"
         )
         .unwrap();
         std::thread::sleep(std::time::Duration::from_millis(300));
@@ -1642,7 +1717,12 @@ async fn requests_from_other_sites_are_refused() {
     let mut session = Session::new();
     session.add(tmp.path()).unwrap();
     tokio::spawn(async move {
-        serve(listener, AppState::new(session)).await.unwrap();
+        serve(
+            listener,
+            AppState::new(session).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     tokio::task::spawn_blocking(move || {
         assert!((0..50).any(|_| {
@@ -1684,13 +1764,13 @@ async fn requests_from_other_sites_are_refused() {
         let own = http_raw(
             port,
             &format!(
-                "POST /api/refresh HTTP/1.1\r\nHost: localhost:{port}\r\nOrigin: http://localhost:{port}"
+                "POST /api/refresh HTTP/1.1\r\nHost: localhost:{port}\r\nOrigin: http://localhost:{port}\r\nX-Gitreant-Token: {SECRET}"
             ),
         );
         assert!(status(&own).contains("200"), "{own}");
         let cli = http_raw(
             port,
-            &format!("POST /api/refresh HTTP/1.1\r\nHost: 127.0.0.1:{port}"),
+            &format!("POST /api/refresh HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nX-Gitreant-Token: {SECRET}"),
         );
         assert!(status(&cli).contains("200"), "{cli}");
     })
@@ -1712,7 +1792,12 @@ async fn the_list_says_how_each_repository_came() {
     let mut session = Session::new();
     session.add(dirs[0].path()).unwrap();
     tokio::spawn(async move {
-        serve(listener, AppState::new(session)).await.unwrap();
+        serve(
+            listener,
+            AppState::new(session).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
     });
     let paths: Vec<String> = dirs
         .iter()
@@ -1723,13 +1808,13 @@ async fn the_list_says_how_each_repository_came() {
             std::thread::sleep(std::time::Duration::from_millis(50));
             ping(port)
         }));
-        post_repo(port, &paths[1]).unwrap();
+        post_repo(port, Some(SECRET), &paths[1]).unwrap();
         let from_page = |path: &str, reason: &str| {
             let body = serde_json::json!({ "path": path, "reason": reason }).to_string();
             let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
             write!(
                 stream,
-                "POST /api/repos HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nOrigin: http://127.0.0.1:{port}\r\nConnection: close\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}",
+                "POST /api/repos HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nOrigin: http://127.0.0.1:{port}\r\nX-Gitreant-Token: {SECRET}\r\nConnection: close\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}",
                 body.len()
             )
             .unwrap();
@@ -1772,4 +1857,38 @@ async fn the_list_says_how_each_repository_came() {
         "an unknown reason is dropped"
     );
     assert!(added(&dirs[0])["at"].as_i64().unwrap() > 1_700_000_000);
+}
+
+/// Every API request but the ping carries the server's secret; the page
+/// and its files need none (ADR 0063).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn api_requests_need_the_servers_secret() {
+    const SECRET: &str = "5ec2e7";
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        let state = AppState::new(Session::new()).with_secret(Secret::from_text(SECRET));
+        serve(listener, state).await.unwrap();
+    });
+    tokio::task::spawn_blocking(move || {
+        assert!((0..50).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            ping(port)
+        }));
+        let status = |head: &str| {
+            let resp = http_raw(port, &format!("{head}\r\nHost: 127.0.0.1:{port}"));
+            resp.lines().next().unwrap_or_default().to_string()
+        };
+        assert!(status("GET /api/list HTTP/1.1").contains("401"));
+        assert!(status("GET /api/list HTTP/1.1\r\nX-Gitreant-Token: 5ec2e8").contains("401"));
+        assert!(status(&format!(
+            "GET /api/list HTTP/1.1\r\nX-Gitreant-Token: {SECRET}"
+        ))
+        .contains("200"));
+        assert!(status("POST /api/shutdown HTTP/1.1").contains("401"));
+        assert!(status("GET /api/ping HTTP/1.1").contains("200"));
+        assert!(status("GET / HTTP/1.1").contains("200"));
+    })
+    .await
+    .unwrap();
 }

@@ -99,6 +99,8 @@ const en = {
   moveLeftPane: "Move to the left pane",
   revealInExplorer: "Reveal in file manager",
   openInEditor: "Open in editor",
+  secretMissing:
+    "This page lacks the server's secret. Open gitreant from its command; this prints its address:",
   openWith: "Open with {name}",
   openWithChooser: "Open with…",
   settingsEditors: "Editors",
@@ -350,6 +352,8 @@ const ja: Record<MsgKey, string> = {
   moveLeftPane: "左のペインへ移動",
   revealInExplorer: "ファイルマネージャで開く",
   openInEditor: "エディタで開く",
+  secretMissing:
+    "このページはサーバの秘密を持っていません。コマンドから gitreant を開いてください。アドレスは次で表示できます:",
   openWith: "{name} で開く",
   openWithChooser: "プログラムから開く…",
   settingsEditors: "エディタ",

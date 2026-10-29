@@ -59,13 +59,15 @@ fn wait_until(cond: impl Fn() -> bool, timeout: Duration) -> bool {
     false
 }
 
-/// Fetch `/api/repos` as text over a raw socket.
-fn get_repos(port: u16) -> String {
+/// Fetch `/api/list` as text over a raw socket, with the secret the server
+/// on `port` keeps in its record in `state` (ADR 0063).
+fn get_repos(port: u16, state: &Path) -> String {
     use std::io::{Read, Write};
+    let secret = gitreant::records::token(state, port).expect("the server's record");
     let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
     write!(
         stream,
-        "GET /api/list HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
+        "GET /api/list HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Gitreant-Token: {secret}\r\nConnection: close\r\n\r\n"
     )
     .unwrap();
     let mut resp = String::new();
@@ -76,12 +78,14 @@ fn get_repos(port: u16) -> String {
 #[test]
 fn detaches_by_default_and_stops_via_shutdown() {
     let port = free_port();
+    let state = tempfile::tempdir().unwrap();
 
     let tmp = tempfile::tempdir().unwrap();
     init_repo_with_commit(tmp.path());
 
     let exe = env!("CARGO_BIN_EXE_gitreant");
     let mut launcher = Command::new(exe)
+        .env("GITREANT_STATE_DIR", state.path())
         .arg(tmp.path())
         .args(["--port", &port.to_string(), "--no-open"])
         .spawn()
@@ -102,6 +106,7 @@ fn detaches_by_default_and_stops_via_shutdown() {
     let second = tempfile::tempdir().unwrap();
     init_repo_with_commit(second.path());
     let forwarder = Command::new(exe)
+        .env("GITREANT_STATE_DIR", state.path())
         .arg(second.path())
         .args(["--port", &port.to_string(), "--no-open"])
         .output()
@@ -129,11 +134,12 @@ fn detaches_by_default_and_stops_via_shutdown() {
         .to_string_lossy()
         .into_owned();
     assert!(
-        get_repos(port).contains(&second_name),
+        get_repos(port, state.path()).contains(&second_name),
         "forwarded repository missing from the running server"
     );
 
     let shutdown = Command::new(exe)
+        .env("GITREANT_STATE_DIR", state.path())
         .args(["--port", &port.to_string(), "--shutdown"])
         .status()
         .unwrap();
@@ -147,6 +153,7 @@ fn detaches_by_default_and_stops_via_shutdown() {
 #[test]
 fn restart_brings_the_same_repositories_back_up() {
     let port = free_port();
+    let state = tempfile::tempdir().unwrap();
     let tmp = tempfile::tempdir().unwrap();
     init_repo_with_commit(tmp.path());
     let name = tmp
@@ -158,6 +165,7 @@ fn restart_brings_the_same_repositories_back_up() {
 
     let exe = env!("CARGO_BIN_EXE_gitreant");
     let mut launcher = Command::new(exe)
+        .env("GITREANT_STATE_DIR", state.path())
         .arg(tmp.path())
         .args(["--port", &port.to_string(), "--no-open"])
         .spawn()
@@ -168,7 +176,7 @@ fn restart_brings_the_same_repositories_back_up() {
     );
     assert!(ping(port), "server is not answering");
     assert!(
-        get_repos(port).contains(&name),
+        get_repos(port, state.path()).contains(&name),
         "repo missing before restart"
     );
 
@@ -176,6 +184,7 @@ fn restart_brings_the_same_repositories_back_up() {
     // `.status()` (not `.output()`): restart detaches a server that would
     // inherit a captured stdout pipe on Windows and block the wait forever.
     let restart = Command::new(exe)
+        .env("GITREANT_STATE_DIR", state.path())
         .args(["restart", "--port", &port.to_string()])
         .status()
         .expect("run restart");
@@ -185,11 +194,12 @@ fn restart_brings_the_same_repositories_back_up() {
         "server did not come back after restart"
     );
     assert!(
-        get_repos(port).contains(&name),
+        get_repos(port, state.path()).contains(&name),
         "restart lost the repository"
     );
 
     let shutdown = Command::new(exe)
+        .env("GITREANT_STATE_DIR", state.path())
         .args(["--port", &port.to_string(), "--shutdown"])
         .status()
         .unwrap();

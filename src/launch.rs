@@ -8,6 +8,16 @@
 
 use std::path::{Path, PathBuf};
 
+/// The page's address on `port`, with the server's secret in its fragment
+/// when there is one: a fragment never reaches a server, and the page keeps
+/// the secret for its requests (ADR 0063).
+pub fn page_url(port: u16, token: Option<&str>) -> String {
+    match token.filter(|token| !token.is_empty()) {
+        Some(token) => format!("http://127.0.0.1:{port}/#token={token}"),
+        None => format!("http://127.0.0.1:{port}/"),
+    }
+}
+
 /// Let a spawned program outlive this process and its console: its own
 /// process group, and on Windows no console of ours.
 #[cfg(windows)]
@@ -113,6 +123,16 @@ fn candidate_paths() -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_page_address_hands_the_secret_over_in_its_fragment() {
+        assert_eq!(
+            page_url(4000, Some("5ec2e7")),
+            "http://127.0.0.1:4000/#token=5ec2e7"
+        );
+        assert_eq!(page_url(4000, None), "http://127.0.0.1:4000/");
+        assert_eq!(page_url(4000, Some("")), "http://127.0.0.1:4000/");
+    }
 
     fn paths(values: &[&str]) -> Vec<PathBuf> {
         values.iter().map(PathBuf::from).collect()

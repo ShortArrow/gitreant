@@ -1,3 +1,5 @@
+import { apiFetch } from "./secret";
+
 export interface CommitView {
   id: string;
   row: number;
@@ -155,7 +157,7 @@ export async function fetchFileDiff(
   commitId: string,
   path: string,
 ): Promise<FileDiff> {
-  const response = await fetch("/api/diff", {
+  const response = await apiFetch("/api/diff", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo: repoId, id: commitId, path }),
@@ -176,7 +178,7 @@ export async function fetchFileContent(
   id: string,
   path: string,
 ): Promise<string | null> {
-  const response = await fetch("/api/file", {
+  const response = await apiFetch("/api/file", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo: repoId, id, path }),
@@ -213,7 +215,7 @@ async function branchOp(
   repoId: string,
   reference: string,
 ): Promise<BranchOpResult> {
-  const response = await fetch(endpoint, {
+  const response = await apiFetch(endpoint, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo: repoId, reference }),
@@ -255,7 +257,7 @@ async function tagOp(
   method: "POST" | "DELETE",
   body: Record<string, string>,
 ): Promise<BranchOpResult> {
-  const response = await fetch("/api/tag", {
+  const response = await apiFetch("/api/tag", {
     method,
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -291,7 +293,7 @@ export async function createBranch(
   name: string,
   commit: string,
 ): Promise<BranchOpResult> {
-  const response = await fetch("/api/branch", {
+  const response = await apiFetch("/api/branch", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo: repoId, name, commit }),
@@ -330,7 +332,7 @@ export interface PrLookupView {
 /** PRs of one repository via the server's `gh` lookup. Empty when gh is
  *  missing, unauthenticated, or the repository has no GitHub remote. */
 export async function fetchPrs(repoId: string): Promise<PrLookupView> {
-  const response = await fetch("/api/prs", {
+  const response = await apiFetch("/api/prs", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo: repoId }),
@@ -343,7 +345,7 @@ export async function fetchPrs(repoId: string): Promise<PrLookupView> {
 
 /** The external commands the server executed, oldest first. */
 export async function fetchCommandLog(): Promise<CommandLogEntry[]> {
-  const response = await fetch("/api/log");
+  const response = await apiFetch("/api/log");
   if (!response.ok) {
     throw new Error(`command log failed: ${response.status}`);
   }
@@ -357,7 +359,7 @@ export interface FetchResult {
 
 /** Fetch all remotes of every displayed repository (server-side `git fetch`). */
 export async function fetchRemotes(): Promise<FetchResult> {
-  const response = await fetch("/api/fetch", { method: "POST" });
+  const response = await apiFetch("/api/fetch", { method: "POST" });
   if (!response.ok) {
     throw new Error(`fetch failed: ${response.status}`);
   }
@@ -369,7 +371,7 @@ export async function fetchCommitDiff(
   repoId: string,
   commitId: string,
 ): Promise<FileDiff[]> {
-  const response = await fetch("/api/commit-diff", {
+  const response = await apiFetch("/api/commit-diff", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo: repoId, id: commitId }),
@@ -389,7 +391,7 @@ export async function fetchRangeDiff(
   base: string,
   target: string,
 ): Promise<FileDiff[]> {
-  const response = await fetch("/api/range-diff", {
+  const response = await apiFetch("/api/range-diff", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo: repoId, base, target }),
@@ -407,7 +409,7 @@ export async function fetchCommitDetail(
   repoId: string,
   commitId: string,
 ): Promise<CommitDetail> {
-  const response = await fetch("/api/commit", {
+  const response = await apiFetch("/api/commit", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo: repoId, id: commitId }),
@@ -440,7 +442,7 @@ export interface RepoListEntry {
 
 /** The repository list, answered without reading any graph. */
 export async function fetchRepoList(): Promise<RepoListEntry[]> {
-  const response = await fetch("/api/list");
+  const response = await apiFetch("/api/list");
   if (!response.ok) {
     throw new Error(`failed to load repositories: ${response.status}`);
   }
@@ -468,7 +470,7 @@ export interface SubmoduleGraph {
 export async function fetchSubmoduleGraphs(
   id: string,
 ): Promise<SubmoduleGraph[]> {
-  const response = await fetch("/api/submodules", {
+  const response = await apiFetch("/api/submodules", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo: id }),
@@ -487,7 +489,7 @@ export interface AboutView {
 }
 
 export async function fetchAbout(): Promise<AboutView> {
-  const response = await fetch("/api/about");
+  const response = await apiFetch("/api/about");
   if (!response.ok) {
     throw new Error(`failed to load about: ${response.status}`);
   }
@@ -506,7 +508,7 @@ export interface RepoStatus {
 
 /** The git-state summary of one repository (runs git; loaded per repo). */
 export async function fetchRepoStatus(id: string): Promise<RepoStatus> {
-  const response = await fetch("/api/status", {
+  const response = await apiFetch("/api/status", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo: id }),
@@ -523,7 +525,7 @@ export async function fetchRepoView(
   id: string,
   limit?: number,
 ): Promise<RepoView> {
-  const response = await fetch("/api/view", {
+  const response = await apiFetch("/api/view", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo: id, limit }),
@@ -549,7 +551,7 @@ export async function addRepo(
   path: string,
   reason: AddReason,
 ): Promise<AddRepoResponse> {
-  const response = await fetch("/api/repos", {
+  const response = await apiFetch("/api/repos", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ path, reason }),
@@ -563,7 +565,7 @@ export async function addRepo(
 /** Open a native folder picker on the server machine; returns the chosen path
  *  (or null if cancelled). */
 export async function pickFolder(): Promise<string | null> {
-  const response = await fetch("/api/pick", { method: "POST" });
+  const response = await apiFetch("/api/pick", { method: "POST" });
   if (!response.ok) {
     throw new Error(`pick failed: ${response.status}`);
   }
@@ -574,7 +576,7 @@ export async function pickFolder(): Promise<string | null> {
 /** Open a repository folder (or a repository-relative file when `path` is
  * given) with the OS default handler on the server machine. */
 export async function revealPath(repo: string, path?: string): Promise<void> {
-  const response = await fetch("/api/reveal", {
+  const response = await apiFetch("/api/reveal", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo, path }),
@@ -602,7 +604,7 @@ export interface EditorList {
 /** The editors the server's configuration lists. Read only: they are
  * written with `gitreant editor` or by hand (ADR 0062). */
 export async function fetchEditors(): Promise<EditorList> {
-  const response = await fetch("/api/editors");
+  const response = await apiFetch("/api/editors");
   if (!response.ok) {
     throw new Error(`editors failed: ${response.status}`);
   }
@@ -617,7 +619,7 @@ export async function openWith(
   editor: number,
   line?: number,
 ): Promise<void> {
-  const response = await fetch("/api/open-with", {
+  const response = await apiFetch("/api/open-with", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo, path, editor, line }),
@@ -634,7 +636,7 @@ export async function openWithChooser(
   repo: string,
   path: string,
 ): Promise<void> {
-  const response = await fetch("/api/open-with-chooser", {
+  const response = await apiFetch("/api/open-with-chooser", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ repo, path }),
@@ -649,7 +651,7 @@ export async function openWithChooser(
 /** Drop the server's cached signature verdicts and re-verify — the SPA
  * reloads on the resulting update. Use after adding a key to gpg. */
 export async function refreshVerdicts(): Promise<void> {
-  const response = await fetch("/api/refresh", { method: "POST" });
+  const response = await apiFetch("/api/refresh", { method: "POST" });
   if (!response.ok) {
     throw new Error(`refresh failed: ${response.status}`);
   }
@@ -657,7 +659,7 @@ export async function refreshVerdicts(): Promise<void> {
 
 /** Remove a repository. Returns the authoritative updated repo list. */
 export async function removeRepo(id: string): Promise<RepoListEntry[]> {
-  const response = await fetch("/api/repos", {
+  const response = await apiFetch("/api/repos", {
     method: "DELETE",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ path: id }),

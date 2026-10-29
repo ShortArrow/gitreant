@@ -16,24 +16,32 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Is a gitreant server answering on `port`?
 pub fn ping(port: u16) -> bool {
-    match request(port, "GET", "/api/ping", None, PING_TIMEOUT) {
+    match request(port, None, "GET", "/api/ping", None, PING_TIMEOUT) {
         Ok((200, body)) => body.trim().starts_with(PING_MARKER),
         _ => false,
     }
 }
 
-/// Ask the running server to add the repository at `path`.
-pub fn post_repo(port: u16, path: &str) -> Result<(), String> {
+/// Ask the running server to add the repository at `path`. `token` is the
+/// secret its record holds (ADR 0063), as for every call below.
+pub fn post_repo(port: u16, token: Option<&str>, path: &str) -> Result<(), String> {
     let body = serde_json::json!({ "path": path }).to_string();
-    match request(port, "POST", "/api/repos", Some(&body), REQUEST_TIMEOUT)? {
+    match request(
+        port,
+        token,
+        "POST",
+        "/api/repos",
+        Some(&body),
+        REQUEST_TIMEOUT,
+    )? {
         (200, _) => Ok(()),
         (status, body) => Err(format!("server returned {status}: {body}")),
     }
 }
 
 /// Ask the running server to stop itself.
-pub fn post_shutdown(port: u16) -> Result<(), String> {
-    match request(port, "POST", "/api/shutdown", None, REQUEST_TIMEOUT)? {
+pub fn post_shutdown(port: u16, token: Option<&str>) -> Result<(), String> {
+    match request(port, token, "POST", "/api/shutdown", None, REQUEST_TIMEOUT)? {
         (200, _) => Ok(()),
         (status, body) => Err(format!("server returned {status}: {body}")),
     }
@@ -41,8 +49,8 @@ pub fn post_shutdown(port: u16) -> Result<(), String> {
 
 /// Ask the running server to drop its cached signature verdicts and
 /// re-verify (without restarting).
-pub fn post_refresh(port: u16) -> Result<(), String> {
-    match request(port, "POST", "/api/refresh", None, REQUEST_TIMEOUT)? {
+pub fn post_refresh(port: u16, token: Option<&str>) -> Result<(), String> {
+    match request(port, token, "POST", "/api/refresh", None, REQUEST_TIMEOUT)? {
         (200, _) => Ok(()),
         (status, body) => Err(format!("server returned {status}: {body}")),
     }
@@ -50,8 +58,8 @@ pub fn post_refresh(port: u16) -> Result<(), String> {
 
 /// The repository paths a running server currently displays, so a restart
 /// can bring the same set back up.
-pub fn get_repo_paths(port: u16) -> Result<Vec<String>, String> {
-    Ok(get_repo_list(port)?
+pub fn get_repo_paths(port: u16, token: Option<&str>) -> Result<Vec<String>, String> {
+    Ok(get_repo_list(port, token)?
         .into_iter()
         .filter_map(|e| e.get("path").and_then(|p| p.as_str()).map(str::to_string))
         .collect())
@@ -59,8 +67,8 @@ pub fn get_repo_paths(port: u16) -> Result<Vec<String>, String> {
 
 /// The entries of a running server's `GET /api/list`, each with its path
 /// and how it came (ADR 0039).
-pub fn get_repo_list(port: u16) -> Result<Vec<serde_json::Value>, String> {
-    match request(port, "GET", "/api/list", None, REQUEST_TIMEOUT)? {
+pub fn get_repo_list(port: u16, token: Option<&str>) -> Result<Vec<serde_json::Value>, String> {
+    match request(port, token, "GET", "/api/list", None, REQUEST_TIMEOUT)? {
         (200, body) => serde_json::from_str(&body).map_err(|e| format!("parse repo list: {e}")),
         (status, body) => Err(format!("server returned {status}: {body}")),
     }
@@ -68,6 +76,7 @@ pub fn get_repo_list(port: u16) -> Result<Vec<serde_json::Value>, String> {
 
 fn request(
     port: u16,
+    token: Option<&str>,
     method: &str,
     path: &str,
     body: Option<&str>,
@@ -79,9 +88,13 @@ fn request(
         .map_err(|e| e.to_string())?;
 
     let body = body.unwrap_or("");
+    let secret = token
+        .map(|token| format!("X-Gitreant-Token: {token}\r\n"))
+        .unwrap_or_default();
     let request = format!(
         "{method} {path} HTTP/1.1\r\n\
          Host: 127.0.0.1\r\n\
+         {secret}\
          Content-Type: application/json\r\n\
          Content-Length: {len}\r\n\
          Connection: close\r\n\r\n\
