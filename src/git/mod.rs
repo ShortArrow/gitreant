@@ -3,6 +3,7 @@
 
 mod avatar;
 mod branch;
+mod command;
 mod detail;
 mod diff_attributes;
 mod diffstat;

@@ -5,9 +5,8 @@
 //! work that is not committed or not on a remote.
 
 use std::path::Path;
-use std::process::Command;
 
-use super::fetch::hide_console;
+use super::command::{git, Locks};
 use super::uncommitted::uncommitted_paths;
 
 /// What a repository is holding that is not committed or not on a remote.
@@ -39,20 +38,10 @@ pub fn read_status(path: &Path) -> RepoStatus {
     }
 }
 
+/// A background poll's read: never a lock a concurrent commit needs, and
+/// nothing when git fails.
 fn run(path: &Path, args: &[&str]) -> String {
-    let mut command = Command::new("git");
-    command.arg("-C").arg(path).args(args);
-    // `git status` refreshes the index and grabs `index.lock` by default;
-    // as a background poll that must never fight a concurrent commit, opt
-    // out of those optional locks.
-    command.env("GIT_OPTIONAL_LOCKS", "0");
-    hide_console(&mut command);
-    command
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
-        .unwrap_or_default()
+    git(path, args, Locks::Skip).unwrap_or_default()
 }
 
 fn parse_count(stdout: &str) -> usize {

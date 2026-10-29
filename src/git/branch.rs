@@ -5,9 +5,8 @@
 //! command is meant to land in the server's command log.
 
 use std::path::Path;
-use std::process::Command;
 
-use super::fetch::hide_console;
+use super::command::{git, Locks};
 
 /// `git switch` arguments for `reference`; remote-tracking refs (with a "/")
 /// cannot be switched to directly, so they detach.
@@ -29,18 +28,9 @@ pub(super) fn command_line(path: &Path, args: &[&str]) -> String {
     format!("git -C {} {}", path.display(), args.join(" "))
 }
 
+/// Run an operation the user asked for; a failure returns git's stderr.
 pub(super) fn run(path: &Path, args: &[&str]) -> Result<(), String> {
-    let mut command = Command::new("git");
-    command.arg("-C").arg(path).args(args);
-    hide_console(&mut command);
-    let output = command
-        .output()
-        .map_err(|e| format!("run git: {e} (is git installed?)"))?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
-    }
+    git(path, args, Locks::Take).map(drop)
 }
 
 /// The command line `checkout` executes, for the command log.

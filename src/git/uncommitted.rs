@@ -12,11 +12,10 @@
 
 use std::collections::HashMap;
 use std::path::Path;
-use std::process::Command;
 
+use super::command::{git, Locks};
 use super::detail::{unified, CommitDetail, FileChange, FileDiff};
 use super::diff_attributes::DiffAttributes;
-use super::fetch::hide_console;
 
 /// The id the changes row carries in place of a commit hash. Never a valid
 /// object id, so it cannot collide with a real commit; the API dispatches
@@ -222,18 +221,7 @@ fn read_untracked(file: &Path, limit: u64) -> Result<Option<Vec<u8>>, String> {
 /// Run git in `path` and return its stdout; stderr becomes the error. Never
 /// takes the index lock: this runs beside the user's own git commands.
 fn output(path: &Path, args: &[&str]) -> Result<String, String> {
-    let mut command = Command::new("git");
-    command.arg("-C").arg(path).args(args);
-    command.env("GIT_OPTIONAL_LOCKS", "0");
-    hide_console(&mut command);
-    let out = command
-        .output()
-        .map_err(|e| format!("run git: {e} (is git installed?)"))?;
-    if out.status.success() {
-        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
-    } else {
-        Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
-    }
+    git(path, args, Locks::Skip)
 }
 
 /// `status --porcelain -z`: NUL-separated `XY path` entries, X the index

@@ -93,5 +93,4 @@
 
 - コンフリクト時の解決支援 UI（ADR 0014 の将来項目）
 - **WinGet への提出をリリースのワークフローに組み込む** — 各版のマニフェストは、今は手で `microsoft/winget-pkgs` に提出している
-- **git 実行ヘルパーの整理** — `git -C <path>` を起動する関数が `branch.rs` の `run`、`status.rs` の `run`、`uncommitted.rs` の `output` の 3 つに分かれており、違いはロックの扱いとエラーの返し方だけ
 - **gh-actions-lock でワークフローのアクションを固定する** — 今はアクションを手でコミットの SHA に固定している（ADR 0030）。[gh-actions-lock](https://github.com/github/gh-actions-lock) を使うと、アクションが中で呼ぶアクションも固定され、ジョブの開始時にランナーが照合する。public preview なので 1.0 を待ち、Dependabot が更新したあとも lockfile が検証に通るかを確かめてから入れる
