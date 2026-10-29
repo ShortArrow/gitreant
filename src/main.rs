@@ -47,6 +47,12 @@ struct Cli {
     #[arg(long)]
     no_open: bool,
 
+    /// Hand the browser the page's address itself, secret included, rather
+    /// than a launcher file that keeps it off the command line (Linux and
+    /// macOS).
+    #[arg(long)]
+    no_launcher: bool,
+
     /// Open in a chromeless app window instead of a browser tab.
     #[arg(long)]
     app: bool,
@@ -496,7 +502,7 @@ fn start_background(cli: &Cli, port: u16, paths: &[PathBuf], open: bool) -> Exit
                 child.id()
             );
             if open {
-                open_browser(cli, &url);
+                open_browser(cli, port, &url);
             }
             return ExitCode::SUCCESS;
         }
@@ -578,10 +584,13 @@ fn run_server(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
                 eprintln!("could not record this server in {}: {e}", dir.display());
             }
         }
-        open_browser(cli, &url);
+        open_browser(cli, addr.port(), &url);
         let served = serve(listener, state).await;
         if let Some(dir) = &record_dir {
             records::remove(dir, addr.port());
+            for launchers in [dir.clone(), launch::launcher_dir(dir)] {
+                let _ = std::fs::remove_file(launch::launcher_path(&launchers, addr.port()));
+            }
         }
         if let Err(e) = served {
             eprintln!("server error: {e}");
@@ -597,14 +606,43 @@ fn token_of(port: u16) -> Option<String> {
 }
 
 #[cfg(not(target_os = "android"))]
-fn open_browser(cli: &Cli, url: &str) {
+fn open_browser(cli: &Cli, port: u16, url: &str) {
     if cli.no_open {
         return;
     }
-    if cli.app && open_app_window(url) {
+    let target = launcher_for(cli, port, url).unwrap_or_else(|| url.to_string());
+    if cli.app && open_app_window(&target) {
         return;
     }
-    let _ = open::that(url);
+    let _ = open::that(&target);
+}
+
+/// On Linux and macOS, where another account may read a process's command
+/// line, the address of a launcher file to open in place of `url`, so the
+/// secret in it never reaches the browser's (ADR 0063). None on Windows,
+/// where that takes an administrator and `.html` may open in an editor; in
+/// WSL, whose browser cannot open a Linux file; with `--no-launcher`; and
+/// when the file cannot be written.
+#[cfg(not(target_os = "android"))]
+fn launcher_for(cli: &Cli, port: u16, url: &str) -> Option<String> {
+    if cfg!(windows) || cli.no_launcher || in_wsl() {
+        return None;
+    }
+    let records = records::dir()?;
+    let dir = if cfg!(target_os = "macos") {
+        records
+    } else {
+        launch::launcher_dir(&records)
+    };
+    let file = launch::write_launcher(&dir, port, url).ok()?;
+    Some(launch::file_url(&file))
+}
+
+/// Whether this runs inside the Windows Subsystem for Linux.
+#[cfg(not(target_os = "android"))]
+fn in_wsl() -> bool {
+    std::fs::read_to_string("/proc/sys/kernel/osrelease")
+        .is_ok_and(|release| release.to_ascii_lowercase().contains("microsoft"))
 }
 
 /// Try to open `url` as a chromeless window, reporting whether it worked so
@@ -628,7 +666,7 @@ fn open_app_window(url: &str) -> bool {
 /// Termux has no desktop opener; try its own URL handler and always print
 /// the address so the user can tap or paste it.
 #[cfg(target_os = "android")]
-fn open_browser(cli: &Cli, url: &str) {
+fn open_browser(cli: &Cli, _port: u16, url: &str) {
     if !cli.no_open {
         let _ = std::process::Command::new("termux-open-url")
             .arg(url)

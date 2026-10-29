@@ -103,6 +103,9 @@ gitreant [PATH...]
       --app           open in a chromeless window instead of a tab (needs a
                       Chromium-based browser; falls back to the ordinary
                       browser without one, and --no-open outranks it)
+      --no-launcher   on Linux and macOS, give the browser the page's address
+                      itself, secret included, rather than a launcher file
+                      that keeps the secret off its command line
       --foreground    run the server in the current terminal instead of detaching
       --shutdown      stop the running gitreant server and exit
       --all           with --shutdown, stop every running gitreant server

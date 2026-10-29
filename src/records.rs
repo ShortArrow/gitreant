@@ -52,24 +52,37 @@ fn dir_from(var: impl Fn(&str) -> Option<String>) -> Option<PathBuf> {
 }
 
 /// Write `record` as `<port>.json` in `dir`, creating the directory. It
-/// holds the server's secret, so on Unix only its owner may read it; the
-/// directory on Windows is the user's own.
+/// holds the server's secret, so it is its owner's alone.
 pub fn write(dir: &Path, record: &Record) -> std::io::Result<()> {
-    use std::io::Write;
-    std::fs::create_dir_all(dir)?;
     let text = serde_json::to_string(record).map_err(std::io::Error::other)?;
+    create_private_dir(dir)?;
+    write_private(&path_of(dir, record.port), text.as_bytes())
+}
+
+/// Create `dir` and its parents, on Unix entered by its owner alone; on
+/// Windows a directory in the user's profile is the user's already.
+pub fn create_private_dir(dir: &Path) -> std::io::Result<()> {
+    let mut builder = std::fs::DirBuilder::new();
+    builder.recursive(true);
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+    builder.create(dir)
+}
+
+/// Replace the file at `path` with `contents`, on Unix readable by its
+/// owner alone at every moment: a new file is written beside it with that
+/// mode and renamed over it, so a file left readable by all never holds
+/// what is written.
+pub fn write_private(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let fresh = path.with_extension("tmp");
     let mut options = std::fs::OpenOptions::new();
-    options.write(true).create(true).truncate(true);
+    options.write(true).create_new(true);
     #[cfg(unix)]
     std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
-    let path = path_of(dir, record.port);
-    options.open(&path)?.write_all(text.as_bytes())?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
-    }
-    Ok(())
+    let _ = std::fs::remove_file(&fresh);
+    options.open(&fresh)?.write_all(contents)?;
+    std::fs::rename(&fresh, path)
 }
 
 /// The secret the server on `port` wrote in its record, if any.
@@ -92,6 +105,7 @@ pub fn running(dir: &Path, answers: impl Fn(u16) -> bool) -> Vec<Record> {
     };
     let mut live: Vec<Record> = entries
         .flatten()
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
         .filter_map(|entry| {
             let text = std::fs::read_to_string(entry.path()).ok()?;
             serde_json::from_str::<Record>(&text).ok()
@@ -136,6 +150,26 @@ mod tests {
             version: "0.3.0".to_string(),
             token: format!("secret-{port}"),
         }
+    }
+
+    /// A record an older build left readable by all never holds the secret
+    /// while it is: the new one replaces it whole, its owner's alone.
+    #[cfg(unix)]
+    #[test]
+    fn a_record_left_open_is_replaced_closed() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("servers");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("4000.json");
+        std::fs::write(&path, "{}").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        write(&dir, &record(4000)).unwrap();
+        let mode = |path: &Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(&path), 0o600);
+        let fresh = tmp.path().join("fresh");
+        write(&fresh, &record(4000)).unwrap();
+        assert_eq!(mode(&fresh), 0o700);
     }
 
     #[test]

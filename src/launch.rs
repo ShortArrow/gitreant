@@ -18,6 +18,80 @@ pub fn page_url(port: u16, token: Option<&str>) -> String {
     }
 }
 
+/// A page that only moves on to `url`, for the browser to open in its
+/// place: the browser's command line then names a file, never the secret in
+/// `url`, which other accounts could read there (ADR 0063). A refresh and a
+/// link stand in where the script does not run.
+pub fn launcher_html(url: &str) -> String {
+    let quoted = serde_json::to_string(url).expect("a string serializes");
+    format!(
+        "<!doctype html>\n<meta charset=\"utf-8\">\n\
+         <meta http-equiv=\"refresh\" content=\"0;url={url}\">\n\
+         <title>gitreant</title>\n\
+         <script>location.replace({quoted})</script>\n\
+         <a href=\"{url}\">gitreant</a>\n"
+    )
+}
+
+/// `path` as a `file:` URL, each byte outside a path's plain characters
+/// percent-encoded.
+pub fn file_url(path: &Path) -> String {
+    let text = path.to_string_lossy().replace('\\', "/");
+    let encoded: String = text
+        .bytes()
+        .map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' | b':' => {
+                (byte as char).to_string()
+            }
+            _ => format!("%{byte:02X}"),
+        })
+        .collect();
+    if encoded.starts_with('/') {
+        format!("file://{encoded}")
+    } else {
+        format!("file:///{encoded}")
+    }
+}
+
+/// Where the launcher is written on Linux: under the downloads directory,
+/// which browsers confined by snap or flatpak may read, else beside the
+/// server's records.
+pub fn launcher_dir(records: &Path) -> PathBuf {
+    launcher_dir_from(
+        |name| std::env::var(name).ok().filter(|value| !value.is_empty()),
+        records,
+        Path::is_dir,
+    )
+}
+
+fn launcher_dir_from(
+    var: impl Fn(&str) -> Option<String>,
+    records: &Path,
+    exists: impl Fn(&Path) -> bool,
+) -> PathBuf {
+    let downloads = var("XDG_DOWNLOAD_DIR")
+        .map(PathBuf::from)
+        .or_else(|| var("HOME").map(|home| Path::new(&home).join("Downloads")));
+    match downloads {
+        Some(dir) if exists(&dir) => dir.join(".gitreant"),
+        _ => records.to_path_buf(),
+    }
+}
+
+/// The launcher of the server on `port` inside `dir`.
+pub fn launcher_path(dir: &Path, port: u16) -> PathBuf {
+    dir.join(format!("open-{port}.html"))
+}
+
+/// Write the launcher that moves on to `url` for the server on `port`, its
+/// owner's alone, as the record that holds the same secret is.
+pub fn write_launcher(dir: &Path, port: u16, url: &str) -> std::io::Result<PathBuf> {
+    crate::records::create_private_dir(dir)?;
+    let path = launcher_path(dir, port);
+    crate::records::write_private(&path, launcher_html(url).as_bytes())?;
+    Ok(path)
+}
+
 /// Let a spawned program outlive this process and its console: its own
 /// process group, and on Windows no console of ours.
 #[cfg(windows)]
@@ -132,6 +206,70 @@ mod tests {
         );
         assert_eq!(page_url(4000, None), "http://127.0.0.1:4000/");
         assert_eq!(page_url(4000, Some("")), "http://127.0.0.1:4000/");
+    }
+
+    #[test]
+    fn a_launcher_page_moves_on_to_the_address_it_holds() {
+        let html = launcher_html("http://127.0.0.1:4000/#token=5ec2e7");
+        assert!(
+            html.contains(r#"location.replace("http://127.0.0.1:4000/#token=5ec2e7")"#),
+            "{html}"
+        );
+        assert!(html.contains(r#"content="0;url=http://127.0.0.1:4000/#token=5ec2e7""#));
+        assert!(html.contains(r#"<a href="http://127.0.0.1:4000/#token=5ec2e7">"#));
+    }
+
+    #[test]
+    fn a_file_url_encodes_what_a_path_may_hold() {
+        assert_eq!(
+            file_url(Path::new(
+                "/home/John Doe/Downloads/.gitreant/open-4000.html"
+            )),
+            "file:///home/John%20Doe/Downloads/.gitreant/open-4000.html"
+        );
+        assert_eq!(
+            file_url(Path::new("/Users/jü/a#b.html")),
+            "file:///Users/j%C3%BC/a%23b.html"
+        );
+    }
+
+    #[test]
+    fn the_launcher_sits_where_a_sandboxed_browser_can_read_it() {
+        let env = |pairs: &'static [(&str, &str)]| {
+            move |name: &str| {
+                pairs
+                    .iter()
+                    .find(|(key, _)| *key == name)
+                    .map(|(_, value)| value.to_string())
+            }
+        };
+        let records = Path::new("/run/user/1/gitreant/servers");
+        let exists = |_: &Path| true;
+        assert_eq!(
+            launcher_dir_from(env(&[("XDG_DOWNLOAD_DIR", "/d")]), records, exists),
+            Path::new("/d").join(".gitreant")
+        );
+        assert_eq!(
+            launcher_dir_from(env(&[("HOME", "/h")]), records, exists),
+            Path::new("/h").join("Downloads").join(".gitreant")
+        );
+        assert_eq!(
+            launcher_dir_from(env(&[("HOME", "/h")]), records, |_| false),
+            records
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_launcher_is_its_owners_alone() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join(".gitreant");
+        let file = write_launcher(&dir, 4000, "http://127.0.0.1:4000/#token=s").unwrap();
+        assert_eq!(file, dir.join("open-4000.html"));
+        let mode = |path: &Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(&file), 0o600);
+        assert_eq!(mode(&dir), 0o700);
     }
 
     fn paths(values: &[&str]) -> Vec<PathBuf> {

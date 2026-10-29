@@ -149,7 +149,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   another account on the same machine can no longer reach the server
   without one. `gitreant` opens the page with it in the address, and
   `gitreant list` prints each server's address with it; a bookmark of the
-  bare address says how to open the page instead
+  bare address says how to open the page instead. On Linux and macOS the
+  browser is handed a launcher file that is its owner's alone, so the
+  secret stays off its command line
   ([ADR 0063](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0063-request-token.md)).
 
 ## [0.3.0] - 2026-10-21

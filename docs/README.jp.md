@@ -79,6 +79,8 @@ gitreant [PATH...]
       --no-open       ブラウザを自動で開かない
       --app           タブではなく枠なしウィンドウで開く（Chromium系が
                       必要。無ければ通常のブラウザで開く。--no-open が優先）
+      --no-launcher   Linux と macOS で、秘密をコマンドラインに載せない起動用
+                      ファイルではなく、秘密付きのアドレスをブラウザに渡す
       --foreground    detachせず現在のターミナルでサーバを実行
       --shutdown      稼働中の gitreant サーバを停止して終了
       --all           --shutdown と使い、稼働中のサーバをすべて停止
