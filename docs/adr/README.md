@@ -65,3 +65,4 @@ are canonical; the files below are their English translations.
 | [0055](0055-drawer-add-panel.md) | Add a repository from a button in the drawer's head | Accepted |
 | [0056](0056-week-start.md) | Choose the day a week starts on | Accepted |
 | [0057](0057-segmented-button-style.md) | Let the calendar's shading buttons follow the button style | Accepted |
+| [0058](0058-thickness-depth-order.md) | Order the thickness by depth, the added side in front | Accepted |
