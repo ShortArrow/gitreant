@@ -1,0 +1,92 @@
+//! A program that answers gitreant's port as a gitreant would, but cannot
+//! prove it holds the secret of the server recorded there, gets nothing
+//! from the CLI (ADR 0064).
+
+use std::io::{Read, Write};
+use std::net::TcpListener;
+use std::path::Path;
+use std::process::Command;
+use std::sync::{Arc, Mutex};
+
+use gitreant::records::{self, Record};
+
+fn init_repo_with_commit(dir: &Path) {
+    let run = |args: &[&str]| {
+        let status = Command::new("git")
+            .current_dir(dir)
+            .args(args)
+            .env("GIT_AUTHOR_NAME", "T")
+            .env("GIT_AUTHOR_EMAIL", "t@e.com")
+            .env("GIT_COMMITTER_NAME", "T")
+            .env("GIT_COMMITTER_EMAIL", "t@e.com")
+            .status()
+            .unwrap();
+        assert!(status.success(), "git {args:?} failed");
+    };
+    run(&["init", "-q", "-b", "main"]);
+    run(&["config", "commit.gpgsign", "false"]);
+    run(&["commit", "--allow-empty", "-m", "root"]);
+}
+
+#[test]
+fn an_impostor_on_the_port_gets_nothing() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let seen: Arc<Mutex<Vec<String>>> = Arc::default();
+    let heard = Arc::clone(&seen);
+    std::thread::spawn(move || {
+        for stream in listener.incoming().flatten() {
+            let mut stream = stream;
+            let mut buf = [0u8; 4096];
+            let n = stream.read(&mut buf).unwrap_or(0);
+            heard
+                .lock()
+                .unwrap()
+                .push(String::from_utf8_lossy(&buf[..n]).into_owned());
+            let _ = stream.write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Length: 8\r\nConnection: close\r\n\r\ngitreant",
+            );
+        }
+    });
+
+    // The record of a server that ran on this port before.
+    let state = tempfile::tempdir().unwrap();
+    let record = Record {
+        port,
+        pid: 1,
+        started: 0,
+        version: "0.3.0".to_string(),
+        token: "the-secret-of-a-server-gone".to_string(),
+    };
+    records::write(state.path(), &record).unwrap();
+
+    let repo = tempfile::tempdir().unwrap();
+    init_repo_with_commit(repo.path());
+    let output = Command::new(env!("CARGO_BIN_EXE_gitreant"))
+        .env("GITREANT_STATE_DIR", state.path())
+        .arg(repo.path())
+        .args(["--port", &port.to_string(), "--no-open"])
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success(), "{output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("cannot prove"), "{stderr}");
+    let requests = seen.lock().unwrap().join("\n---\n");
+    assert!(
+        !requests.contains("the-secret-of-a-server-gone"),
+        "{requests}"
+    );
+    assert!(!requests.contains("POST"), "{requests}");
+    assert!(
+        !requests.contains(
+            &repo
+                .path()
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .to_string()
+        ),
+        "{requests}"
+    );
+}

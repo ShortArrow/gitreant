@@ -213,6 +213,7 @@ quietly disappear. `gitreant doctor` reports which are available.
   makes when it starts, so another account on the same machine cannot
   read or change the repositories it shows. `gitreant` opens the page with
   it, and `gitreant list` prints each server's address with it; a page
-  opened without it says so.
+  opened without it says so. `gitreant` forwards to a running server, or
+  opens its page, only once it proves it holds the secret.
 - **A dedicated window.** `--app` opens it as a window without an address
   bar (needs a Chromium-based browser).

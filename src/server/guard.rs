@@ -59,6 +59,30 @@ pub fn carries_secret(path: &str, query: Option<&str>, header: Option<&str>, sec
         .any(|offered| same(offered.as_bytes(), secret.as_bytes()))
 }
 
+/// The proof that a server holds `secret` (ADR 0064):
+/// `HMAC-SHA256(secret, challenge)` in hex, which tells nothing of the
+/// secret.
+pub fn prove(secret: &str, challenge: &str) -> String {
+    use hmac::{Hmac, Mac};
+    let mut mac = Hmac::<sha2::Sha256>::new_from_slice(secret.as_bytes())
+        .expect("HMAC takes a key of any length");
+    mac.update(challenge.as_bytes());
+    mac.finalize()
+        .into_bytes()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+/// Whether `answer` proves `secret` for `challenge`, compared in constant
+/// time.
+pub fn proves(secret: &str, challenge: &str, answer: &str) -> bool {
+    same(
+        prove(secret, challenge).as_bytes(),
+        answer.trim().as_bytes(),
+    )
+}
+
 /// Equality that takes as long wherever the inputs first differ, so the
 /// answer's time tells nothing of the secret.
 fn same(a: &[u8], b: &[u8]) -> bool {
@@ -163,6 +187,26 @@ mod tests {
         assert!(carries("/", None, None));
         assert!(carries("/assets/index.js", None, None));
         assert!(!carries("/api", None, None));
+    }
+
+    #[test]
+    fn the_proof_is_hmac_sha256_of_the_challenge_under_the_secret() {
+        // RFC 4231, test case 2.
+        assert_eq!(
+            prove("Jefe", "what do ya want for nothing?"),
+            "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
+        );
+        assert!(proves(
+            "Jefe",
+            "what do ya want for nothing?",
+            "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
+        ));
+        assert!(!proves("Jefe", "what do ya want for nothing?", "5bdc"));
+        assert!(!proves(
+            "other",
+            "what do ya want for nothing?",
+            &prove("Jefe", "what do ya want for nothing?")
+        ));
     }
 
     #[test]

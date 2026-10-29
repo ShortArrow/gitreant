@@ -22,6 +22,30 @@ pub fn ping(port: u16) -> bool {
     }
 }
 
+/// Whether the server on `port` proves it holds `token`, the secret its
+/// record keeps (ADR 0064): it answers a fresh random challenge with the
+/// HMAC only that secret makes.
+pub fn proves_secret(port: u16, token: &str) -> bool {
+    let mut bytes = [0u8; 16];
+    if getrandom::fill(&mut bytes).is_err() {
+        return false;
+    }
+    let challenge: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+    let path = format!("/api/ping?challenge={challenge}");
+    match request(port, None, "GET", &path, None, PING_TIMEOUT) {
+        Ok((200, body)) => {
+            let mut lines = body.lines();
+            lines
+                .next()
+                .is_some_and(|marker| marker.trim() == PING_MARKER)
+                && lines
+                    .next()
+                    .is_some_and(|answer| super::guard::proves(token, &challenge, answer))
+        }
+        _ => false,
+    }
+}
+
 /// Ask the running server to add the repository at `path`. `token` is the
 /// secret its record holds (ADR 0063), as for every call below.
 pub fn post_repo(port: u16, token: Option<&str>, path: &str) -> Result<(), String> {

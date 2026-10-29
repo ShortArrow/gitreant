@@ -475,8 +475,24 @@ pub fn router(state: AppState) -> Router {
         .with_state(state)
 }
 
-async fn ping() -> &'static str {
-    PING_MARKER
+#[derive(Deserialize)]
+struct PingQuery {
+    challenge: Option<String>,
+}
+
+/// The marker that says a gitreant answers, and, asked with a challenge,
+/// the proof that this one holds its secret (ADR 0064).
+async fn ping(
+    State(state): State<AppState>,
+    axum::extract::Query(query): axum::extract::Query<PingQuery>,
+) -> String {
+    match query.challenge {
+        Some(challenge) => format!(
+            "{PING_MARKER}\n{}",
+            super::guard::prove(state.secret().as_str(), &challenge)
+        ),
+        None => PING_MARKER.to_string(),
+    }
 }
 
 /// What this server was built from, for the info dialog.

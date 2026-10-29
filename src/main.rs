@@ -21,8 +21,8 @@ use gitreant::doctor;
 use gitreant::git::discover_repo;
 use gitreant::records::{self, Record, Target};
 use gitreant::server::{
-    bind, get_repo_list, get_repo_paths, ping, post_refresh, post_repo, post_shutdown, serve,
-    AppState,
+    bind, get_repo_list, get_repo_paths, ping, post_refresh, post_repo, post_shutdown,
+    proves_secret, serve, AppState,
 };
 
 #[derive(Parser)]
@@ -208,14 +208,21 @@ fn restart(cli: &Cli) -> ExitCode {
     };
     let mut paths: Vec<PathBuf> = cli.paths.clone();
     if ping(port) {
-        match get_repo_paths(port, token_of(port).as_deref()) {
+        let token = match trusted(port) {
+            Ok(token) => token,
+            Err(e) => {
+                eprintln!("{e}");
+                return ExitCode::FAILURE;
+            }
+        };
+        match get_repo_paths(port, Some(&token)) {
             Ok(existing) => paths.extend(existing.into_iter().map(PathBuf::from)),
             Err(e) => {
                 eprintln!("could not read the running server's repositories: {e}");
                 return ExitCode::FAILURE;
             }
         }
-        if let Err(e) = post_shutdown(port, token_of(port).as_deref()) {
+        if let Err(e) = post_shutdown(port, Some(&token)) {
             eprintln!("failed to stop the running server: {e}");
             return ExitCode::FAILURE;
         }
@@ -495,8 +502,8 @@ fn start_background(cli: &Cli, port: u16, paths: &[PathBuf], open: bool) -> Exit
         }
     };
     for _ in 0..100 {
-        if ping(port) {
-            let url = launch::page_url(port, token_of(port).as_deref());
+        if let Ok(token) = trusted(port) {
+            let url = launch::page_url(port, Some(&token));
             println!(
                 "gitreant serving on {url} (pid {}, stop with `gitreant --shutdown`)",
                 child.id()
@@ -521,18 +528,21 @@ fn start_background(cli: &Cli, port: u16, paths: &[PathBuf], open: bool) -> Exit
 /// Hand the repositories to an already-running gitreant, open its page
 /// again, as a closed tab leaves no other way back to it, and exit.
 fn forward_to_running(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
+    let token = match trusted(cli.port()) {
+        Ok(token) => token,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
     for path in paths {
         let absolute = canonical(path);
-        match post_repo(
-            cli.port(),
-            token_of(cli.port()).as_deref(),
-            &absolute.to_string_lossy(),
-        ) {
+        match post_repo(cli.port(), Some(&token), &absolute.to_string_lossy()) {
             Ok(()) => println!("added {} to running gitreant", absolute.display()),
             Err(e) => eprintln!("failed to add {}: {e}", absolute.display()),
         }
     }
-    let url = launch::page_url(cli.port(), token_of(cli.port()).as_deref());
+    let url = launch::page_url(cli.port(), Some(&token));
     println!("already serving on {url}");
     open_browser(cli, cli.port(), &url);
     ExitCode::SUCCESS
@@ -602,6 +612,23 @@ fn run_server(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
 /// The secret the server on `port` keeps in its record (ADR 0063).
 fn token_of(port: u16) -> Option<String> {
     records::dir().and_then(|dir| records::token(&dir, port))
+}
+
+/// The record's secret of the server on `port`, once the server proves it
+/// holds it (ADR 0064); otherwise why the program answering there gets
+/// nothing.
+fn trusted(port: u16) -> Result<String, String> {
+    let token = token_of(port).ok_or_else(|| {
+        format!("port {port} answers as a gitreant, but no record of this user's names it")
+    })?;
+    if proves_secret(port, &token) {
+        Ok(token)
+    } else {
+        Err(format!(
+            "port {port} answers as a gitreant, but cannot prove it holds the secret of \
+             this user's server there; sending it nothing"
+        ))
+    }
 }
 
 #[cfg(not(target_os = "android"))]

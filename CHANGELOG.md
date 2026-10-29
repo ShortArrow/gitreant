@@ -155,6 +155,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   browser is handed a launcher file that is its owner's alone, so the
   secret stays off its command line
   ([ADR 0063](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0063-request-token.md)).
+- `gitreant` forwards repositories to a running server, reads its list to
+  restart it, or opens its page only once the server proves it holds the
+  secret in its record; a program that took the port after the server
+  stopped gets nothing
+  ([ADR 0064](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0064-prove-the-secret.md)).
 
 ## [0.3.0] - 2026-10-21
 

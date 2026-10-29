@@ -7,7 +7,9 @@ use std::path::Path;
 use std::process::Command;
 
 use gitreant::app::Session;
-use gitreant::server::{bind, ping, post_repo, post_shutdown, serve, AppState, Secret};
+use gitreant::server::{
+    bind, ping, post_repo, post_shutdown, proves_secret, serve, AppState, Secret,
+};
 
 /// The secret every test server holds and every test request carries
 /// (ADR 0063).
@@ -1888,6 +1890,27 @@ async fn api_requests_need_the_servers_secret() {
         assert!(status("POST /api/shutdown HTTP/1.1").contains("401"));
         assert!(status("GET /api/ping HTTP/1.1").contains("200"));
         assert!(status("GET / HTTP/1.1").contains("200"));
+    })
+    .await
+    .unwrap();
+}
+
+/// A server proves it holds its secret without telling it (ADR 0064).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_server_proves_it_holds_its_secret() {
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        let state = AppState::new(Session::new()).with_secret(Secret::from_text(SECRET));
+        serve(listener, state).await.unwrap();
+    });
+    tokio::task::spawn_blocking(move || {
+        assert!((0..50).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            ping(port)
+        }));
+        assert!(proves_secret(port, SECRET));
+        assert!(!proves_secret(port, "another-secret"));
     })
     .await
     .unwrap();
