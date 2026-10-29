@@ -58,3 +58,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0052](0052-line-counts-off.jp.md) | 行の行数を出さないこともできるようにする | Accepted |
 | [0053](0053-binary-files-in-the-list.jp.md) | 変更ファイルの一覧でバイナリファイルを示す | Accepted |
 | [0054](0054-filter-nested-rows.jp.md) | ドロワーの絞り込みで入れ子の行も探せるようにする | Accepted |
+| [0055](0055-drawer-add-panel.jp.md) | リポジトリの追加をドロワーの見出しのボタンから行う | Accepted |
