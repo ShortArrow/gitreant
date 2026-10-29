@@ -75,6 +75,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   repository, a worktree also by its branch, and opens the repository to
   them
   ([ADR 0054](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0054-filter-nested-rows.md)).
+- A setting starts the weeks on Sunday instead of Monday, in the calendar
+  and in the chart's weekly candles and bars alike
+  ([ADR 0056](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0056-week-start.md)).
 
 ### Changed
 

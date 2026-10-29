@@ -12,7 +12,7 @@ import {
 import { periodStart } from "./candleModel";
 import { Segmented } from "./Segmented";
 import { countKey } from "./i18n";
-import { useLang, useT } from "./settings";
+import { useLang, useT, useWeekStart } from "./settings";
 
 /** A day's cell, and the room between cells, in pixels. */
 const CELL = 11;
@@ -27,6 +27,10 @@ const OLDEST_EDGE = 40;
 /** The least time, in milliseconds, between two pages the calendar asks
  * for, so scrolling at its oldest end cannot fire requests back to back. */
 const PAGE_INTERVAL = 500;
+
+/** The weekdays named left of the rows, by `Date.getDay`: Monday,
+ * Wednesday and Friday. */
+const LABELED_WEEKDAYS = [1, 3, 5];
 
 /** The shadings offered above the weeks. */
 const SHADINGS = [
@@ -44,7 +48,7 @@ function fill(shade: { strength: number; added: number }): string {
 
 /**
  * The history as a calendar under the rows (ADR 0050): a column per week,
- * Monday first, each day shaded by the lines its commits changed and
+ * starting on the chosen day, each day shaded by the lines its commits changed and
  * whether they were added or deleted. Hovering a day names its commits and
  * lines; clicking it picks its newest commit, then each older one in turn.
  * Scrolling to the oldest end reads the history's next page.
@@ -69,7 +73,11 @@ export function Calendar({
   const t = useT();
   const lang = useLang();
   const days = useMemo(() => calendarDays(commits), [commits]);
-  const { weeks, months } = useMemo(() => calendarWeeks(days), [days]);
+  const weekStart = useWeekStart();
+  const { weeks, months } = useMemo(
+    () => calendarWeeks(days, weekStart),
+    [days, weekStart],
+  );
   const [hovered, setHovered] = useState<CalendarDay | null>(null);
   const [shading, setShading] = useState<Shading>("both");
   const selectedTime = commits.find((c) => c.id === selected)?.time;
@@ -147,16 +155,19 @@ export function Calendar({
           height={TOP + 7 * PITCH}
         >
           {weeks.length > 0 &&
-            [0, 2, 4].map((weekday) => (
-              <text
-                key={weekday}
-                className="calendar-weekday"
-                x={LEFT - 6}
-                y={TOP + weekday * PITCH + CELL / 2}
-              >
-                {date(weeks[0].cells[weekday].date, { weekday: "short" })}
-              </text>
-            ))}
+            LABELED_WEEKDAYS.map((weekday) => {
+              const row = (weekday - (weekStart === "sunday" ? 0 : 1) + 7) % 7;
+              return (
+                <text
+                  key={weekday}
+                  className="calendar-weekday"
+                  x={LEFT - 6}
+                  y={TOP + row * PITCH + CELL / 2}
+                >
+                  {date(weeks[0].cells[row].date, { weekday: "short" })}
+                </text>
+              );
+            })}
         </svg>
         <div className="calendar-scroll" ref={scrollRef} onScroll={onScroll}>
           <svg

@@ -89,12 +89,13 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   rows".
 - **Calendar.** Another button in the header shows a calendar of the
   loaded commits as a strip under the rows, a column per week from
-  Monday. Each day is shaded more strongly the more lines its commits
-  changed, green when they added and red when they deleted; merges are
-  left out; buttons above the weeks shade by the lines added or deleted
-  alone instead. Hovering a day names its commits and lines; clicking it
-  selects its newest commit in the rows, and clicking again each older
-  one in turn. Scrolling to its oldest end reads older history.
+  Monday, or from Sunday by a setting the chart's weeks follow too. Each
+  day is shaded more strongly the more lines its commits changed, green
+  when they added and red when they deleted; merges are left out; buttons
+  above the weeks shade by the lines added or deleted alone instead.
+  Hovering a day names its commits and lines; clicking it selects its
+  newest commit in the rows, and clicking again each older one in turn.
+  Scrolling to its oldest end reads older history.
 
 ## Commit details and diffs
 
@@ -175,10 +176,10 @@ quietly disappear. `gitreant doctor` reports which are available.
   `Enter` opens every file's diff, and `Esc` clears the selection or
   closes the diff. A setting adds `k` / `j` / `h` / `l` and `gg` / `G`.
 - **Settings dialog.** The UI language (auto, English, Japanese), the
-  timestamp format (ISO, locale, relative), how action buttons render (icon,
-  icon with label, label), and the graph's optional layers (squash links,
-  stash internals, author avatars, submodule graphs), and `hjkl` for moving
-  the selection.
+  timestamp format (ISO, locale, relative), the day a week starts on
+  (Monday, Sunday), how action buttons render (icon, icon with label,
+  label), and the graph's optional layers (squash links, stash internals,
+  author avatars, submodule graphs), and `hjkl` for moving the selection.
 - **Theme.** Dark or light.
 - **Environment info.** The Info dialog gathers the CLI and page versions,
   the server and the browser, ready to copy in one go.

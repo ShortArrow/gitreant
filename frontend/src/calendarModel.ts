@@ -1,5 +1,5 @@
 import { UNCOMMITTED_ID, type CommitView } from "./api";
-import { periodStart } from "./candleModel";
+import { periodStart, type WeekStart } from "./candleModel";
 import { THICKNESS_REACH, thickness } from "./thicknessModel";
 
 /** One local day of the calendar (ADR 0050). */
@@ -15,8 +15,8 @@ export interface CalendarDay {
   counting: number;
 }
 
-/** A week of the calendar, Monday first: a cell per day, with the day's
- * commits when it has any. */
+/** A week of the calendar, from its first day on: a cell per day, with
+ * the day's commits when it has any. */
 export interface CalendarWeek {
   start: number;
   cells: { date: number; day?: CalendarDay }[];
@@ -78,22 +78,28 @@ function daysAfter(start: number, n: number): number {
   );
 }
 
-/** The weeks from the oldest day's to the newest's, at most `MAX_WEEKS`
- * back from the newest, oldest first, and the
+/** The weeks, starting on `weekStart`, from the oldest day's to the
+ * newest's, at most `MAX_WEEKS` back from the newest, oldest first, and the
  * month that begins in each week where one does. The first week names its
  * month too, unless the next month begins too close to name both. */
-export function calendarWeeks(days: Map<number, CalendarDay>): {
+export function calendarWeeks(
+  days: Map<number, CalendarDay>,
+  weekStart: WeekStart = "monday",
+): {
   weeks: CalendarWeek[];
   months: { week: number; start: number }[];
 } {
   const starts = [...days.keys()];
   if (starts.length === 0) return { weeks: [], months: [] };
-  const last = periodStart(Math.max(...starts), "week");
+  const last = periodStart(Math.max(...starts), "week", weekStart);
   const weeks: CalendarWeek[] = [];
   const months: { week: number; start: number }[] = [];
   const earliest = daysAfter(last, -7 * (MAX_WEEKS - 1));
   for (
-    let start = Math.max(earliest, periodStart(Math.min(...starts), "week"));
+    let start = Math.max(
+      earliest,
+      periodStart(Math.min(...starts), "week", weekStart),
+    );
     start <= last;
     start = daysAfter(start, 7)
   ) {

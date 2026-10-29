@@ -67,6 +67,22 @@ test("a day sums its commits' lines, newest first, leaving merges, stashes and t
   expect([day.added, day.deleted, day.counting]).toEqual([5, 1, 1]);
 });
 
+test("the weeks can run Sunday to Saturday instead", () => {
+  // 2026-10-08 is a Thursday, and 2026-10-18 a Sunday.
+  const days = calendarDays([
+    commit("b", at(2026, 10, 18, 9), { added: 1, deleted: 0 }),
+    commit("a", at(2026, 10, 8, 9), { added: 1, deleted: 0 }),
+  ]);
+  const { weeks } = calendarWeeks(days, "sunday");
+  expect(weeks.map((w) => w.start)).toEqual([
+    at(2026, 10, 4),
+    at(2026, 10, 11),
+    at(2026, 10, 18),
+  ]);
+  expect(weeks[0].cells[4].day?.commits[0].id).toBe("a");
+  expect(weeks[2].cells[0].day?.commits[0].id).toBe("b");
+});
+
 test("the weeks run Monday to Sunday from the oldest commit's week to the newest's, months named where they begin", () => {
   // 2026-10-08 is a Thursday, and 2026-11-01 a Sunday.
   const days = calendarDays([

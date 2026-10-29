@@ -51,6 +51,24 @@ test("a period starts at local midnight, on Monday, or on the first", () => {
   expect(periodStart(at(2026, 10, 25, 9), "week")).toBe(at(2026, 10, 19));
 });
 
+test("a week can start on Sunday instead", () => {
+  const thursday = at(2026, 10, 22, 15);
+  expect(periodStart(thursday, "week", "sunday")).toBe(at(2026, 10, 18));
+  // A Sunday starts its own week, and a Saturday ends the one before.
+  expect(periodStart(at(2026, 10, 25, 9), "week", "sunday")).toBe(
+    at(2026, 10, 25),
+  );
+  expect(periodStart(at(2026, 10, 24, 9), "week", "sunday")).toBe(
+    at(2026, 10, 18),
+  );
+  expect(periodStart(thursday, "month", "sunday")).toBe(at(2026, 10, 1));
+  const sunday = at(2026, 10, 25, 9);
+  expect(byCalendar("week", "sunday")(sunday)).toEqual({
+    start: at(2026, 10, 25),
+    end: at(2026, 11, 1),
+  });
+});
+
 test("past months, the period goes on to a quarter and then a year", () => {
   const start = at(2000, 1, 1);
   expect(candlePeriod(start, start + 10 * 365 * DAY)).toBe("quarter");

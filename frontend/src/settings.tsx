@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type { WeekStart } from "./candleModel";
 import {
   format,
   MESSAGES,
@@ -124,6 +125,28 @@ export function storedLineCounts(): LineCounts {
 export function storeLineCounts(choice: LineCounts) {
   try {
     localStorage.setItem(LINE_COUNTS_KEY, choice);
+  } catch {
+    // localStorage may be unavailable; the state change alone is enough.
+  }
+}
+
+export const WEEK_START_KEY = "gitreant-week-start";
+
+export function parseWeekStart(value: string | null): WeekStart {
+  return value === "sunday" ? "sunday" : "monday";
+}
+
+export function storedWeekStart(): WeekStart {
+  try {
+    return parseWeekStart(localStorage.getItem(WEEK_START_KEY));
+  } catch {
+    return "monday";
+  }
+}
+
+export function storeWeekStart(choice: WeekStart) {
+  try {
+    localStorage.setItem(WEEK_START_KEY, choice);
   } catch {
     // localStorage may be unavailable; the state change alone is enough.
   }
@@ -304,6 +327,7 @@ export const SettingsContext = createContext<{
   squashLinks: boolean;
   thickness: boolean;
   lineCounts: LineCounts;
+  weekStart: WeekStart;
   stashInternals: boolean;
   avatars: boolean;
   submoduleLinks: boolean;
@@ -315,6 +339,7 @@ export const SettingsContext = createContext<{
   squashLinks: true,
   thickness: true,
   lineCounts: "numbers",
+  weekStart: "monday",
   stashInternals: false,
   avatars: true,
   submoduleLinks: true,
@@ -342,6 +367,11 @@ export function useThickness(): boolean {
 /** How each row shows its line counts. */
 export function useLineCounts(): LineCounts {
   return useContext(SettingsContext).lineCounts;
+}
+
+/** The day the calendar's and the chart's weeks start on. */
+export function useWeekStart(): WeekStart {
+  return useContext(SettingsContext).weekStart;
 }
 
 /** Whether squash-merge links should be drawn. */

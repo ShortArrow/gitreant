@@ -1137,6 +1137,33 @@ test.describe.serial("gitreant UI", () => {
     await expect(calendar).toHaveCount(0);
   });
 
+  test("a setting starts the calendar's weeks on Sunday", async ({ page }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page.getByTestId("calendar-toggle").click();
+    const calendar = page.getByTestId("calendar");
+    const row = async () =>
+      Number(await calendar.getByTestId("calendar-day").getAttribute("y"));
+    const weekdays = calendar.locator(".calendar-weekday");
+    await expect(weekdays).toHaveText(["Mon", "Wed", "Fri"]);
+    const mondayFirst = await row();
+
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("week-start-sunday").click();
+    await page.keyboard.press("Escape");
+    // The day moves one row down, or from the bottom row to the top.
+    const pitch = 14;
+    const expected = mondayFirst === 16 + 6 * pitch ? 16 : mondayFirst + pitch;
+    await expect.poll(row).toBe(expected);
+    await expect(weekdays).toHaveText(["Mon", "Wed", "Fri"]);
+
+    // The choice survives a reload.
+    await page.reload();
+    await page.locator('[data-repo-name="repoA"]').click();
+    await page.getByTestId("calendar-toggle").click();
+    await expect.poll(row).toBe(expected);
+    await page.getByTestId("calendar-toggle").click();
+  });
+
   test("the calendar shades by added lines, deleted lines or both", async ({
     page,
   }) => {
@@ -2145,8 +2172,8 @@ test.describe.serial("gitreant UI", () => {
   test("the settings' choices are segmented buttons", async ({ page }) => {
     await page.getByTestId("settings-toggle").click();
     const groups = page.getByTestId("settings-panel").locator(".segmented");
-    // Buttons, line counts, language and date format.
-    await expect(groups).toHaveCount(4);
+    // Buttons, line counts, week start, language and date format.
+    await expect(groups).toHaveCount(5);
 
     const segments = groups.first().locator(".segment");
     await expect(segments).toHaveCount(3);

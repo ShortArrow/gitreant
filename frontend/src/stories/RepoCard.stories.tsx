@@ -67,6 +67,7 @@ export const StashInternals: Story = {
           squashLinks: true,
           thickness: true,
           lineCounts: "numbers",
+          weekStart: "monday",
           stashInternals: true,
           avatars: true,
           submoduleLinks: true,

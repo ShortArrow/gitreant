@@ -7,6 +7,9 @@ export type Period = "day" | "week" | "month" | "quarter" | "year";
  * calendar period that suits the span, or the chart's columns. */
 export type Timeframe = "auto" | "commit" | Period;
 
+/** The day a week starts on (ADR 0056). */
+export type WeekStart = "monday" | "sunday";
+
 /** A cut of the time axis into periods: the one holding `time`, from its
  * start up to the next one's. */
 export type Periods = (time: number) => { start: number; end: number };
@@ -43,16 +46,22 @@ export function candlePeriod(first: number, last: number, most = 60): Period {
 }
 
 /** The start of the period holding `time`, by the local calendar: midnight,
- * the Monday of the week, or the first of the month, of the quarter's first
- * month or of January. */
-export function periodStart(time: number, period: Period): number {
+ * the week's first day (`weekStart`), or the first of the month, of the
+ * quarter's first month or of January. */
+export function periodStart(
+  time: number,
+  period: Period,
+  weekStart: WeekStart = "monday",
+): number {
   const date = new Date(time * 1000);
   const year = date.getFullYear();
   const month = date.getMonth();
   const day = date.getDate();
+  const firstDay = weekStart === "sunday" ? 0 : 1;
   const starts: Record<Period, () => Date> = {
     day: () => new Date(year, month, day),
-    week: () => new Date(year, month, day - ((date.getDay() + 6) % 7)),
+    week: () =>
+      new Date(year, month, day - ((date.getDay() - firstDay + 7) % 7)),
     month: () => new Date(year, month, 1),
     quarter: () => new Date(year, month - (month % 3), 1),
     year: () => new Date(year, 0, 1),
@@ -75,10 +84,13 @@ function nextStart(start: number, period: Period): number {
   return nexts[period]().getTime() / 1000;
 }
 
-/** Periods by the local calendar. */
-export function byCalendar(period: Period): Periods {
+/** Periods by the local calendar, weeks starting on `weekStart`. */
+export function byCalendar(
+  period: Period,
+  weekStart: WeekStart = "monday",
+): Periods {
   return (time) => {
-    const start = periodStart(time, period);
+    const start = periodStart(time, period, weekStart);
     return { start, end: nextStart(start, period) };
   };
 }
@@ -95,16 +107,21 @@ export function byColumn(layout: ChartLayout, px = COLUMN): Periods {
   };
 }
 
-/** The periods `timeframe` cuts `points` into, drawn on `layout`. */
+/** The periods `timeframe` cuts `points` into, drawn on `layout`, weeks
+ * starting on `weekStart`. */
 export function byTimeframe(
   timeframe: Timeframe,
   points: CumulativePoint[],
   layout: ChartLayout,
+  weekStart: WeekStart = "monday",
 ): Periods {
   if (timeframe === "commit") return byColumn(layout);
-  if (timeframe !== "auto") return byCalendar(timeframe);
+  if (timeframe !== "auto") return byCalendar(timeframe, weekStart);
   const first = points[0]?.time ?? 0;
-  return byCalendar(candlePeriod(first, points.at(-1)?.time ?? first));
+  return byCalendar(
+    candlePeriod(first, points.at(-1)?.time ?? first),
+    weekStart,
+  );
 }
 
 /** The net change of `points`, oldest first, as a candle per period that

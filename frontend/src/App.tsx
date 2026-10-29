@@ -45,6 +45,7 @@ import {
   format,
   type LangSetting,
 } from "./i18n";
+import type { WeekStart } from "./candleModel";
 import {
   SettingsContext,
   storeButtonStyle,
@@ -53,9 +54,11 @@ import {
   storedLangSetting,
   storeSquashLinks,
   storeLineCounts,
+  storeWeekStart,
   storeThickness,
   storedSquashLinks,
   storedLineCounts,
+  storedWeekStart,
   storedThickness,
   storeVimKeys,
   storedVimKeys,
@@ -402,6 +405,11 @@ export function App() {
     setLineCounts(choice);
     storeLineCounts(choice);
   };
+  const [weekStart, setWeekStart] = useState<WeekStart>(storedWeekStart);
+  const changeWeekStart = (choice: WeekStart) => {
+    setWeekStart(choice);
+    storeWeekStart(choice);
+  };
   const [thickness, setThickness] = useState<boolean>(storedThickness);
   const changeThickness = (on: boolean) => {
     setThickness(on);
@@ -450,6 +458,7 @@ export function App() {
       squashLinks,
       thickness,
       lineCounts,
+      weekStart,
       stashInternals,
       avatars,
       submoduleLinks,
@@ -462,6 +471,7 @@ export function App() {
       squashLinks,
       thickness,
       lineCounts,
+      weekStart,
       stashInternals,
       avatars,
       submoduleLinks,
@@ -595,6 +605,16 @@ export function App() {
           id: `line-counts:${value}`,
           title: `${m.settingsLineCounts}: ${label}`,
           run: () => changeLineCounts(value),
+        })),
+        ...(
+          [
+            ["monday", m.weekStartMonday],
+            ["sunday", m.weekStartSunday],
+          ] as const
+        ).map(([value, label]) => ({
+          id: `week-start:${value}`,
+          title: `${m.settingsWeekStart}: ${label}`,
+          run: () => changeWeekStart(value),
         })),
         ...repos.map((repo) => ({
           id: `open:${repo.id}`,
@@ -793,6 +813,18 @@ export function App() {
                     ["none", t("lineCountsNone")],
                   ]}
                   onChange={changeLineCounts}
+                />
+              </fieldset>
+              <fieldset className="settings-group">
+                <legend>{t("settingsWeekStart")}</legend>
+                <Segmented
+                  name="week-start"
+                  value={weekStart}
+                  options={[
+                    ["monday", t("weekStartMonday")],
+                    ["sunday", t("weekStartSunday")],
+                  ]}
+                  onChange={changeWeekStart}
                 />
               </fieldset>
               <fieldset className="settings-group">

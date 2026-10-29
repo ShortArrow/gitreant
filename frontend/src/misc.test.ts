@@ -13,6 +13,7 @@ import {
   collapsedSubmodulesIn,
   parseButtonStyle,
   parseLineCounts,
+  parseWeekStart,
   withCollapsedSubmodules,
 } from "./settings";
 import { resolveTheme, toggleTheme } from "./theme";
@@ -23,6 +24,13 @@ test("parseButtonStyle falls back to icon-label for unknown values", () => {
   expect(parseButtonStyle("icon-label")).toBe("icon-label");
   expect(parseButtonStyle(null)).toBe("icon-label");
   expect(parseButtonStyle("garbage")).toBe("icon-label");
+});
+
+test("parseWeekStart falls back to Monday", () => {
+  expect(parseWeekStart("sunday")).toBe("sunday");
+  expect(parseWeekStart("monday")).toBe("monday");
+  expect(parseWeekStart(null)).toBe("monday");
+  expect(parseWeekStart("friday")).toBe("monday");
 });
 
 test("parseLineCounts reads the choice, or the bars checkbox saved before it", () => {

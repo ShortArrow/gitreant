@@ -21,7 +21,7 @@ import {
 } from "./cumulativeModel";
 import { Segmented } from "./Segmented";
 import { countKey } from "./i18n";
-import { useT, useTime } from "./settings";
+import { useT, useTime, useWeekStart } from "./settings";
 
 /** The chart's series, each turned on and off in the legend (ADR 0047). */
 const SERIES = ["added", "deleted", "net", "candles", "bars"] as const;
@@ -82,6 +82,7 @@ export function CumulativeChart({
   menuOpen: boolean;
 }) {
   const t = useT();
+  const weekStart = useWeekStart();
   const time = useTime();
   const boxRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ width: number; height: number } | null>(
@@ -133,9 +134,9 @@ export function CumulativeChart({
   const { points } = sums;
   const boxes = useMemo(() => {
     if (layout === null || points.length === 0) return [];
-    const periods = byTimeframe(timeframe, points, layout);
+    const periods = byTimeframe(timeframe, points, layout, weekStart);
     return candleBoxes(layout, candles(points, periods));
-  }, [layout, points, timeframe]);
+  }, [layout, points, timeframe, weekStart]);
   const point = hovered === null ? undefined : points[hovered];
   const box = point && boxAt(boxes, point.time);
 
