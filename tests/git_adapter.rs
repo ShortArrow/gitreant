@@ -1011,7 +1011,9 @@ fn line_ending_only_changes_are_flagged_and_keep_their_carriage_returns() {
 #[test]
 fn reads_a_file_on_the_side_a_diff_leads_to() {
     let tmp = tempfile::tempdir().unwrap();
-    let dir = tmp.path();
+    let repo = tmp.path().join("repo");
+    std::fs::create_dir(&repo).unwrap();
+    let dir = repo.as_path();
     git(dir, &["init", "-q", "-b", "main"]);
     git(dir, &["config", "commit.gpgsign", "false"]);
     std::fs::write(dir.join("a.txt"), "one\ntwo\n").unwrap();
@@ -1035,9 +1037,32 @@ fn reads_a_file_on_the_side_a_diff_leads_to() {
     assert_eq!(at(&head, "missing.txt"), None);
     assert_eq!(at(UNCOMMITTED_ID, "missing.txt"), None);
 
+    // Only paths inside the working tree are read.
+    std::fs::write(tmp.path().join("outside.txt"), "secret\n").unwrap();
+    assert_eq!(at(UNCOMMITTED_ID, "../outside.txt"), None);
+    let absolute = dir.join("a.txt").to_string_lossy().into_owned();
+    assert_eq!(at(UNCOMMITTED_ID, &absolute), None);
+
     // A diff tells the new side's length, so its end needs no read.
     let committed = read_file_diff(dir, &head, "a.txt").expect("diff");
     assert_eq!(committed.lines, Some(3));
     let working = read_uncommitted_diff(dir, "a.txt").expect("diff");
     assert_eq!(working.lines, Some(1));
+}
+
+/// A directory linked out of the working tree leads no read out of it.
+#[cfg(unix)]
+#[test]
+fn reads_no_file_through_a_linked_directory() {
+    let tmp = tempfile::tempdir().unwrap();
+    let repo = tmp.path().join("repo");
+    let outside = tmp.path().join("outside");
+    std::fs::create_dir(&repo).unwrap();
+    std::fs::create_dir(&outside).unwrap();
+    std::fs::write(outside.join("secret.txt"), "secret\n").unwrap();
+    git(&repo, &["init", "-q", "-b", "main"]);
+    std::os::unix::fs::symlink(&outside, repo.join("link")).unwrap();
+
+    let read = read_file(&repo, UNCOMMITTED_ID, "link/secret.txt").expect("read");
+    assert_eq!(read, None);
 }
