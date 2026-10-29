@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FileDiff } from "./api";
-import { InlineIcon, LineMenuIcon, SplitIcon } from "./Icons";
+import { absolutePath } from "./CommitDetailPanel";
+import { CopyIcon, InlineIcon, LineMenuIcon, SplitIcon } from "./Icons";
 import { LabeledButton } from "./LabeledButton";
 import { countKey } from "./i18n";
 import { useT } from "./settings";
@@ -9,9 +10,11 @@ import { shortId } from "./graph";
 import {
   eolChange,
   inlineCells,
+  markdownLink,
   parseUnified,
   permalinkFragment,
   selectedLines,
+  typstLink,
   type DiffHunk,
   type DiffSide,
   type SplitCell,
@@ -47,6 +50,7 @@ export function FileDiffPane({
   parentId,
   range,
   githubUrl,
+  repoPath,
   onClose,
 }: {
   /** null while loading; one entry per shown file. */
@@ -62,6 +66,8 @@ export function FileDiffPane({
   range?: { base: string; target: string };
   /** Web URL of the repository on GitHub, when it has such a remote. */
   githubUrl?: string;
+  /** The repository's directory, which absolute paths start from. */
+  repoPath: string;
   onClose: () => void;
 }) {
   const t = useT();
@@ -159,6 +165,7 @@ export function FileDiffPane({
             commitId={commitId}
             parentId={parentId}
             githubUrl={githubUrl}
+            repoPath={repoPath}
             onSelectLine={selectLine}
           />
         ))}
@@ -174,6 +181,7 @@ function FileSection({
   commitId,
   parentId,
   githubUrl,
+  repoPath,
   onSelectLine,
 }: {
   diff: FileDiff;
@@ -182,6 +190,7 @@ function FileSection({
   commitId?: string;
   parentId?: string;
   githubUrl?: string;
+  repoPath: string;
   onSelectLine: (
     path: string,
     side: DiffSide,
@@ -226,6 +235,7 @@ function FileSection({
       path={diff.path}
       commitId={selection.side === "new" ? commitId : parentId}
       githubUrl={githubUrl}
+      repoPath={repoPath}
     />
   ) : null;
   const anchorIndex = selection?.from ?? -1;
@@ -242,6 +252,18 @@ function FileSection({
           {diff.status}
         </span>
         <span className="diff-path">{diff.path}</span>
+        <button
+          type="button"
+          className="icon-btn diff-copy-path"
+          data-testid="diff-copy-path"
+          title={t("copyRelativePath")}
+          aria-label={t("copyRelativePath")}
+          onClick={() =>
+            navigator.clipboard.writeText(diff.path).catch(() => {})
+          }
+        >
+          <CopyIcon />
+        </button>
         {conversion && (
           <span className="diff-eol" data-testid="diff-eol">
             {t("eolConversion", conversion)}
@@ -279,6 +301,7 @@ function LineMenu({
   path,
   commitId,
   githubUrl,
+  repoPath,
 }: {
   selectedCells: (SplitCell | undefined)[];
   side: DiffSide;
@@ -287,6 +310,7 @@ function LineMenu({
    * old side. */
   commitId?: string;
   githubUrl?: string;
+  repoPath: string;
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -344,6 +368,40 @@ function LineMenu({
             onClick={() => permalink && copy(permalink)}
           >
             {t("copyPermalink")}
+          </button>
+          <button
+            type="button"
+            data-testid="copy-permalink-markdown"
+            disabled={!permalink}
+            onClick={() =>
+              permalink && copy(markdownLink(permalink, `${path}${fragment}`))
+            }
+          >
+            {t("copyPermalinkMarkdown")}
+          </button>
+          <button
+            type="button"
+            data-testid="copy-permalink-typst"
+            disabled={!permalink}
+            onClick={() =>
+              permalink && copy(typstLink(permalink, `${path}${fragment}`))
+            }
+          >
+            {t("copyPermalinkTypst")}
+          </button>
+          <button
+            type="button"
+            data-testid="copy-file-path"
+            onClick={() => copy(path)}
+          >
+            {t("copyRelativePath")}
+          </button>
+          <button
+            type="button"
+            data-testid="copy-file-absolute-path"
+            onClick={() => copy(absolutePath(repoPath, path))}
+          >
+            {t("copyAbsolutePath")}
           </button>
         </div>
       )}

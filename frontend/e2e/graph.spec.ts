@@ -2618,6 +2618,29 @@ test.describe.serial("gitreant UI", () => {
     expect(newLink).toMatch(
       /^https:\/\/github\.com\/example\/repoK\/blob\/[0-9a-f]{40}\/list\.txt#L3-L5$/,
     );
+    const copyFromMenu = async (testId: string) => {
+      await trigger.click();
+      await page.getByTestId(testId).click();
+      return page.evaluate(() => navigator.clipboard.readText());
+    };
+    // The same link, named by the file and its lines, for Markdown and Typst.
+    expect(await copyFromMenu("copy-permalink-markdown")).toBe(
+      `[list.txt#L3-L5](${newLink})`,
+    );
+    expect(await copyFromMenu("copy-permalink-typst")).toBe(
+      `#link("${newLink}")[list.txt\\#L3-L5]`,
+    );
+    // The file's path, relative and absolute, for another tool.
+    expect(await copyFromMenu("copy-file-path")).toBe("list.txt");
+    expect(await copyFromMenu("copy-file-absolute-path")).toMatch(
+      /repoK[\\/]list\.txt$/,
+    );
+    // The file's head copies its path too.
+    await page.evaluate(() => navigator.clipboard.writeText(""));
+    await page.getByTestId("diff-copy-path").click();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe("list.txt");
 
     // Escape clears the selection and the trigger with it; the pane stays
     // until a second Escape.

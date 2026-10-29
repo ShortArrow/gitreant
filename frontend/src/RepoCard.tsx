@@ -907,6 +907,7 @@ export function RepoCard({
           }
           range={diffTarget.kind === "range" ? diffTarget : undefined}
           githubUrl={repo.github_url}
+          repoPath={repo.path}
           onClose={() => setDiffTarget(null)}
         />
       ) : (

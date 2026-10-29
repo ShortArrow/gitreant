@@ -121,7 +121,10 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   changed line ends and the header names the direction (`LF → CRLF` and so
   on). See [ADR 0029](adr/0029-line-ending-changes.md).
 - **Selecting lines.** Click a line number in a diff to select it
-  (shift-click for a range), then copy the lines or a GitHub permalink.
+  (shift-click for a range), then copy the lines, a GitHub permalink, the
+  permalink as a Markdown or a Typst link named by the file and its lines,
+  or the file's relative or absolute path. A button beside each file's
+  name in the diff copies its path.
 - **Pane widths.** The drawer and the detail pane resize by dragging, and
   keep their widths next time.
 

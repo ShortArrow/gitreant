@@ -78,6 +78,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A setting starts the weeks on Sunday instead of Monday, in the calendar
   and in the chart's weekly candles and bars alike
   ([ADR 0056](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0056-week-start.md)).
+- The diff's line menu also copies the permalink as a Markdown or a Typst
+  link named by the file and its lines, and the file's relative or
+  absolute path; a button beside each file's name in the diff copies its
+  path.
 
 ### Changed
 

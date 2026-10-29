@@ -142,6 +142,18 @@ export function permalinkFragment(
   return end > start ? `#L${start}-L${end}` : `#L${start}`;
 }
 
+/** `url` as a Markdown link reading `label`, its brackets escaped. */
+export function markdownLink(url: string, label: string): string {
+  return `[${label.replace(/[\\[\]]/g, "\\$&")}](${url})`;
+}
+
+/** `url` as a Typst link reading `label`: the label escaped where Typst
+ * markup would read it, the URL where a string would end. */
+export function typstLink(url: string, label: string): string {
+  const content = label.replace(/[\\#*_`$<>@[\]~]/g, "\\$&");
+  return `#link("${url.replace(/["\\]/g, "\\$&")}")[${content}]`;
+}
+
 /** How many lines a unified diff adds and removes, counting only lines
  * inside its hunks. */
 export function diffCounts(text: string): {

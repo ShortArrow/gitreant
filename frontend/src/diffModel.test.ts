@@ -4,9 +4,11 @@ import {
   eolChange,
   inlineCells,
   intralineSegments,
+  markdownLink,
   parseUnified,
   permalinkFragment,
   selectedLines,
+  typstLink,
 } from "./diffModel";
 
 test("pairs runs of removals and additions row by row", () => {
@@ -219,4 +221,18 @@ test("diffCounts counts the added and removed lines of a unified diff", () => {
     deletions: 0,
   });
   expect(diffCounts("")).toEqual({ additions: 0, deletions: 0 });
+});
+
+test("a permalink reads as a Markdown or a Typst link named by its lines", () => {
+  const url = "https://github.com/o/r/blob/abc/src/a_b.ts#L3-L5";
+  expect(markdownLink(url, "src/a_b.ts#L3-L5")).toBe(
+    "[src/a_b.ts#L3-L5](https://github.com/o/r/blob/abc/src/a_b.ts#L3-L5)",
+  );
+  // Brackets would end a Markdown label early.
+  expect(markdownLink("u", "a[1].ts")).toBe(String.raw`[a\[1\].ts](u)`);
+  // Typst reads #, _ and the like as markup in content, and " ends a string.
+  expect(typstLink(url, "src/a_b.ts#L3-L5")).toBe(
+    String.raw`#link("https://github.com/o/r/blob/abc/src/a_b.ts#L3-L5")[src/a\_b.ts\#L3-L5]`,
+  );
+  expect(typstLink('u"x', "a")).toBe('#link("u\\"x")[a]');
 });

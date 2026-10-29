@@ -6,7 +6,7 @@ const meta: Meta<typeof FileDiffPane> = {
   title: "Pane/FileDiffPane",
   component: FileDiffPane,
   parameters: { layout: "padded" },
-  args: { onClose: () => {} },
+  args: { onClose: () => {}, repoPath: "/work/repo" },
 };
 export default meta;
 
