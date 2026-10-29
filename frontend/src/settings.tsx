@@ -172,6 +172,25 @@ export function storeThickness(on: boolean) {
   }
 }
 
+export const THICKNESS_OUTLINE_KEY = "gitreant-thickness-outline";
+
+/** Whether each lane's thickness is outlined (ADR 0059; default off). */
+export function storedThicknessOutline(): boolean {
+  try {
+    return localStorage.getItem(THICKNESS_OUTLINE_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
+export function storeThicknessOutline(on: boolean) {
+  try {
+    localStorage.setItem(THICKNESS_OUTLINE_KEY, on ? "on" : "off");
+  } catch {
+    // localStorage may be unavailable; the state change alone is enough.
+  }
+}
+
 export const VIM_KEYS_KEY = "gitreant-vim-keys";
 
 /** Whether `hjkl` move the graph selection besides the arrows (default
@@ -326,6 +345,7 @@ export const SettingsContext = createContext<{
   dateFormat: DateFormat;
   squashLinks: boolean;
   thickness: boolean;
+  thicknessOutline: boolean;
   lineCounts: LineCounts;
   weekStart: WeekStart;
   stashInternals: boolean;
@@ -338,6 +358,7 @@ export const SettingsContext = createContext<{
   dateFormat: "iso",
   squashLinks: true,
   thickness: true,
+  thicknessOutline: false,
   lineCounts: "numbers",
   weekStart: "monday",
   stashInternals: false,
@@ -362,6 +383,11 @@ export function useLang(): Lang {
 /** Whether the graph is drawn with its thickness (ADR 0044). */
 export function useThickness(): boolean {
   return useContext(SettingsContext).thickness;
+}
+
+/** Whether each lane's thickness is outlined (ADR 0059). */
+export function useThicknessOutline(): boolean {
+  return useContext(SettingsContext).thicknessOutline;
 }
 
 /** How each row shows its line counts. */

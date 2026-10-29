@@ -56,10 +56,12 @@ import {
   storeLineCounts,
   storeWeekStart,
   storeThickness,
+  storeThicknessOutline,
   storedSquashLinks,
   storedLineCounts,
   storedWeekStart,
   storedThickness,
+  storedThicknessOutline,
   storeVimKeys,
   storedVimKeys,
   storeStashInternals,
@@ -415,6 +417,13 @@ export function App() {
     setThickness(on);
     storeThickness(on);
   };
+  const [thicknessOutline, setThicknessOutline] = useState<boolean>(
+    storedThicknessOutline,
+  );
+  const changeThicknessOutline = (on: boolean) => {
+    setThicknessOutline(on);
+    storeThicknessOutline(on);
+  };
   const [squashLinks, setSquashLinks] = useState<boolean>(storedSquashLinks);
   const changeSquashLinks = (on: boolean) => {
     setSquashLinks(on);
@@ -457,6 +466,7 @@ export function App() {
       dateFormat,
       squashLinks,
       thickness,
+      thicknessOutline,
       lineCounts,
       weekStart,
       stashInternals,
@@ -470,6 +480,7 @@ export function App() {
       dateFormat,
       squashLinks,
       thickness,
+      thicknessOutline,
       lineCounts,
       weekStart,
       stashInternals,
@@ -539,6 +550,11 @@ export function App() {
           id: "thickness",
           title: m.cmdToggleThickness,
           run: () => changeThickness(!storedThickness()),
+        },
+        {
+          id: "thickness-outline",
+          title: m.cmdToggleThicknessOutline,
+          run: () => changeThicknessOutline(!storedThicknessOutline()),
         },
         {
           id: "squash-links",
@@ -755,6 +771,15 @@ export function App() {
                     onChange={(e) => changeThickness(e.target.checked)}
                   />
                   {t("thicknessSetting")}
+                </label>
+                <label className="settings-option">
+                  <input
+                    type="checkbox"
+                    data-testid="thickness-outline-toggle"
+                    checked={thicknessOutline}
+                    onChange={(e) => changeThicknessOutline(e.target.checked)}
+                  />
+                  {t("thicknessOutlineSetting")}
                 </label>
                 <label className="settings-option">
                   <input

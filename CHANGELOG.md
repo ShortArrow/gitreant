@@ -82,9 +82,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The graph's thickness is drawn by depth: the added side in front of the
-  nodes and the deleted side behind the edges, each lane as one outlined
-  shape with the lanes to the right in front
-  ([ADR 0058](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0058-thickness-depth-order.md)).
+  nodes and the deleted side behind the edges, each lane as one shape with
+  the lanes to the right in front
+  ([ADR 0058](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0058-thickness-depth-order.md));
+  a setting, off by default, outlines each lane's shape
+  ([ADR 0059](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0059-thickness-outline-setting.md)).
 - The calendar's buttons for shading by both, added or deleted lines carry
   diff icons and follow the button style setting like the other buttons
   ([ADR 0057](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0057-segmented-button-style.md)).

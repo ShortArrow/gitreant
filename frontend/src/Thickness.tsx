@@ -9,6 +9,7 @@ import {
   spansRows,
 } from "./thicknessModel";
 import type { ThicknessView } from "./thicknessView";
+import { useThicknessOutline } from "./settings";
 
 /**
  * One side of the thickness of the rows' graph (ADR 0044): behind or in
@@ -44,6 +45,7 @@ export function Thickness({
 }) {
   const { tilt, rows } = useSyncExternalStore(view.subscribe, view.get);
   const outline = `thickness-outline-${useId().replace(/[^\w-]/g, "")}`;
+  const outlined = useThicknessOutline();
   const statOf = new Map(commits.map((c) => [c.id, c.stat]));
   const pillars = commits.flatMap((commit) => {
     if (commit.row < rows.first || commit.row > rows.last) return [];
@@ -82,30 +84,32 @@ export function Thickness({
   return (
     <g className="thickness" data-testid="thickness">
       <g className={`thickness-side thickness-${side}`} data-side={side}>
-        <filter id={outline}>
-          <feComponentTransfer in="SourceAlpha" result="shape">
-            <feFuncA type="linear" slope={100} />
-          </feComponentTransfer>
-          <feMorphology
-            in="shape"
-            operator="dilate"
-            radius={1}
-            result="grown"
-          />
-          <feComposite in="grown" in2="shape" operator="out" result="ring" />
-          <feFlood className="thickness-outline" result="ink" />
-          <feComposite in="ink" in2="ring" operator="in" result="edge" />
-          <feMerge>
-            <feMergeNode in="SourceGraphic" />
-            <feMergeNode in="edge" />
-          </feMerge>
-        </filter>
+        {outlined && (
+          <filter id={outline}>
+            <feComponentTransfer in="SourceAlpha" result="shape">
+              <feFuncA type="linear" slope={100} />
+            </feComponentTransfer>
+            <feMorphology
+              in="shape"
+              operator="dilate"
+              radius={1}
+              result="grown"
+            />
+            <feComposite in="grown" in2="shape" operator="out" result="ring" />
+            <feFlood className="thickness-outline" result="ink" />
+            <feComposite in="ink" in2="ring" operator="in" result="edge" />
+            <feMerge>
+              <feMergeNode in="SourceGraphic" />
+              <feMergeNode in="edge" />
+            </feMerge>
+          </filter>
+        )}
         {byLane(pillars, fins).map((lane) => (
           <g
             key={lane.lane}
             className="thickness-lane"
             data-lane={lane.lane}
-            filter={`url(#${outline})`}
+            filter={outlined ? `url(#${outline})` : undefined}
           >
             <g className="thickness-body">
               {lane.pillars.map(({ commit, layers }) => {

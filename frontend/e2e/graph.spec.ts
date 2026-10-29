@@ -846,7 +846,7 @@ test.describe.serial("gitreant UI", () => {
     expect(
       Number(await fins.evaluate((g) => getComputedStyle(g).opacity)),
     ).toBeLessThan(1);
-    // Green, see-through inside a full outline, and not the lane's color.
+    // Green, see-through, and not the lane's color.
     const look = await lanes.first().evaluate((g) => {
       const body = g.querySelector(".thickness-body")!;
       const path = g.querySelector("path")!;
@@ -858,8 +858,15 @@ test.describe.serial("gitreant UI", () => {
       };
     });
     expect(look.opacity).toBeLessThan(1);
-    expect(look.filter).not.toBe("none");
     expect(look.stroke).toBe(look.color);
+    // The outline is a setting, off at first.
+    const outline = () =>
+      lanes.first().evaluate((g) => getComputedStyle(g).filter);
+    expect(await outline()).toBe("none");
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("thickness-outline-toggle").check();
+    await page.keyboard.press("Escape");
+    await expect.poll(outline).not.toBe("none");
     const success = await page.evaluate(() => {
       const probe = document.createElement("span");
       probe.style.color = "var(--success)";
