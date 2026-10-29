@@ -1011,19 +1011,19 @@ body {
   opacity: 0.25;
 }
 
-/* A commit's thickness (ADR 0044) is drawn, not handled: the node in
-   front of it takes the pointer. */
+/* A commit's thickness (ADR 0044) is drawn, not handled: the node under
+   or over it takes the pointer. */
 .graph .thickness {
   pointer-events: none;
 }
 
-/* Each side is composited once, so overlapping copies stay one even,
-   see-through shape. */
-.graph .thickness-side {
+/* Each lane is composited once, so overlapping copies stay one even,
+   see-through shape inside its outline (ADR 0058). */
+.graph .thickness-body {
   opacity: 0.4;
 }
 
-/* The fins merge first, then sit fainter under the pillars. */
+/* The fins merge first, then sit fainter over the pillars. */
 .graph .thickness-fins {
   opacity: 0.5;
 }
@@ -1034,6 +1034,11 @@ body {
 
 .graph .thickness-deleted {
   color: var(--danger);
+}
+
+/* The outline, a deeper shade of the side's color. */
+.graph .thickness-outline {
+  flood-color: color-mix(in srgb, currentColor 75%, var(--text));
 }
 
 /* Rows a hovered branch cannot reach (#17), or off a hovered node's

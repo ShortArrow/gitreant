@@ -168,3 +168,31 @@ export function spansRows(
 ): boolean {
   return childRow <= rows.last && parentRow >= rows.first;
 }
+
+/** One lane's share of a side's thickness: the pillars of its commits and
+ * the fins it owns. */
+export interface LaneThickness<C, E> {
+  lane: number;
+  pillars: C[];
+  fins: E[];
+}
+
+/** Pillars grouped by their lane and fins by the farther right of the two
+ * lanes they join, the leftmost lane first, so drawing them in order puts
+ * the rightmost lane in front. */
+export function byLane<
+  C extends { lane: number },
+  E extends { edge: { from_lane: number; to_lane: number } },
+>(pillars: C[], fins: E[]): LaneThickness<C, E>[] {
+  const lanes = new Map<number, LaneThickness<C, E>>();
+  const at = (lane: number) => {
+    const found = lanes.get(lane) ?? { lane, pillars: [], fins: [] };
+    lanes.set(lane, found);
+    return found;
+  };
+  for (const pillar of pillars) at(pillar.lane).pillars.push(pillar);
+  for (const fin of fins) {
+    at(Math.max(fin.edge.from_lane, fin.edge.to_lane)).fins.push(fin);
+  }
+  return [...lanes.values()].sort((a, b) => a.lane - b.lane);
+}

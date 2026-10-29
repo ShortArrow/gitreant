@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import type { GraphEdge } from "./api";
 import { edgeBetween, edgePath, nodeX, nodeY } from "./graph";
 import {
+  byLane,
   EXTRUDE,
   extrude,
   START_TILT,
@@ -140,4 +141,28 @@ test("an edge is in view when it spans any row in view", () => {
   expect(spansRows(2, 10, rows)).toBe(true);
   expect(spansRows(2, 9, rows)).toBe(false);
   expect(spansRows(21, 30, rows)).toBe(false);
+});
+
+test("byLane groups pillars and fins by lane, the leftmost first", () => {
+  const pillar = (id: string, lane: number) => ({ id, lane });
+  const fin = (id: string, from_lane: number, to_lane: number) => ({
+    id,
+    edge: { from_lane, to_lane },
+  });
+  const lanes = byLane(
+    [pillar("a", 2), pillar("b", 0), pillar("c", 2)],
+    // A fin belongs to the farther right of the lanes it joins.
+    [fin("merge", 0, 1), fin("fork", 2, 0)],
+  );
+  expect(
+    lanes.map(({ lane, pillars, fins }) => [
+      lane,
+      pillars.map((p) => p.id),
+      fins.map((f) => f.id),
+    ]),
+  ).toEqual([
+    [0, ["b"], []],
+    [1, [], ["merge"]],
+    [2, ["a", "c"], ["fork"]],
+  ]);
 });

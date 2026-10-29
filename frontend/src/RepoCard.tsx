@@ -1049,6 +1049,7 @@ export function RepoCard({
           <g transform={`translate(${mainOffset},0)`}>
           {showThickness && (
             <Thickness
+              side="deleted"
               commits={view.commits}
               edges={view.edges}
               rowOf={rowOf}
@@ -1181,6 +1182,17 @@ export function RepoCard({
                 {...nodeProps(commit)}
               />
             ),
+          )}
+          {showThickness && (
+            <Thickness
+              side="added"
+              commits={view.commits}
+              edges={view.edges}
+              rowOf={rowOf}
+              fadedNode={fadedNode}
+              fadedEdge={fadedEdge}
+              view={thicknessView}
+            />
           )}
           </g>
         </svg>

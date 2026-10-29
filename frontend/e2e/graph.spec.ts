@@ -830,26 +830,35 @@ test.describe.serial("gitreant UI", () => {
     expect(Number(await fin.getAttribute("stroke-width"))).toBe(
       2 * Number(await copies.first().getAttribute("r")),
     );
-    // Fins are fainter than the pillars, merged into one shape per side.
-    const fins = page.locator(
-      '.thickness-side[data-side="added"] > .thickness-fins',
+    // Each lane merges into one shape, the leftmost drawn first so the
+    // rightmost stands in front.
+    const lanes = page.locator(
+      '.thickness-side[data-side="added"] > .thickness-lane',
     );
+    const order = await lanes.evaluateAll((groups) =>
+      groups.map((g) => Number(g.getAttribute("data-lane"))),
+    );
+    expect(order.length).toBeGreaterThan(0);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    // Fins are fainter than the pillars, merged into one shape per lane.
+    const fins = lanes.first().locator(".thickness-fins");
     await expect(fins).toHaveCount(1);
     expect(
       Number(await fins.evaluate((g) => getComputedStyle(g).opacity)),
     ).toBeLessThan(1);
-    // Green, see-through, and not the lane's color.
-    const side = page.locator('.thickness-side[data-side="added"]');
-    const look = await side.evaluate((g) => {
-      const style = getComputedStyle(g);
+    // Green, see-through inside a full outline, and not the lane's color.
+    const look = await lanes.first().evaluate((g) => {
+      const body = g.querySelector(".thickness-body")!;
       const path = g.querySelector("path")!;
       return {
-        opacity: Number(style.opacity),
-        color: style.color,
+        opacity: Number(getComputedStyle(body).opacity),
+        filter: getComputedStyle(g).filter,
+        color: getComputedStyle(g).color,
         stroke: getComputedStyle(path).stroke,
       };
     });
     expect(look.opacity).toBeLessThan(1);
+    expect(look.filter).not.toBe("none");
     expect(look.stroke).toBe(look.color);
     const success = await page.evaluate(() => {
       const probe = document.createElement("span");
@@ -860,7 +869,20 @@ test.describe.serial("gitreant UI", () => {
       return color;
     });
     expect(look.color).toBe(success);
-    // Drawn behind the nodes, it leaves them to the pointer.
+    // The deleted side is drawn first, behind the edges, and the added side
+    // last, in front of the nodes.
+    const depth = (side: string) =>
+      page.locator(`.thickness-side[data-side="${side}"]`).evaluate((g) => {
+        const thickness = g.parentElement!;
+        const graph = thickness.parentElement!;
+        return [
+          graph.firstElementChild === thickness,
+          graph.lastElementChild === thickness,
+        ];
+      });
+    expect(await depth("deleted")).toEqual([true, false]);
+    expect(await depth("added")).toEqual([false, true]);
+    // In front of the nodes, it still leaves them to the pointer.
     await page.getByTestId("graph-node").first().hover();
     await expect(page.getByTestId("node-tip")).toBeVisible();
 
