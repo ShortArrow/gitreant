@@ -70,3 +70,4 @@ are canonical; the files below are their English translations.
 | [0060](0060-add-row.md) | Add a repository from a row at the end of the list | Accepted |
 | [0061](0061-diff-context.md) | Read more of a file around its diff | Accepted |
 | [0062](0062-open-with-editors.md) | Open a file with an editor from a list the user keeps | Accepted |
+| [0063](0063-request-token.md) | Require a secret made at each start on every API request | Accepted |
