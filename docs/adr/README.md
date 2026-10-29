@@ -69,3 +69,4 @@ are canonical; the files below are their English translations.
 | [0059](0059-thickness-outline-setting.md) | Make the thickness's outline a setting, off by default | Accepted |
 | [0060](0060-add-row.md) | Add a repository from a row at the end of the list | Accepted |
 | [0061](0061-diff-context.md) | Read more of a file around its diff | Accepted |
+| [0062](0062-open-with-editors.md) | Open a file with an editor from a list the user keeps | Accepted |
