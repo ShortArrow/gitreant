@@ -37,6 +37,7 @@ const fixtures = JSON.parse(
   repoV: string;
   repoW: string;
   repoY: string;
+  repoZ: string;
   /** The test server's secret (ADR 0063), from the record it wrote. */
   secret: string;
   repoT: string;
@@ -965,13 +966,15 @@ test.describe.serial("gitreant UI", () => {
     expect(look.opacity).toBeLessThan(1);
     expect(look.stroke).toBe(look.color);
     // The outline is a setting, off at first.
-    const outline = () =>
-      lanes.first().evaluate((g) => getComputedStyle(g).filter);
-    expect(await outline()).toBe("none");
+    const rings = page.locator(".thickness-lane > .thickness-ring");
+    await expect(rings).toHaveCount(0);
     await page.getByTestId("settings-toggle").click();
     await page.getByTestId("thickness-outline-toggle").check();
     await page.keyboard.press("Escape");
-    await expect.poll(outline).not.toBe("none");
+    await expect(rings.first()).toBeAttached();
+    expect(
+      await rings.first().evaluate((g) => getComputedStyle(g).filter),
+    ).not.toBe("none");
     const success = await page.evaluate(() => {
       const probe = document.createElement("span");
       probe.style.color = "var(--success)";
@@ -1006,6 +1009,56 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("thickness-toggle").check();
     await page.keyboard.press("Escape");
     await expect(thick).toHaveCount(3);
+  });
+
+  test("a lane's two sides share one outline", async ({ page }) => {
+    await addRepo(page, fixtures.repoZ);
+    await expect(page.locator('[data-tab-name="repoZ"]')).toBeVisible();
+    await expect(
+      page
+        .locator('.thickness-side[data-side="deleted"] .thickness-body circle')
+        .first(),
+    ).toBeAttached();
+    await page.getByTestId("settings-toggle").click();
+    await page.getByTestId("thickness-outline-toggle").check();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".thickness-ring").first()).toBeAttached();
+    // Each side's ring leaves out the other side's shape in that lane,
+    // so the two rings meet on the border instead of crossing.
+    const masks = await page.evaluate(() => {
+      const shapes = (side: string, lane: string) =>
+        document.querySelectorAll(
+          `.thickness-side[data-side="${side}"] > .thickness-lane[data-lane="${lane}"] > .thickness-body :is(circle, path)`,
+        ).length;
+      return [...document.querySelectorAll(".thickness-ring")].map((ring) => {
+        const lane = ring
+          .closest(".thickness-lane")!
+          .getAttribute("data-lane")!;
+        const side = ring
+          .closest(".thickness-side")!
+          .getAttribute("data-side")!;
+        const id = /^url\(#(.+)\)$/.exec(
+          ring.getAttribute("mask") ?? "",
+        )?.[1];
+        const mask = id ? document.getElementById(id) : null;
+        return {
+          masked: mask?.querySelectorAll("circle, path").length ?? -1,
+          side,
+          other: shapes(side === "added" ? "deleted" : "added", lane),
+        };
+      });
+    });
+    expect(masks.length).toBeGreaterThan(0);
+    expect(masks.every((m) => m.other > 0)).toBe(true);
+    for (const m of masks) expect(m.masked).toBe(m.other);
+    expect(new Set(masks.map((m) => m.side))).toEqual(
+      new Set(["added", "deleted"]),
+    );
+
+    const repoZ = page.locator('[data-repo-name="repoZ"]');
+    await repoZ.hover();
+    await repoZ.getByTestId("repo-remove").click();
+    await expect(repoZ).toHaveCount(0);
   });
 
   test("a setting draws the line counts as bars", async ({ page }) => {

@@ -489,6 +489,20 @@ function makeRepoY(): string {
   return dir;
 }
 
+/** repoZ: one lane whose second commit both adds and deletes lines, so
+ * the lane has a thickness on both sides, for the outline test. */
+function makeRepoZ(): string {
+  const dir = initRepo("repoZ");
+  const t = 1_700_000_000;
+  writeFileSync(path.join(dir, "z.txt"), "one\ntwo\nthree\n");
+  git(dir, ["add", "."]);
+  commit(dir, "z-1", t);
+  writeFileSync(path.join(dir, "z.txt"), "one\nfour\nfive\n");
+  git(dir, ["add", "."]);
+  commit(dir, "z-2", t + 10);
+  return dir;
+}
+
 /** Set by makeRepoI; the teardown must talk to the same gpg installation. */
 let gpgconfBin = "gpgconf";
 
@@ -523,6 +537,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoV = makeRepoV();
   const repoW = makeRepoW();
   const repoY = makeRepoY();
+  const repoZ = makeRepoZ();
 
   // Serve repoA and repoB; repoC..H are added by tests.
   server = await buildAndServe(PORT, [repoA, repoB]);
@@ -558,6 +573,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoV,
         repoW,
         repoY,
+        repoZ,
         secret,
       },
       null,

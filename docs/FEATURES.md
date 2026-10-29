@@ -75,7 +75,8 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   none; letting go turns it back. The fins are fainter than the commits'
   pillars. The green stands in front of the nodes and the red behind the
   edges, the lanes to the right in front; a setting outlines each lane's
-  thickness to show that order. A graph setting turns it off.
+  thickness to show that order, its two sides as one shape whose border
+  takes each side's color. A graph setting turns it off.
 - **Lines over time.** A button in the pane's header shows, in place of
   the rows, the lines added (up) and deleted (down) along HEAD's first
   parents summed over the commit time, with their net change between

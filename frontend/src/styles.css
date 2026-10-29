@@ -1086,6 +1086,12 @@ body {
   opacity: 0.5;
 }
 
+/* A mask hides the whole of the other side's shape, fins included
+   (ADR 0065). */
+.graph mask .thickness-fins {
+  opacity: 1;
+}
+
 .graph .thickness-added {
   color: var(--success);
 }
