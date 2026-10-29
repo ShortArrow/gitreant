@@ -12,7 +12,8 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   ends the list and opens into a field: type a path and press Enter, or
   choose a folder through the native folder picker.
 - **Joins the running server.** Running `gitreant` from another directory
-  adds that repository to the server already running, on the same page.
+  adds that repository to the server already running, on the same page,
+  and opens that page again.
 - **Tabs and two panes.** Each open repository is a tab. A tab's or a
   drawer row's context menu opens it in the right pane, so two
   repositories can be compared side by side. A middle click closes a tab.

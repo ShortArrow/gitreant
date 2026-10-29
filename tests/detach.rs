@@ -121,8 +121,8 @@ fn detaches_by_default_and_stops_via_shutdown() {
         !stdout.contains(r"\\?\"),
         "forwarded path must be human-readable, got: {stdout}"
     );
-    // Instead of opening yet another browser tab, the forwarding invocation
-    // points at the already-running instance.
+    // The forwarding invocation points at the already-running instance,
+    // whose page it would open again but for --no-open.
     assert!(
         stdout.contains(&format!("http://127.0.0.1:{port}")),
         "forwarding must print the running server's URL, got: {stdout}"
@@ -330,4 +330,43 @@ fn the_cli_finds_running_servers_without_a_port() {
         || !ping(third) && !ping(fourth),
         Duration::from_secs(10)
     ));
+}
+
+/// Running gitreant again while its server runs opens the page again,
+/// through a launcher file under the downloads directory on Linux, so the
+/// secret stays off the browser's command line (ADR 0063).
+#[cfg(target_os = "linux")]
+#[test]
+fn running_it_again_reopens_the_page_through_a_launcher() {
+    let port = free_port();
+    let state = tempfile::tempdir().unwrap();
+    let downloads = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+    let exe = env!("CARGO_BIN_EXE_gitreant");
+    let gitreant = |args: &[&str]| {
+        Command::new(exe)
+            .env("GITREANT_STATE_DIR", state.path())
+            .env("XDG_DOWNLOAD_DIR", downloads.path())
+            .args(args)
+            .status()
+            .unwrap()
+    };
+    let path = tmp.path().to_string_lossy().into_owned();
+    assert!(gitreant(&[&path, "--port", &port.to_string(), "--no-open"]).success());
+    assert!(wait_until(|| ping(port), Duration::from_secs(30)));
+
+    let launcher = downloads
+        .path()
+        .join(".gitreant")
+        .join(format!("open-{port}.html"));
+    assert!(!launcher.exists());
+    assert!(gitreant(&["--port", &port.to_string()]).success());
+    let html = std::fs::read_to_string(&launcher).expect("a launcher");
+    let secret = gitreant::records::token(state.path(), port).expect("a record");
+    assert!(html.contains(&format!("#token={secret}")), "{html}");
+
+    assert!(gitreant(&["--port", &port.to_string(), "--shutdown"]).success());
+    assert!(wait_until(|| !ping(port), Duration::from_secs(10)));
+    assert!(!launcher.exists(), "the launcher goes with the server");
 }

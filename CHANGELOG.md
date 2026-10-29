@@ -94,6 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Running `gitreant` while its server runs opens the page again, as well
+  as adding the repository.
 - The graph's thickness is drawn by depth: the added side in front of the
   nodes and the deleted side behind the edges, each lane as one shape with
   the lanes to the right in front

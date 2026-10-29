@@ -518,8 +518,8 @@ fn start_background(cli: &Cli, port: u16, paths: &[PathBuf], open: bool) -> Exit
     ExitCode::FAILURE
 }
 
-/// Hand the repositories to an already-running gitreant and exit. The running
-/// instance already has a browser tab, so none is opened here.
+/// Hand the repositories to an already-running gitreant, open its page
+/// again, as a closed tab leaves no other way back to it, and exit.
 fn forward_to_running(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
     for path in paths {
         let absolute = canonical(path);
@@ -532,10 +532,9 @@ fn forward_to_running(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
             Err(e) => eprintln!("failed to add {}: {e}", absolute.display()),
         }
     }
-    println!(
-        "already serving on {}",
-        launch::page_url(cli.port(), token_of(cli.port()).as_deref())
-    );
+    let url = launch::page_url(cli.port(), token_of(cli.port()).as_deref());
+    println!("already serving on {url}");
+    open_browser(cli, cli.port(), &url);
     ExitCode::SUCCESS
 }
 
