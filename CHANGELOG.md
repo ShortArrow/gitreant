@@ -94,6 +94,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Signature badges and line counts reach the rows at the top of a pane
+  sooner: the background checks and counts start with 32 commits and
+  double each batch up to 256, instead of 256 from the start
+  ([ADR 0066](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0066-growing-background-batches.md)).
 - Running `gitreant` while its server runs opens the page again, as well
   as adding the repository.
 - The graph's thickness is drawn by depth: the added side in front of the

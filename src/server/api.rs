@@ -78,9 +78,30 @@ enum ServerEvent {
 /// How often per-repository read progress is streamed at most.
 const ANALYZE_THROTTLE: Duration = Duration::from_millis(200);
 
-/// How many commits one background check or count covers before the
+/// The most commits one background check or count covers before the
 /// clients hear about it (ADR 0037, ADR 0041).
 const BACKGROUND_BATCH: usize = 256;
+
+/// The commits the first background batch covers, about the rows a pane
+/// shows; each batch after it doubles up to [`BACKGROUND_BATCH`]
+/// (ADR 0066).
+const FIRST_BACKGROUND_BATCH: usize = 32;
+
+/// `pending` split into the batches a background run goes through, in
+/// order: [`FIRST_BACKGROUND_BATCH`] items first, each batch after twice
+/// the one before, up to [`BACKGROUND_BATCH`].
+fn background_batches<T>(pending: &[T]) -> Vec<&[T]> {
+    let mut batches = Vec::new();
+    let mut rest = pending;
+    let mut size = FIRST_BACKGROUND_BATCH;
+    while !rest.is_empty() {
+        let (batch, after) = rest.split_at(size.min(rest.len()));
+        batches.push(batch);
+        rest = after;
+        size = (size * 2).min(BACKGROUND_BATCH);
+    }
+    batches
+}
 
 /// Shared, cloneable server state.
 #[derive(Clone)]
@@ -167,7 +188,7 @@ impl AppState {
         let state = self.clone();
         let running = running.clone();
         std::thread::spawn(move || {
-            let batches: Vec<&[T]> = pending.chunks(BACKGROUND_BATCH).collect();
+            let batches = background_batches(&pending);
             for (index, batch) in batches.iter().enumerate() {
                 let command = run(&state.session, &path, batch);
                 state.push_log(CommandLogEntry {
@@ -1577,6 +1598,23 @@ async fn events(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn background_batches_start_small_and_double_up_to_the_largest() {
+        let sizes = |len: usize| -> Vec<usize> {
+            background_batches(&(0..len).collect::<Vec<_>>())
+                .iter()
+                .map(|batch| batch.len())
+                .collect()
+        };
+        assert_eq!(sizes(0), Vec::<usize>::new());
+        assert_eq!(sizes(10), vec![10]);
+        assert_eq!(sizes(100), vec![32, 64, 4]);
+        assert_eq!(sizes(1000), vec![32, 64, 128, 256, 256, 256, 8]);
+        let items: Vec<usize> = (0..100).collect();
+        let joined: Vec<usize> = background_batches(&items).concat();
+        assert_eq!(joined, items);
+    }
 
     #[test]
     fn reveal_target_defaults_to_the_repository_folder() {
