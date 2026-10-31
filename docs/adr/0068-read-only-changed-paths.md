@@ -22,18 +22,22 @@ names no ignored file. It can still name a path that leads into `.git` on
 disk: git for Windows walks a directory junction as a directory, so a
 junction to `.git` lists its files, and a junction to an ignored directory
 lists that directory's files under the junction's name. An index entry
-named `.git./config` is listed as it is written and opens `.git/config`.
+named `.git./config` is listed as it is written and opens `.git/config`;
+`inner/.git./config` opens the `.git` of a repository nested in the
+working tree, and `.git.` the `.git` file of a linked worktree.
 
 ## Decision
 
 - **The working tree is read only at a path the uncommitted changes
   list,** matched exactly against what `git status` reports for the
   repository. Any other path returns nothing, as an absent one does.
-- **No directory on the path is a link or a junction,** and the
-  directory the path resolves to lies outside the repository's git
-  directory and its common directory. This replaces the check that the
-  path's directory resolves inside the working tree, which a link no
-  longer passes.
+- **No directory on the path is a link or a junction, and no part of
+  where the path resolves under the working tree is named `.git`,** in
+  any case, whether a directory or a file. A path that does not resolve
+  under the working tree reads nothing. A file that is itself a link is
+  read as its target text, so only its directory is resolved. This
+  replaces the check that the path's directory resolves inside the
+  working tree.
 - Reading a commit's tree is unchanged: it reads git objects, not files
   on disk.
 
@@ -46,7 +50,12 @@ named `.git./config` is listed as it is written and opens `.git/config`.
 - The adapter's tests read `.git/config`, `.GIT/config`, an ignored file
   and an unchanged file through the route's function and expect nothing.
   On Windows they also read through a junction to `.git`, a junction to
-  an ignored directory, and an index entry named `.git./config`.
+  an ignored directory, and index entries named `.git./config`,
+  `inner/.git./config` in a nested repository and `.git.` in a linked
+  worktree.
+- A hard link in the working tree to a file under `.git` is read as an
+  untracked file. Making one needs write access to the working tree,
+  which could copy the file as well.
 - A path that a repository's own `core.worktree` lists from another
   directory is read at the same name in the repository's directory. That
   configuration is the repository's content, which QUALITY treats as
