@@ -75,3 +75,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0069](0069-committed-read-limit.jp.md) | コミットのファイルも作業ツリーと同じ大きさの上限で読む | Accepted |
 | [0070](0070-open-in-working-tree.jp.md) | 作業ツリーの中にあるファイルだけを開く | Accepted |
 | [0071](0071-other-accounts-in-scope.jp.md) | 同じマシンのほかのアカウントからサーバを守る | Accepted |
+| [0072](0072-no-browser-showing-the-secret.jp.md) | ほかのアカウントに秘密を見せるブラウザは開かない | Accepted |

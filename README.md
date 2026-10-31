@@ -105,7 +105,9 @@ gitreant [PATH...]
                       browser without one, and --no-open outranks it)
       --no-launcher   on Linux and macOS, give the browser the page's address
                       itself, secret included, rather than a launcher file
-                      that keeps the secret off its command line
+                      that keeps the secret off its command line; in WSL, or
+                      where no launcher file can be written, the browser
+                      opens only with it
       --foreground    run the server in the current terminal instead of detaching
       --shutdown      stop the running gitreant server and exit
       --all           with --shutdown, stop every running gitreant server

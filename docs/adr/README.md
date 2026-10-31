@@ -79,3 +79,4 @@ are canonical; the files below are their English translations.
 | [0069](0069-committed-read-limit.md) | Read a committed file under the working tree's size limit | Accepted |
 | [0070](0070-open-in-working-tree.md) | Open only a file that lies in the working tree | Accepted |
 | [0071](0071-other-accounts-in-scope.md) | Defend the server against other accounts on its machine | Accepted |
+| [0072](0072-no-browser-showing-the-secret.md) | Open no browser that would show the secret to other accounts | Accepted |
