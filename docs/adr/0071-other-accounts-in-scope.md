@@ -23,9 +23,13 @@ could be dismissed by one document and required by the other.
 
 - **Other accounts on the machine are in scope.** QUALITY assumes they,
   and containers or sandboxes sharing the machine's loopback, can reach
-  the server's port and can take a port it has left. It does not assume
-  they can read the user's files or memory: the secret lives in files
-  only the user can read.
+  the server's port and can take a port it has left. It assumes they are
+  not administrators, who can read any file or process. Where ADR 0063
+  keeps the secret follows from that: in the user's own directory, and on
+  Windows on the browser's command line, which only an administrator
+  reads. On Linux with `--no-launcher` the command line carries it where
+  other accounts can read it; that option is the user's choice to give up
+  the launcher file.
 - **The user is still one person,** and an opened repository's content is
   still trusted, as QUALITY states. Remote exposure stays out of scope.
 
