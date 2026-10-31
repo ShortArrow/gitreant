@@ -70,15 +70,19 @@ pub fn save_editors(dir: &Path, list: &[Editor]) -> std::io::Result<()> {
 
 /// `editor`'s arguments for opening `path` at `line`: `{path}` and
 /// `{line}` filled in, or the path appended as one argument when no
-/// argument names it.
+/// argument names it. Only the configured arguments are filled, so a
+/// placeholder in the path stays as written.
 pub fn arguments(editor: &Editor, path: &Path, line: u32) -> Vec<String> {
     let path = path.display().to_string();
+    let line = line.to_string();
     let mut args: Vec<String> = editor
         .args
         .iter()
         .map(|arg| {
-            arg.replace("{path}", &path)
-                .replace("{line}", &line.to_string())
+            arg.split("{path}")
+                .map(|piece| piece.replace("{line}", &line))
+                .collect::<Vec<_>>()
+                .join(&path)
         })
         .collect();
     if !editor.args.iter().any(|arg| arg.contains("{path}")) {
@@ -162,5 +166,19 @@ mod tests {
             ..editor
         };
         assert_eq!(arguments(&plain, path, 1), vec![path.display().to_string()]);
+    }
+
+    #[test]
+    fn a_placeholder_in_the_path_is_left_as_written() {
+        let editor = Editor {
+            name: "Code".to_string(),
+            program: "code".to_string(),
+            args: vec!["--goto".to_string(), "{path}:{line}".to_string()],
+        };
+        let path = Path::new("/r/notes{line}.md");
+        assert_eq!(
+            arguments(&editor, path, 7),
+            vec!["--goto".to_string(), format!("{}:7", path.display())]
+        );
     }
 }
