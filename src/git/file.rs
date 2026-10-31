@@ -12,7 +12,8 @@ use super::uncommitted::{
 /// The text of `file` in commit `id`'s tree, or in the working tree for
 /// the uncommitted changes. `None` when the path is absent there, not among
 /// the uncommitted changes, binary, or too large to read. `path` is the
-/// working tree's root, since the changes are listed relative to it.
+/// working tree's root, since the changes are listed relative to it, and
+/// is spelled as [`super::uncommitted::read_uncommitted_diff`] requires.
 pub fn read_file(path: &Path, id: &str, file: &str) -> Result<Option<String>, String> {
     let repo = gix::discover(path).map_err(|e| format!("open {path:?}: {e}"))?;
     let data = if id == UNCOMMITTED_ID {

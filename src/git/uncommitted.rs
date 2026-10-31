@@ -124,7 +124,10 @@ pub fn read_uncommitted(path: &Path) -> Result<CommitDetail, String> {
     })
 }
 
-/// One changed file's diff against HEAD.
+/// One changed file's diff against HEAD. `path` is the working tree's root
+/// spelled without a verbatim `\\?\` prefix, as the session stores it: under
+/// that prefix Windows keeps a name such as `.git.` apart from `.git`, so
+/// the check on where a path leads would not see what git opens.
 pub fn read_uncommitted_diff(path: &Path, file: &str) -> Result<FileDiff, String> {
     let entry = uncommitted_paths(path)
         .into_iter()
@@ -137,7 +140,8 @@ pub fn read_uncommitted_diff(path: &Path, file: &str) -> Result<FileDiff, String
 /// Every changed file's diff against HEAD, in status order. A file that
 /// cannot be read right now (locked by another process, gone since the
 /// status) is left out rather than sinking the whole set; asking for that
-/// one file alone still reports the error.
+/// one file alone still reports the error. `path` is spelled as
+/// [`read_uncommitted_diff`] requires.
 pub fn read_uncommitted_diffs(path: &Path) -> Result<Vec<FileDiff>, String> {
     let repo = open(path)?;
     let mut attributes = DiffAttributes::of(&repo);
