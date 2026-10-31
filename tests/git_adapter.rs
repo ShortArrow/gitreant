@@ -1151,13 +1151,47 @@ fn reads_nothing_a_listed_path_leads_into_git() {
     junction("junc", ".git");
     junction("jp", "private");
     let blob = git_stdout(dir, &["hash-object", "-w", ".git/config"]);
-    let entry = format!("100644,{},.git./config", blob.trim());
-    git(dir, &["update-index", "--add", "--cacheinfo", &entry]);
+    let entry = |path: &str| format!("100644,{},{path}", blob.trim());
+    git(
+        dir,
+        &[
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            &entry(".git./config"),
+        ],
+    );
+    let inner = dir.join("inner");
+    std::fs::create_dir(&inner).unwrap();
+    git(&inner, &["init", "-q"]);
+    git(
+        dir,
+        &[
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            &entry("inner/.git./config"),
+        ],
+    );
+    let worktree = tmp.path().join("wt");
+    let worktree_arg = worktree.to_string_lossy().into_owned();
+    git(dir, &["worktree", "add", "-q", &worktree_arg]);
+    git(
+        &worktree,
+        &["update-index", "--add", "--cacheinfo", &entry(".git.")],
+    );
 
-    let listed: Vec<String> = uncommitted_paths(dir).into_iter().map(|c| c.path).collect();
-    for path in ["junc/config", "jp/.env", ".git./config"] {
-        assert!(listed.iter().any(|p| p == path), "{path} is listed");
-        let read = read_file(dir, UNCOMMITTED_ID, path).expect(path);
+    let cases = [
+        (dir, "junc/config"),
+        (dir, "jp/.env"),
+        (dir, ".git./config"),
+        (dir, "inner/.git./config"),
+        (worktree.as_path(), ".git."),
+    ];
+    for (root, path) in cases {
+        let listed = uncommitted_paths(root);
+        assert!(listed.iter().any(|c| c.path == path), "{path} is listed");
+        let read = read_file(root, UNCOMMITTED_ID, path).expect(path);
         assert_eq!(read, None, "{path}");
     }
 }

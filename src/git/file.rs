@@ -9,7 +9,8 @@ use super::uncommitted::{read_untracked, uncommitted_paths, UNCOMMITTED_ID, UNTR
 
 /// The text of `file` in commit `id`'s tree, or in the working tree for
 /// the uncommitted changes. `None` when the path is absent there, not among
-/// the uncommitted changes, binary, or too large to read.
+/// the uncommitted changes, binary, or too large to read. `path` is the
+/// working tree's root, since the changes are listed relative to it.
 pub fn read_file(path: &Path, id: &str, file: &str) -> Result<Option<String>, String> {
     let repo = gix::discover(path).map_err(|e| format!("open {path:?}: {e}"))?;
     let data = if id == UNCOMMITTED_ID {
@@ -17,7 +18,7 @@ pub fn read_file(path: &Path, id: &str, file: &str) -> Result<Option<String>, St
             return Ok(None);
         }
         let on_disk = path.join(file);
-        if std::fs::symlink_metadata(&on_disk).is_err() || !in_working_tree(&repo, path, file) {
+        if std::fs::symlink_metadata(&on_disk).is_err() || !in_working_tree(path, file) {
             return Ok(None);
         }
         read_untracked(&on_disk, UNTRACKED_READ_LIMIT)?
@@ -42,9 +43,12 @@ fn is_changed(path: &Path, file: &str) -> bool {
 
 /// Whether `file` stays in the working tree on disk: no directory on its
 /// way is a link or junction, which git walks as if it were a directory,
-/// and its directory resolves outside the repository's git directories,
-/// which a name such as `.git.` or `GIT~1` reaches on Windows.
-fn in_working_tree(repo: &gix::Repository, root: &Path, file: &str) -> bool {
+/// and no part of where it resolves under `root` is a `.git` directory or
+/// file, which a name such as `.git.` or `GIT~1` reaches on Windows. A file
+/// that is itself a link is read as its target text, so only its directory
+/// is resolved.
+fn in_working_tree(root: &Path, file: &str) -> bool {
+    let on_disk = root.join(file);
     let Some(parent) = Path::new(file).parent() else {
         return false;
     };
@@ -56,11 +60,19 @@ fn in_working_tree(repo: &gix::Repository, root: &Path, file: &str) -> bool {
             _ => return false,
         }
     }
-    let Ok(resolved) = on_way.canonicalize() else {
+    let is_link =
+        std::fs::symlink_metadata(&on_disk).is_ok_and(|meta| meta.file_type().is_symlink());
+    let resolved = if is_link {
+        on_way.canonicalize()
+    } else {
+        on_disk.canonicalize()
+    };
+    let (Ok(root), Ok(resolved)) = (root.canonicalize(), resolved) else {
         return false;
     };
-    [repo.git_dir(), repo.common_dir()].iter().all(|dir| {
-        dir.canonicalize()
-            .is_ok_and(|dir| !resolved.starts_with(dir))
+    resolved.strip_prefix(&root).is_ok_and(|inside| {
+        inside
+            .components()
+            .all(|part| !part.as_os_str().eq_ignore_ascii_case(".git"))
     })
 }
