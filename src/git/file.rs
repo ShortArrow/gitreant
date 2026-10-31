@@ -6,7 +6,7 @@ use std::path::Path;
 use super::detail::{blob_at, find_commit};
 use super::diff_attributes::DiffAttributes;
 use super::uncommitted::{
-    in_working_tree, read_untracked, uncommitted_paths, UNCOMMITTED_ID, UNTRACKED_READ_LIMIT,
+    in_working_tree, read_untracked, uncommitted_paths, READ_LIMIT, UNCOMMITTED_ID,
 };
 
 /// The text of `file` in commit `id`'s tree, or in the working tree for
@@ -24,7 +24,7 @@ pub fn read_file(path: &Path, id: &str, file: &str) -> Result<Option<String>, St
         if std::fs::symlink_metadata(&on_disk).is_err() || !in_working_tree(&repo, path, file) {
             return Ok(None);
         }
-        read_untracked(&on_disk, UNTRACKED_READ_LIMIT)?
+        read_untracked(&on_disk, READ_LIMIT)?
     } else {
         let commit = find_commit(&repo, id)?;
         let tree = commit.tree().map_err(|e| format!("tree: {e}"))?;

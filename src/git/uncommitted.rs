@@ -35,7 +35,7 @@ pub struct UncommittedPath {
 
 /// Untracked files larger than this are not read: they count as binary,
 /// so a stray VM image or dataset never lands in memory or in a response.
-pub const UNTRACKED_READ_LIMIT: u64 = 4 * 1024 * 1024;
+pub const READ_LIMIT: u64 = 4 * 1024 * 1024;
 
 impl UncommittedPath {
     /// An untracked directory git lists as one entry (the default
@@ -178,7 +178,7 @@ fn diff_entry(
         });
     }
     if entry.untracked {
-        let data = read_untracked(&on_disk, UNTRACKED_READ_LIMIT)?;
+        let data = read_untracked(&on_disk, READ_LIMIT)?;
         let binary = data
             .as_deref()
             .is_none_or(|data| attributes.binary(&entry.path, &[], data));
@@ -209,7 +209,7 @@ fn diff_entry(
     )?;
     let (binary, text) = parse_diff(&out);
     let lines = if on_disk.exists() {
-        read_untracked(&on_disk, UNTRACKED_READ_LIMIT)
+        read_untracked(&on_disk, READ_LIMIT)
             .ok()
             .flatten()
             .map(|data| line_count(&data))
@@ -343,7 +343,7 @@ fn untracked_counts(
     root: &Path,
     file: &str,
 ) -> Option<(usize, usize)> {
-    match read_untracked(&root.join(file), UNTRACKED_READ_LIMIT) {
+    match read_untracked(&root.join(file), READ_LIMIT) {
         Err(_) => Some((0, 0)),
         Ok(None) => None,
         Ok(Some(data)) if attributes.binary(file, &[], &data) => None,

@@ -240,21 +240,38 @@ pub(super) fn blob_at(
     tree: &gix::Tree<'_>,
     path: &str,
 ) -> Result<Option<Vec<u8>>, String> {
+    let Some(id) = blob_id_at(tree, path)? else {
+        return Ok(None);
+    };
+    load_blob(repo, id, path).map(Some)
+}
+
+/// The id of the blob at `path` inside `tree`, if a file exists there.
+pub(super) fn blob_id_at(
+    tree: &gix::Tree<'_>,
+    path: &str,
+) -> Result<Option<gix::ObjectId>, String> {
     let Some(entry) = tree
         .lookup_entry_by_path(path)
         .map_err(|e| format!("lookup {path}: {e}"))?
     else {
         return Ok(None);
     };
-    if !entry.mode().is_blob() {
-        return Ok(None);
-    }
+    Ok(entry.mode().is_blob().then(|| entry.object_id()))
+}
+
+/// The contents of blob `id`, found at `path`.
+pub(super) fn load_blob(
+    repo: &gix::Repository,
+    id: gix::ObjectId,
+    path: &str,
+) -> Result<Vec<u8>, String> {
     let blob = repo
-        .find_object(entry.object_id())
+        .find_object(id)
         .map_err(|e| format!("blob {path}: {e}"))?
         .try_into_blob()
         .map_err(|e| format!("{path} is not a blob: {e}"))?;
-    Ok(Some(blob.data.clone()))
+    Ok(blob.data.clone())
 }
 
 /// The unified hunks between two blobs, in the `git diff -u` text form.
