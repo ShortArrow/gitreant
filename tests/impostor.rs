@@ -101,3 +101,27 @@ fn an_impostor_on_the_port_gets_nothing() {
         "{requests}"
     );
 }
+
+/// Listing the running servers sends an impostor nothing and prints no
+/// secret, in every form `list` takes; it says which port could not prove.
+#[test]
+fn listing_shows_an_impostor_nothing_of_the_secret() {
+    let (port, seen) = listen_as_impostor();
+    let state = record_gone_server(port);
+
+    for form in [&["list"][..], &["list", "--verbose"], &["list", "--json"]] {
+        let output = Command::new(env!("CARGO_BIN_EXE_gitreant"))
+            .env("GITREANT_STATE_DIR", state.path())
+            .args(form)
+            .output()
+            .unwrap();
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(!stdout.contains(GONE_SECRET), "{form:?}: {stdout}");
+        assert!(!stderr.contains(GONE_SECRET), "{form:?}: {stderr}");
+        assert!(stderr.contains("cannot prove"), "{form:?}: {stderr}");
+    }
+    let requests = seen.lock().unwrap().join("\n---\n");
+    assert!(!requests.contains(GONE_SECRET), "{requests}");
+}

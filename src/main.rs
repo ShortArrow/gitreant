@@ -381,7 +381,7 @@ fn editor(action: &EditorAction) -> ExitCode {
 /// Print the running servers, or that none runs (ADR 0039): a line each,
 /// with their repositories when `verbose`, or everything as JSON.
 fn list(verbose: bool, json: bool) -> ExitCode {
-    let running = running_servers();
+    let running = proven_servers();
     if json {
         let servers: Vec<serde_json::Value> = running.iter().map(server_json).collect();
         println!("{}", serde_json::Value::Array(servers));
@@ -438,6 +438,22 @@ fn how_added(added: &serde_json::Value) -> String {
 /// The servers whose records still answer as a gitreant.
 fn running_servers() -> Vec<Record> {
     records::dir().map_or_else(Vec::new, |dir| records::running(&dir, ping))
+}
+
+/// The running servers that prove they hold the secret in their record
+/// (ADR 0064). Each that cannot is named on stderr and left out, so it is
+/// asked nothing and its secret is printed nowhere.
+fn proven_servers() -> Vec<Record> {
+    running_servers()
+        .into_iter()
+        .filter(|record| match trusted(record.port) {
+            Ok(_) => true,
+            Err(why) => {
+                eprintln!("{why}");
+                false
+            }
+        })
+        .collect()
 }
 
 /// One line per server: its URL, pid, start time, version and how many
