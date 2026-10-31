@@ -70,3 +70,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0064](0064-prove-the-secret.jp.md) | 動いているサーバは秘密を持つことを示してから信頼する | Accepted |
 | [0065](0065-thickness-joint-outline.jp.md) | レーンの両側を 1 つの形として輪郭を付ける | Accepted |
 | [0066](0066-growing-background-batches.jp.md) | バックグラウンドの 1 回分を小さく始めて倍にしていく | Accepted |
+| [0067](0067-commit-body-on-hover.jp.md) | 行にポインタを置くとコミットメッセージの本文を表示する | Accepted |
