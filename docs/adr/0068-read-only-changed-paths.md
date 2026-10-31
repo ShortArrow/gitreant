@@ -47,8 +47,8 @@ there as well.
   directory resolves inside the working tree.
 - **The uncommitted diffs keep the same check.** A listed path that fails
   it is shown as a binary file, with no content and no line count. Only a
-  deleted file skips the check: it has nothing on disk, so its diff comes
-  from git as before. A path the check cannot resolve fails it.
+  deleted file with nothing left on disk skips the check, and its diff
+  comes from git as before. A path the check cannot resolve fails it.
 - Reading a commit's tree is unchanged: it reads git objects, not files
   on disk.
 
