@@ -72,3 +72,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0066](0066-growing-background-batches.jp.md) | バックグラウンドの 1 回分を小さく始めて倍にしていく | Accepted |
 | [0067](0067-commit-body-on-hover.jp.md) | 行にポインタを置くとコミットメッセージの本文を表示する | Accepted |
 | [0068](0068-read-only-changed-paths.jp.md) | 作業ツリーは未コミットの変更が挙げるパスでだけ読む | Accepted |
+| [0069](0069-committed-read-limit.jp.md) | コミットのファイルも作業ツリーと同じ大きさの上限で読む | Accepted |

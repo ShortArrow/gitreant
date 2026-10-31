@@ -76,3 +76,4 @@ are canonical; the files below are their English translations.
 | [0066](0066-growing-background-batches.md) | Start background batches small and double them | Accepted |
 | [0067](0067-commit-body-on-hover.md) | Show a commit's message body when the pointer rests on its row | Accepted |
 | [0068](0068-read-only-changed-paths.md) | Read the working tree only at a path the uncommitted changes list | Accepted |
+| [0069](0069-committed-read-limit.md) | Read a committed file under the working tree's size limit | Accepted |

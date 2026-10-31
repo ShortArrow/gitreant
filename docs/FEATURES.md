@@ -118,7 +118,8 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   side, with the changed part of each line highlighted. "Diff all" opens
   every file's diff at once, and pressed again closes it. Where unchanged
   lines are hidden, buttons show twenty more above or below a hunk, and
-  "Whole file" shows the file in full with its changes marked.
+  "Whole file" shows the file in full with its changes marked. A file
+  larger than 4 MiB keeps its unchanged lines hidden.
 - **Comparing two commits.** With a commit selected, another commit's
   context menu compares the two: the diff pane shows every file that
   differs, from the older (ancestor) commit to the newer, headed
