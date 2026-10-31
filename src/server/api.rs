@@ -806,9 +806,21 @@ struct RevealRequest {
     path: Option<String>,
 }
 
+/// The absolute path to open inside `root`: the folder, or a
+/// repository-relative file that opens nothing outside the working tree,
+/// through a link or into `.git` (ADR 0070).
+fn target_to_open(root: &Path, rel: Option<&str>) -> Result<PathBuf, String> {
+    let target = resolve_reveal_target(root, rel)?;
+    match rel.filter(|rel| !rel.is_empty()) {
+        Some(rel) if !crate::git::opens_in_working_tree(root, rel) => {
+            Err("path must stay inside the repository".to_string())
+        }
+        _ => Ok(target),
+    }
+}
+
 /// The absolute path to reveal inside `root`: the folder, or a
-/// repository-relative file. Rejects absolute paths and any `..`, so a
-/// request can never open something outside the repository.
+/// repository-relative file. Rejects absolute paths and any `..`.
 fn resolve_reveal_target(root: &Path, rel: Option<&str>) -> Result<PathBuf, String> {
     let Some(rel) = rel.filter(|r| !r.is_empty()) else {
         return Ok(root.to_path_buf());
@@ -837,8 +849,8 @@ async fn reveal(
         StatusCode::NOT_FOUND,
         format!("unknown repository: {}", req.repo),
     ))?;
-    let target = resolve_reveal_target(&root, req.path.as_deref())
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    let target =
+        target_to_open(&root, req.path.as_deref()).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     #[cfg(not(target_os = "android"))]
     {
         tokio::task::spawn_blocking(move || open::that(target))
@@ -905,7 +917,7 @@ fn file_to_open(state: &AppState, repo: &str, path: &str) -> Result<PathBuf, (St
     let root = state
         .repo_path(repo)
         .ok_or((StatusCode::NOT_FOUND, format!("unknown repository: {repo}")))?;
-    resolve_reveal_target(&root, Some(path)).map_err(|e| (StatusCode::BAD_REQUEST, e))
+    target_to_open(&root, Some(path)).map_err(|e| (StatusCode::BAD_REQUEST, e))
 }
 
 /// Open a file with one of the user's editors: its program runs directly,

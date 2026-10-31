@@ -1936,3 +1936,48 @@ async fn a_server_proves_it_holds_its_secret() {
     .await
     .unwrap();
 }
+
+/// Opening refuses a path into `.git` before any editor is looked up, and
+/// takes a file in the working tree; an editor the list lacks runs nothing.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn opening_refuses_a_path_into_git() {
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+    std::fs::write(tmp.path().join("a.txt"), "a\n").unwrap();
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    let mut session = Session::new();
+    session.add(tmp.path()).unwrap();
+    tokio::spawn(async move {
+        serve(
+            listener,
+            AppState::new(session).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
+    });
+    tokio::task::spawn_blocking(move || {
+        assert!((0..50).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            ping(port)
+        }));
+        let list = http_get(port, "/api/list");
+        let entries: serde_json::Value =
+            serde_json::from_str(list.lines().find(|line| line.starts_with('[')).unwrap()).unwrap();
+        let id = entries[0]["id"].as_str().unwrap().to_string();
+        let open = |path: &str| {
+            let body = serde_json::json!({ "repo": id, "path": path, "editor": 9999 });
+            let resp = http_post_json(port, "/api/open-with", &body.to_string());
+            resp.lines().next().unwrap_or_default().to_string()
+        };
+        assert!(
+            open(".git/config").contains("400"),
+            "{}",
+            open(".git/config")
+        );
+        assert!(open("a.txt").contains("404"), "{}", open("a.txt"));
+    })
+    .await
+    .unwrap();
+}

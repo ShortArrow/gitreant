@@ -7,10 +7,10 @@ use std::process::Command;
 
 use gitreant::domain::layout;
 use gitreant::git::{
-    gitlink_updates, read_commit, read_commit_body, read_commit_diff, read_file, read_file_diff,
-    read_range_diff, read_repo, read_repo_with_progress, read_status, read_submodules,
-    read_uncommitted, read_uncommitted_diff, read_uncommitted_diffs, read_worktrees,
-    uncommitted_paths, FileChange, UNCOMMITTED_ID,
+    gitlink_updates, opens_in_working_tree, read_commit, read_commit_body, read_commit_diff,
+    read_file, read_file_diff, read_range_diff, read_repo, read_repo_with_progress, read_status,
+    read_submodules, read_uncommitted, read_uncommitted_diff, read_uncommitted_diffs,
+    read_worktrees, uncommitted_paths, FileChange, UNCOMMITTED_ID,
 };
 
 fn git(dir: &Path, args: &[&str]) {
@@ -1299,4 +1299,66 @@ fn reads_no_file_through_a_linked_directory() {
 
     let read = read_file(&repo, UNCOMMITTED_ID, "link/secret.txt").expect("read");
     assert_eq!(read, None);
+}
+
+/// Opening a file reaches only the working tree: not `.git`, not a path
+/// that is not there, and not where a link leads out of the tree.
+#[test]
+fn opens_only_what_lies_in_the_working_tree() {
+    let tmp = tempfile::tempdir().unwrap();
+    let repo = tmp.path().join("repo");
+    std::fs::create_dir(&repo).unwrap();
+    git(&repo, &["init", "-q", "-b", "main"]);
+    std::fs::create_dir(repo.join("src")).unwrap();
+    std::fs::write(repo.join("src").join("main.rs"), "fn main() {}\n").unwrap();
+
+    assert!(opens_in_working_tree(&repo, "src/main.rs"));
+    assert!(!opens_in_working_tree(&repo, ".git/config"));
+    assert!(!opens_in_working_tree(&repo, ".GIT/config"));
+    assert!(!opens_in_working_tree(&repo, "missing.txt"));
+}
+
+/// A link is opened only when it leads to a file in the working tree.
+#[cfg(unix)]
+#[test]
+fn opens_a_link_only_into_the_working_tree() {
+    let tmp = tempfile::tempdir().unwrap();
+    let repo = tmp.path().join("repo");
+    std::fs::create_dir(&repo).unwrap();
+    git(&repo, &["init", "-q", "-b", "main"]);
+    std::fs::write(tmp.path().join("secret.txt"), "secret\n").unwrap();
+    std::fs::write(repo.join("readme.md"), "hi\n").unwrap();
+    let link =
+        |target: &Path, name: &str| std::os::unix::fs::symlink(target, repo.join(name)).unwrap();
+    link(&tmp.path().join("secret.txt"), "out");
+    link(Path::new("readme.md"), "in");
+    link(Path::new(".git/config"), "cfg");
+    link(tmp.path(), "up");
+
+    assert!(opens_in_working_tree(&repo, "in"));
+    assert!(!opens_in_working_tree(&repo, "out"));
+    assert!(!opens_in_working_tree(&repo, "cfg"));
+    assert!(!opens_in_working_tree(&repo, "up/secret.txt"));
+}
+
+/// A junction leads nothing out of the working tree to open.
+#[cfg(windows)]
+#[test]
+fn opens_nothing_through_a_junction() {
+    let tmp = tempfile::tempdir().unwrap();
+    let repo = tmp.path().join("repo");
+    let outside = tmp.path().join("outside");
+    std::fs::create_dir(&repo).unwrap();
+    std::fs::create_dir(&outside).unwrap();
+    std::fs::write(outside.join("secret.txt"), "secret\n").unwrap();
+    git(&repo, &["init", "-q", "-b", "main"]);
+    let status = Command::new("cmd")
+        .current_dir(&repo)
+        .args(["/c", "mklink", "/J", "up"])
+        .arg(&outside)
+        .status()
+        .unwrap();
+    assert!(status.success(), "mklink");
+
+    assert!(!opens_in_working_tree(&repo, "up/secret.txt"));
 }

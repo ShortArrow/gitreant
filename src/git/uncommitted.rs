@@ -276,6 +276,22 @@ pub(super) fn in_working_tree(repo: &gix::Repository, root: &Path, file: &str) -
     resolved.is_ok_and(|resolved| lies_in_working_tree(repo, root, &resolved))
 }
 
+/// Whether opening `file` in the working tree `root` reaches only the
+/// working tree (ADR 0070): it is there, no directory on its way is a link
+/// or junction, and where it leads, through a link included, lies under
+/// `root` outside every `.git` and the repository's git directories.
+/// `root` is spelled as [`read_uncommitted_diff`] requires.
+pub fn opens_in_working_tree(root: &Path, file: &str) -> bool {
+    let Ok(repo) = gix::discover(root) else {
+        return false;
+    };
+    in_working_tree(&repo, root, file)
+        && root
+            .join(file)
+            .canonicalize()
+            .is_ok_and(|target| lies_in_working_tree(&repo, root, &target))
+}
+
 /// Whether the canonical path `resolved` lies under `root` with no part
 /// named `.git`, in any case, and outside `repo`'s git directories.
 fn lies_in_working_tree(repo: &gix::Repository, root: &Path, resolved: &Path) -> bool {

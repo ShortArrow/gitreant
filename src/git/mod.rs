@@ -44,8 +44,8 @@ pub use status::{read_status, RepoStatus};
 pub use submodule::{gitlink_updates, read_submodules, GitlinkUpdate, Submodule};
 pub use tag::{create_tag, create_tag_command, delete_tag, delete_tag_command};
 pub use uncommitted::{
-    read_uncommitted, read_uncommitted_diff, read_uncommitted_diffs, uncommitted_paths,
-    UncommittedPath, UNCOMMITTED_ID,
+    opens_in_working_tree, read_uncommitted, read_uncommitted_diff, read_uncommitted_diffs,
+    uncommitted_paths, UncommittedPath, UNCOMMITTED_ID,
 };
 pub use verify::{
     gpg_available, verification_state, verify_command, verify_signatures, SignatureCheck,
