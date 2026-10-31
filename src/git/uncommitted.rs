@@ -230,6 +230,42 @@ pub(super) fn read_untracked(file: &Path, limit: u64) -> Result<Option<Vec<u8>>,
     std::fs::read(file).map(Some).map_err(describe)
 }
 
+/// Whether `file` stays in the working tree on disk: no directory on its
+/// way is a link or junction, which git walks as if it were a directory,
+/// and no part of where it resolves under `root` is a `.git` directory or
+/// file, which a name such as `.git.` or `GIT~1` reaches on Windows. A file
+/// that is itself a link is read as its target text, so only its directory
+/// is resolved.
+pub(super) fn in_working_tree(root: &Path, file: &str) -> bool {
+    let on_disk = root.join(file);
+    let Some(parent) = Path::new(file).parent() else {
+        return false;
+    };
+    let mut on_way = root.to_path_buf();
+    for part in parent.components() {
+        on_way.push(part);
+        match std::fs::symlink_metadata(&on_way) {
+            Ok(meta) if !meta.file_type().is_symlink() => {}
+            _ => return false,
+        }
+    }
+    let is_link =
+        std::fs::symlink_metadata(&on_disk).is_ok_and(|meta| meta.file_type().is_symlink());
+    let resolved = if is_link {
+        on_way.canonicalize()
+    } else {
+        on_disk.canonicalize()
+    };
+    let (Ok(root), Ok(resolved)) = (root.canonicalize(), resolved) else {
+        return false;
+    };
+    resolved.strip_prefix(&root).is_ok_and(|inside| {
+        inside
+            .components()
+            .all(|part| !part.as_os_str().eq_ignore_ascii_case(".git"))
+    })
+}
+
 /// Run git in `path` and return its stdout; stderr becomes the error. Never
 /// takes the index lock: this runs beside the user's own git commands.
 fn output(path: &Path, args: &[&str]) -> Result<String, String> {
