@@ -151,6 +151,7 @@ fn picking_among_servers_shows_impostors_nothing_of_the_secret() {
     assert!(!output.status.success(), "{output:?}");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(!stderr.contains(GONE_SECRET), "{stderr}");
+    assert!(stderr.contains("cannot prove"), "{stderr}");
     for requests in [seen, heard] {
         let requests = requests.lock().unwrap().join("\n---\n");
         assert!(!requests.contains(GONE_SECRET), "{requests}");
