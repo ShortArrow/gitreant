@@ -182,6 +182,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in its remote URLs
   ([ADR 0068](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0068-read-only-changed-paths.md)).
 
+- A file opens with the default handler or an editor only when it lies in
+  the working tree: one reached through a directory link or junction, a
+  link out of the tree, or a path into `.git` no longer opens. The check
+  read only the path's text, so such a path opened a file outside the
+  repository or the repository's configuration
+  ([ADR 0070](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0070-open-in-working-tree.md)).
+
 ## [0.3.0] - 2026-10-21
 
 ### Added
