@@ -131,7 +131,7 @@ pub fn read_uncommitted_diff(path: &Path, file: &str) -> Result<FileDiff, String
         .find(|e| e.path == file)
         .ok_or_else(|| format!("{file} has no uncommitted changes"))?;
     let repo = open(path)?;
-    diff_entry(&mut DiffAttributes::of(&repo), path, &entry)
+    diff_entry(&repo, &mut DiffAttributes::of(&repo), path, &entry)
 }
 
 /// Every changed file's diff against HEAD, in status order. A file that
@@ -143,11 +143,12 @@ pub fn read_uncommitted_diffs(path: &Path) -> Result<Vec<FileDiff>, String> {
     let mut attributes = DiffAttributes::of(&repo);
     Ok(uncommitted_paths(path)
         .iter()
-        .filter_map(|entry| diff_entry(&mut attributes, path, entry).ok())
+        .filter_map(|entry| diff_entry(&repo, &mut attributes, path, entry).ok())
         .collect())
 }
 
 fn diff_entry(
+    repo: &gix::Repository,
     attributes: &mut DiffAttributes,
     path: &Path,
     entry: &UncommittedPath,
@@ -161,8 +162,18 @@ fn diff_entry(
             lines: None,
         });
     }
+    let on_disk = path.join(&entry.path);
+    if std::fs::symlink_metadata(&on_disk).is_ok() && !in_working_tree(repo, path, &entry.path) {
+        return Ok(FileDiff {
+            path: entry.path.clone(),
+            status: entry.status.clone(),
+            binary: true,
+            text: String::new(),
+            lines: None,
+        });
+    }
     if entry.untracked {
-        let data = read_untracked(&path.join(&entry.path), UNTRACKED_READ_LIMIT)?;
+        let data = read_untracked(&on_disk, UNTRACKED_READ_LIMIT)?;
         let binary = data
             .as_deref()
             .is_none_or(|data| attributes.binary(&entry.path, &[], data));
@@ -192,7 +203,6 @@ fn diff_entry(
         ],
     )?;
     let (binary, text) = parse_diff(&out);
-    let on_disk = path.join(&entry.path);
     let lines = if on_disk.exists() {
         read_untracked(&on_disk, UNTRACKED_READ_LIMIT)
             .ok()
@@ -233,10 +243,11 @@ pub(super) fn read_untracked(file: &Path, limit: u64) -> Result<Option<Vec<u8>>,
 /// Whether `file` stays in the working tree on disk: no directory on its
 /// way is a link or junction, which git walks as if it were a directory,
 /// and no part of where it resolves under `root` is a `.git` directory or
-/// file, which a name such as `.git.` or `GIT~1` reaches on Windows. A file
-/// that is itself a link is read as its target text, so only its directory
-/// is resolved.
-pub(super) fn in_working_tree(root: &Path, file: &str) -> bool {
+/// file, which a name such as `.git.` or `GIT~1` reaches on Windows, nor
+/// lies in `repo`'s git directories, whatever their names. A file that is
+/// itself a link is read as its target text, so only its directory is
+/// resolved.
+pub(super) fn in_working_tree(repo: &gix::Repository, root: &Path, file: &str) -> bool {
     let on_disk = root.join(file);
     let Some(parent) = Path::new(file).parent() else {
         return false;
@@ -259,11 +270,16 @@ pub(super) fn in_working_tree(root: &Path, file: &str) -> bool {
     let (Ok(root), Ok(resolved)) = (root.canonicalize(), resolved) else {
         return false;
     };
-    resolved.strip_prefix(&root).is_ok_and(|inside| {
-        inside
-            .components()
-            .all(|part| !part.as_os_str().eq_ignore_ascii_case(".git"))
-    })
+    let in_git_dir = [repo.git_dir(), repo.common_dir()].iter().any(|dir| {
+        dir.canonicalize()
+            .is_ok_and(|dir| resolved.starts_with(dir))
+    });
+    !in_git_dir
+        && resolved.strip_prefix(&root).is_ok_and(|inside| {
+            inside
+                .components()
+                .all(|part| !part.as_os_str().eq_ignore_ascii_case(".git"))
+        })
 }
 
 /// Run git in `path` and return its stdout; stderr becomes the error. Never

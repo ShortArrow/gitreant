@@ -1191,9 +1191,52 @@ fn reads_nothing_a_listed_path_leads_into_git() {
     for (root, path) in cases {
         let listed = uncommitted_paths(root);
         assert!(listed.iter().any(|c| c.path == path), "{path} is listed");
-        let read = read_file(root, UNCOMMITTED_ID, path).expect(path);
-        assert_eq!(read, None, "{path}");
+        assert_reads_nothing(root, path);
     }
+}
+
+/// Neither the file route nor the uncommitted diffs show `path`'s content.
+fn assert_reads_nothing(root: &Path, path: &str) {
+    let read = read_file(root, UNCOMMITTED_ID, path).expect(path);
+    assert_eq!(read, None, "{path}");
+    let leaked = |text: &str| text.contains("repositoryformatversion") || text.contains("SECRET");
+    let diff = read_uncommitted_diff(root, path).expect(path);
+    assert!(!leaked(&diff.text), "{path} diff: {}", diff.text);
+    let diffs = read_uncommitted_diffs(root).expect("diffs");
+    assert!(
+        diffs.iter().all(|d| !leaked(&d.text)),
+        "{path} in the diffs"
+    );
+}
+
+/// A git directory kept inside the working tree under another name reads
+/// nothing, though git status lists its files as untracked.
+#[test]
+fn reads_nothing_from_a_git_directory_inside_the_working_tree() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    let git_dir = dir.join("gd").to_string_lossy().into_owned();
+    git(
+        dir,
+        &["init", "-q", "-b", "main", "--separate-git-dir", &git_dir],
+    );
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    git(dir, &["config", "status.showUntrackedFiles", "all"]);
+    std::fs::write(
+        dir.join("kept.txt"),
+        "kept
+",
+    )
+    .unwrap();
+    git(dir, &["add", "kept.txt"]);
+    commit(dir, "root", 1000);
+
+    let listed = uncommitted_paths(dir);
+    assert!(
+        listed.iter().any(|c| c.path == "gd/config"),
+        "gd/config is listed"
+    );
+    assert_reads_nothing(dir, "gd/config");
 }
 
 /// A directory linked out of the working tree leads no read out of it.

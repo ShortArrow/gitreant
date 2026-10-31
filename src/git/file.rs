@@ -20,7 +20,7 @@ pub fn read_file(path: &Path, id: &str, file: &str) -> Result<Option<String>, St
             return Ok(None);
         }
         let on_disk = path.join(file);
-        if std::fs::symlink_metadata(&on_disk).is_err() || !in_working_tree(path, file) {
+        if std::fs::symlink_metadata(&on_disk).is_err() || !in_working_tree(&repo, path, file) {
             return Ok(None);
         }
         read_untracked(&on_disk, UNTRACKED_READ_LIMIT)?
