@@ -113,7 +113,8 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   instead. A file's context menu copies its relative or absolute path,
   opens it with the OS default handler or with one of the editors listed
   in the settings, and on Windows asks the system which application to
-  open it with.
+  open it with. A file under `.git`, one no longer on disk, or one reached
+  through a link out of the working tree does not open.
 - **The diff pane.** Clicking a file opens its diff, inline or side by
   side, with the changed part of each line highlighted. "Diff all" opens
   every file's diff at once, and pressed again closes it. Where unchanged
