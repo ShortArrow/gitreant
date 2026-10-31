@@ -92,6 +92,22 @@ pub fn write_launcher(dir: &Path, port: u16, url: &str) -> std::io::Result<PathB
     Ok(path)
 }
 
+/// What to hand the browser for the page at `url` (ADR 0072): the address
+/// itself when `address_allowed`, where only an administrator reads a
+/// command line or the user chose `--no-launcher`; else the `launcher`
+/// file's address; else nothing, and the browser is not opened.
+pub fn browser_target(
+    address_allowed: bool,
+    launcher: Option<String>,
+    url: &str,
+) -> Option<String> {
+    if address_allowed {
+        Some(url.to_string())
+    } else {
+        launcher
+    }
+}
+
 /// Let a spawned program outlive this process and its console: its own
 /// process group, and on Windows no console of ours.
 #[cfg(windows)]
@@ -197,6 +213,15 @@ fn candidate_paths() -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_browser_gets_the_secret_only_where_no_other_account_reads_it() {
+        let url = "http://127.0.0.1:4000/#token=5ec2e7";
+        let file = "file:///home/u/Downloads/.gitreant/open-4000.html".to_string();
+        assert_eq!(browser_target(true, None, url), Some(url.to_string()));
+        assert_eq!(browser_target(false, Some(file.clone()), url), Some(file));
+        assert_eq!(browser_target(false, None, url), None);
+    }
 
     #[test]
     fn the_page_address_hands_the_secret_over_in_its_fragment() {

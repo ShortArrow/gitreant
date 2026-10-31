@@ -49,7 +49,8 @@ struct Cli {
 
     /// Hand the browser the page's address itself, secret included, rather
     /// than a launcher file that keeps it off the command line (Linux and
-    /// macOS).
+    /// macOS). In WSL, or where no launcher file can be written, the browser
+    /// opens only with this.
     #[arg(long)]
     no_launcher: bool,
 
@@ -652,7 +653,17 @@ fn open_browser(cli: &Cli, port: u16, url: &str) {
     if cli.no_open {
         return;
     }
-    let target = launcher_for(cli, port, url).unwrap_or_else(|| url.to_string());
+    let address_allowed = cfg!(windows) || cli.no_launcher;
+    let launcher = (!address_allowed)
+        .then(|| launcher_for(port, url))
+        .flatten();
+    let Some(target) = launch::browser_target(address_allowed, launcher, url) else {
+        eprintln!(
+            "not opening the browser: its command line would show the secret to other \
+             accounts here; open the address above, or pass --no-launcher"
+        );
+        return;
+    };
     if cli.app && open_app_window(&target) {
         return;
     }
@@ -661,13 +672,12 @@ fn open_browser(cli: &Cli, port: u16, url: &str) {
 
 /// On Linux and macOS, where another account may read a process's command
 /// line, the address of a launcher file to open in place of `url`, so the
-/// secret in it never reaches the browser's (ADR 0063). None on Windows,
-/// where that takes an administrator and `.html` may open in an editor; in
-/// WSL, whose browser cannot open a Linux file; with `--no-launcher`; and
-/// when the file cannot be written.
+/// secret in it never reaches the browser's (ADR 0063). None in WSL, whose
+/// browser cannot open a Linux file, and when the file cannot be written;
+/// the browser is then not opened (ADR 0072).
 #[cfg(not(target_os = "android"))]
-fn launcher_for(cli: &Cli, port: u16, url: &str) -> Option<String> {
-    if cfg!(windows) || cli.no_launcher || in_wsl() {
+fn launcher_for(port: u16, url: &str) -> Option<String> {
+    if in_wsl() {
         return None;
     }
     let records = records::dir()?;
