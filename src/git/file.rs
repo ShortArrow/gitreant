@@ -1,19 +1,19 @@
 //! Read a file's content on the side a diff leads to, so the diff pane can
-//! show the unchanged lines around its hunks (ADR 0061).
+//! show the unchanged lines around its hunks (ADR 0061, ADR 0068).
 
 use std::path::Path;
 
 use super::detail::{blob_at, find_commit};
 use super::diff_attributes::DiffAttributes;
-use super::uncommitted::{read_untracked, UNCOMMITTED_ID, UNTRACKED_READ_LIMIT};
+use super::uncommitted::{read_untracked, uncommitted_paths, UNCOMMITTED_ID, UNTRACKED_READ_LIMIT};
 
 /// The text of `file` in commit `id`'s tree, or in the working tree for
-/// the uncommitted changes. `None` when the path is absent there, binary,
-/// or too large to read.
+/// the uncommitted changes. `None` when the path is absent there, not among
+/// the uncommitted changes, binary, or too large to read.
 pub fn read_file(path: &Path, id: &str, file: &str) -> Result<Option<String>, String> {
     let repo = gix::discover(path).map_err(|e| format!("open {path:?}: {e}"))?;
     let data = if id == UNCOMMITTED_ID {
-        if !inside_tree(file) {
+        if !is_changed(path, file) {
             return Ok(None);
         }
         let on_disk = path.join(file);
@@ -32,14 +32,13 @@ pub fn read_file(path: &Path, id: &str, file: &str) -> Result<Option<String>, St
         .map(|data| String::from_utf8_lossy(&data).into_owned()))
 }
 
-/// Whether `file` names a path inside the working tree: relative, and made
-/// of plain names only, so no `..`, root or drive prefix leads out of it.
-fn inside_tree(file: &str) -> bool {
-    let path = Path::new(file);
-    !file.is_empty()
-        && path
-            .components()
-            .all(|part| matches!(part, std::path::Component::Normal(_)))
+/// Whether `file` is exactly a path the uncommitted changes list. Git's own
+/// list keeps out the repository's `.git` under any of its names, ignored
+/// files, and anything outside the working tree.
+fn is_changed(path: &Path, file: &str) -> bool {
+    uncommitted_paths(path)
+        .iter()
+        .any(|change| change.path == file)
 }
 
 /// Whether the directory holding `on_disk` resolves inside `root`, so no

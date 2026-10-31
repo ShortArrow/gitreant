@@ -1091,6 +1091,38 @@ fn reads_a_file_on_the_side_a_diff_leads_to() {
     assert_eq!(working.lines, Some(1));
 }
 
+/// The working tree side reads only a path the uncommitted changes list,
+/// so the repository's own files and ignored files stay out of reach.
+#[test]
+fn reads_only_a_changed_path_from_the_working_tree() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    git(
+        dir,
+        &[
+            "config",
+            "remote.origin.url",
+            "https://user:token@example.com/r.git",
+        ],
+    );
+    std::fs::write(dir.join(".gitignore"), ".env\n").unwrap();
+    std::fs::write(dir.join("kept.txt"), "kept\n").unwrap();
+    git(dir, &["add", "."]);
+    commit(dir, "root", 1000);
+    std::fs::write(dir.join(".env"), "SECRET=1\n").unwrap();
+    std::fs::write(dir.join("new.txt"), "new\n").unwrap();
+
+    let at = |file: &str| read_file(dir, UNCOMMITTED_ID, file).expect(file);
+    assert_eq!(at("new.txt").as_deref(), Some("new\n"));
+    assert_eq!(at(".git/config"), None);
+    assert_eq!(at(".GIT/config"), None);
+    assert_eq!(at(".git/HEAD"), None);
+    assert_eq!(at(".env"), None, "an ignored file is not a change");
+    assert_eq!(at("kept.txt"), None, "an unchanged file is not a change");
+}
+
 /// A directory linked out of the working tree leads no read out of it.
 #[cfg(unix)]
 #[test]
