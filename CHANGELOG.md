@@ -170,10 +170,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   secret stays off its command line
   ([ADR 0063](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0063-request-token.md)).
 - `gitreant` forwards repositories to a running server, reads its list to
-  restart it, or opens its page, and `gitreant list` asks a server for its
-  repositories or prints its address, only once the server proves it holds
-  the secret in its record; a program that took the port after the server
-  stopped gets nothing
+  restart it, or opens its page, and `gitreant list` or a list of servers
+  to pick from asks a server for its repositories or prints its address,
+  only once the server proves it holds the secret in its record; a program
+  that took the port after the server stopped gets nothing
   ([ADR 0064](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0064-prove-the-secret.md)).
 - The uncommitted diffs no longer show a file reached through a directory
   link or junction, or one that resolves into a `.git` directory or file or
