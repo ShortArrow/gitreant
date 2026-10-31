@@ -168,7 +168,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bare address says how to open the page instead. On Linux and macOS the
   browser is handed a launcher file that is its owner's alone, so the
   secret stays off its command line
-  ([ADR 0063](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0063-request-token.md)).
+  ([ADR 0063](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0063-request-token.md));
+  in WSL, or where that file cannot be written, the browser is not opened
+  unless `--no-launcher` is given
+  ([ADR 0072](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0072-no-browser-showing-the-secret.md)).
 - `gitreant` forwards repositories to a running server, reads its list to
   restart it, or opens its page, and `gitreant list` or a list of servers
   to pick from asks a server for its repositories or prints its address,
