@@ -88,7 +88,7 @@ impl Cli {
             Target::Port(port) => Ok(port),
             Target::Many(many) => Err(format!(
                 "several gitreant servers are running; pick one with --port:\n{}",
-                describe(&many)
+                describe(&proven(many))
             )),
         }
     }
@@ -381,7 +381,7 @@ fn editor(action: &EditorAction) -> ExitCode {
 /// Print the running servers, or that none runs (ADR 0039): a line each,
 /// with their repositories when `verbose`, or everything as JSON.
 fn list(verbose: bool, json: bool) -> ExitCode {
-    let running = proven_servers();
+    let running = proven(running_servers());
     if json {
         let servers: Vec<serde_json::Value> = running.iter().map(server_json).collect();
         println!("{}", serde_json::Value::Array(servers));
@@ -440,11 +440,11 @@ fn running_servers() -> Vec<Record> {
     records::dir().map_or_else(Vec::new, |dir| records::running(&dir, ping))
 }
 
-/// The running servers that prove they hold the secret in their record
+/// The `servers` that prove they hold the secret in their record
 /// (ADR 0064). Each that cannot is named on stderr and left out, so it is
 /// asked nothing and its secret is printed nowhere.
-fn proven_servers() -> Vec<Record> {
-    running_servers()
+fn proven(servers: Vec<Record>) -> Vec<Record> {
+    servers
         .into_iter()
         .filter(|record| match trusted(record.port) {
             Ok(_) => true,

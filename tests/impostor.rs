@@ -125,3 +125,34 @@ fn listing_shows_an_impostor_nothing_of_the_secret() {
     let requests = seen.lock().unwrap().join("\n---\n");
     assert!(!requests.contains(GONE_SECRET), "{requests}");
 }
+
+/// Asked to pick among several running servers, the CLI lists only those
+/// that prove their secret, sending the others nothing of it.
+#[test]
+fn picking_among_servers_shows_impostors_nothing_of_the_secret() {
+    let (port, seen) = listen_as_impostor();
+    let (other, heard) = listen_as_impostor();
+    let state = record_gone_server(port);
+    let record = Record {
+        port: other,
+        pid: 2,
+        started: 0,
+        version: "0.3.0".to_string(),
+        token: GONE_SECRET.to_string(),
+    };
+    records::write(state.path(), &record).unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_gitreant"))
+        .env("GITREANT_STATE_DIR", state.path())
+        .arg("refresh")
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success(), "{output:?}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!stderr.contains(GONE_SECRET), "{stderr}");
+    for requests in [seen, heard] {
+        let requests = requests.lock().unwrap().join("\n---\n");
+        assert!(!requests.contains(GONE_SECRET), "{requests}");
+    }
+}
