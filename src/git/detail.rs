@@ -72,15 +72,19 @@ pub fn read_commit(path: &Path, id: &str) -> Result<CommitDetail, String> {
     })
 }
 
-/// The message of commit `id` without its summary: what follows the first
-/// paragraph, trimmed, or empty when the message has nothing more.
+/// The message of commit `id` after its first line, trimmed, trailers
+/// included, or empty when the message has nothing more; the detail pane
+/// splits a message the same way.
 pub fn read_commit_body(path: &Path, id: &str) -> Result<String, String> {
     let repo = gix::discover(path).map_err(|e| format!("open {path:?}: {e}"))?;
     let commit = find_commit(&repo, id)?;
-    Ok(commit
-        .message()
-        .ok()
-        .and_then(|m| m.body().map(|body| body.to_string().trim().to_string()))
+    let message = commit
+        .message_raw()
+        .map(|m| m.to_string())
+        .unwrap_or_default();
+    Ok(message
+        .split_once('\n')
+        .map(|(_, rest)| rest.trim().to_string())
         .unwrap_or_default())
 }
 

@@ -210,6 +210,20 @@ fn reads_a_commit_message_body_without_its_summary() {
         "Why a changed.\n\n- first\n- second"
     );
     assert_eq!(read_commit_body(dir, &repo.commits[1].id).unwrap(), "");
+
+    std::fs::write(dir.join("a.txt"), "c\n").unwrap();
+    git(dir, &["add", "a.txt"]);
+    commit(
+        dir,
+        "line one\nline two\n\nWhy.\n\nSigned-off-by: Tester <tester@example.com>\n",
+        1002,
+    );
+    let head = &read_repo(dir).expect("read repo").commits[0].id;
+    assert_eq!(
+        read_commit_body(dir, head).unwrap(),
+        "line two\n\nWhy.\n\nSigned-off-by: Tester <tester@example.com>",
+        "everything after the first line, as the detail pane splits it"
+    );
     assert!(read_commit_body(dir, "0000000000000000000000000000000000000000").is_err());
 }
 

@@ -564,6 +564,16 @@ async fn commit_endpoint_returns_detail() {
         resp.ends_with("{\"body\":\"Why the notes exist.\"}"),
         "the body alone: {resp}"
     );
+    let unknown =
+        format!("{{\"repo\": {repo_id:?}, \"id\": \"0000000000000000000000000000000000000000\"}}");
+    let resp =
+        tokio::task::spawn_blocking(move || http_post_json(port, "/api/commit-body", &unknown))
+            .await
+            .unwrap();
+    assert!(
+        resp.contains("404"),
+        "expected 404 for unknown commit: {resp}"
+    );
 
     // Unknown repository or commit -> 404.
     let bad_repo = format!("{{\"repo\": \"/nowhere\", \"id\": {head:?}}}");
