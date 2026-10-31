@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { bodyCache } from "./bodyCache";
 import { MessageBody } from "./MessageBody";
 
 /** How long the pointer rests on a row before its body is asked for. */
@@ -18,34 +19,32 @@ interface Shown {
  *  spread `rowProps(id)`; `tip` is rendered once. A commit without a body
  *  shows nothing, and each body is asked for once per card (ADR 0067). */
 export function useBodyTip(load: (commitId: string) => Promise<string>) {
-  const bodies = useRef(new Map<string, string>());
+  const latestLoad = useRef(load);
+  latestLoad.current = load;
+  const [bodyOf] = useState(() => bodyCache((id) => latestLoad.current(id)));
   const pointer = useRef({ x: 0, y: 0 });
-  const hovered = useRef<string | null>(null);
+  const rest = useRef(0);
   const timer = useRef<number | undefined>(undefined);
   const [shown, setShown] = useState<Shown | null>(null);
 
-  useEffect(() => () => window.clearTimeout(timer.current), []);
-
-  const show = (id: string, body: string) => {
-    if (hovered.current !== id || !body) return;
-    setShown({ id, body, ...pointer.current });
-  };
+  useEffect(
+    () => () => {
+      rest.current += 1;
+      window.clearTimeout(timer.current);
+    },
+    [],
+  );
 
   const rowProps = (id: string) => ({
     onMouseEnter: (e: React.MouseEvent) => {
-      hovered.current = id;
+      const thisRest = ++rest.current;
       pointer.current = { x: e.clientX, y: e.clientY };
       window.clearTimeout(timer.current);
       timer.current = window.setTimeout(() => {
-        const known = bodies.current.get(id);
-        if (known !== undefined) {
-          show(id, known);
-          return;
-        }
-        load(id).then(
+        bodyOf(id).then(
           (body) => {
-            bodies.current.set(id, body);
-            show(id, body);
+            if (rest.current !== thisRest || !body) return;
+            setShown({ id, body, ...pointer.current });
           },
           () => undefined,
         );
@@ -55,7 +54,7 @@ export function useBodyTip(load: (commitId: string) => Promise<string>) {
       pointer.current = { x: e.clientX, y: e.clientY };
     },
     onMouseLeave: () => {
-      hovered.current = null;
+      rest.current += 1;
       window.clearTimeout(timer.current);
       setShown(null);
     },
