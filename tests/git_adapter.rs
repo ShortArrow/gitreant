@@ -1123,6 +1123,45 @@ fn reads_only_a_changed_path_from_the_working_tree() {
     assert_eq!(at("kept.txt"), None, "an unchanged file is not a change");
 }
 
+/// A listed path that leads into `.git`, through a junction or a name the
+/// file system resolves there, reads nothing.
+#[cfg(windows)]
+#[test]
+fn reads_nothing_a_listed_path_leads_into_git() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    git(dir, &["config", "status.showUntrackedFiles", "all"]);
+    git(dir, &["config", "core.protectNTFS", "false"]);
+    std::fs::write(dir.join(".gitignore"), "/private/\n").unwrap();
+    std::fs::create_dir(dir.join("private")).unwrap();
+    std::fs::write(dir.join("private").join(".env"), "SECRET=1\n").unwrap();
+    git(dir, &["add", ".gitignore"]);
+    commit(dir, "root", 1000);
+    let junction = |name: &str, target: &str| {
+        let status = Command::new("cmd")
+            .current_dir(dir)
+            .args(["/c", "mklink", "/J", name, target])
+            .output()
+            .unwrap()
+            .status;
+        assert!(status.success(), "mklink {name}");
+    };
+    junction("junc", ".git");
+    junction("jp", "private");
+    let blob = git_stdout(dir, &["hash-object", "-w", ".git/config"]);
+    let entry = format!("100644,{},.git./config", blob.trim());
+    git(dir, &["update-index", "--add", "--cacheinfo", &entry]);
+
+    let listed: Vec<String> = uncommitted_paths(dir).into_iter().map(|c| c.path).collect();
+    for path in ["junc/config", "jp/.env", ".git./config"] {
+        assert!(listed.iter().any(|p| p == path), "{path} is listed");
+        let read = read_file(dir, UNCOMMITTED_ID, path).expect(path);
+        assert_eq!(read, None, "{path}");
+    }
+}
+
 /// A directory linked out of the working tree leads no read out of it.
 #[cfg(unix)]
 #[test]
