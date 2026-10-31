@@ -273,7 +273,13 @@ pub(super) fn in_working_tree(repo: &gix::Repository, root: &Path, file: &str) -
     } else {
         on_disk.canonicalize()
     };
-    let (Ok(root), Ok(resolved)) = (root.canonicalize(), resolved) else {
+    resolved.is_ok_and(|resolved| lies_in_working_tree(repo, root, &resolved))
+}
+
+/// Whether the canonical path `resolved` lies under `root` with no part
+/// named `.git`, in any case, and outside `repo`'s git directories.
+fn lies_in_working_tree(repo: &gix::Repository, root: &Path, resolved: &Path) -> bool {
+    let Ok(root) = root.canonicalize() else {
         return false;
     };
     let in_git_dir = [repo.git_dir(), repo.common_dir()].iter().any(|dir| {
