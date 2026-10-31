@@ -163,7 +163,8 @@ fn diff_entry(
         });
     }
     let on_disk = path.join(&entry.path);
-    if entry.status != "D" && !in_working_tree(repo, path, &entry.path) {
+    let on_disk_now = entry.status != "D" || std::fs::symlink_metadata(&on_disk).is_ok();
+    if on_disk_now && !in_working_tree(repo, path, &entry.path) {
         return Ok(FileDiff {
             path: entry.path.clone(),
             status: entry.status.clone(),

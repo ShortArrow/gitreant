@@ -1196,6 +1196,30 @@ fn reads_nothing_a_listed_path_leads_into_git() {
     }
 }
 
+/// A deletion staged for a name that still opens `.git` on disk does not
+/// count `.git`'s lines either.
+#[cfg(windows)]
+#[test]
+fn a_staged_deletion_reads_nothing_through_its_alias() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    git(dir, &["config", "core.protectNTFS", "false"]);
+    let blob = git_stdout(dir, &["hash-object", "-w", "--stdin"]);
+    let entry = format!("100644,{},.git./config", blob.trim());
+    git(dir, &["update-index", "--add", "--cacheinfo", &entry]);
+    commit(dir, "root", 1000);
+    git(dir, &["rm", "-q", "--cached", ".git./config"]);
+
+    let listed = uncommitted_paths(dir);
+    assert!(listed
+        .iter()
+        .any(|c| c.path == ".git./config" && c.status == "D"));
+    let diff = read_uncommitted_diff(dir, ".git./config").expect("diff");
+    assert_eq!(diff.lines, None);
+}
+
 /// Neither the file route nor the uncommitted diffs show `path`'s content.
 fn assert_reads_nothing(root: &Path, path: &str) {
     let read = read_file(root, UNCOMMITTED_ID, path).expect(path);
