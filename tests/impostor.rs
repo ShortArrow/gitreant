@@ -28,8 +28,9 @@ fn init_repo_with_commit(dir: &Path) {
     run(&["commit", "--allow-empty", "-m", "root"]);
 }
 
-#[test]
-fn an_impostor_on_the_port_gets_nothing() {
+/// A program on a free port that answers every request as a gitreant's
+/// ping would, and keeps each request it hears.
+fn listen_as_impostor() -> (u16, Arc<Mutex<Vec<String>>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
     let seen: Arc<Mutex<Vec<String>>> = Arc::default();
@@ -48,17 +49,30 @@ fn an_impostor_on_the_port_gets_nothing() {
             );
         }
     });
+    (port, seen)
+}
 
-    // The record of a server that ran on this port before.
+/// A state directory holding the record of a server that ran on `port`
+/// before, with [`GONE_SECRET`] as its secret.
+fn record_gone_server(port: u16) -> tempfile::TempDir {
     let state = tempfile::tempdir().unwrap();
     let record = Record {
         port,
         pid: 1,
         started: 0,
         version: "0.3.0".to_string(),
-        token: "the-secret-of-a-server-gone".to_string(),
+        token: GONE_SECRET.to_string(),
     };
     records::write(state.path(), &record).unwrap();
+    state
+}
+
+const GONE_SECRET: &str = "the-secret-of-a-server-gone";
+
+#[test]
+fn an_impostor_on_the_port_gets_nothing() {
+    let (port, seen) = listen_as_impostor();
+    let state = record_gone_server(port);
 
     let repo = tempfile::tempdir().unwrap();
     init_repo_with_commit(repo.path());
@@ -73,10 +87,7 @@ fn an_impostor_on_the_port_gets_nothing() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("cannot prove"), "{stderr}");
     let requests = seen.lock().unwrap().join("\n---\n");
-    assert!(
-        !requests.contains("the-secret-of-a-server-gone"),
-        "{requests}"
-    );
+    assert!(!requests.contains(GONE_SECRET), "{requests}");
     assert!(!requests.contains("POST"), "{requests}");
     assert!(
         !requests.contains(
