@@ -106,6 +106,8 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
 - **The detail pane.** Clicking a commit shows its full message, author,
   date, signature state, parents and changed files. The author links to
   their GitHub profile; the email and the parent ids copy on click.
+- **The message body on hover.** Resting the pointer on a commit row shows
+  the rest of its message in a popup, without changing the detail pane.
 - **Changed files.** Files show as a flat list or a directory tree, with
   added and removed line counts; a binary file is labelled "Binary"
   instead. A file's context menu copies its relative or absolute path,

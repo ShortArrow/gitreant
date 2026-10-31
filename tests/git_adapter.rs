@@ -7,10 +7,10 @@ use std::process::Command;
 
 use gitreant::domain::layout;
 use gitreant::git::{
-    gitlink_updates, read_commit, read_commit_diff, read_file, read_file_diff, read_range_diff,
-    read_repo, read_repo_with_progress, read_status, read_submodules, read_uncommitted,
-    read_uncommitted_diff, read_uncommitted_diffs, read_worktrees, uncommitted_paths, FileChange,
-    UNCOMMITTED_ID,
+    gitlink_updates, read_commit, read_commit_body, read_commit_diff, read_file, read_file_diff,
+    read_range_diff, read_repo, read_repo_with_progress, read_status, read_submodules,
+    read_uncommitted, read_uncommitted_diff, read_uncommitted_diffs, read_worktrees,
+    uncommitted_paths, FileChange, UNCOMMITTED_ID,
 };
 
 fn git(dir: &Path, args: &[&str]) {
@@ -184,6 +184,33 @@ fn reads_commit_detail_with_message_body_and_file_changes() {
 
     // An unknown id is an error, not a panic.
     assert!(read_commit(dir, "0000000000000000000000000000000000000000").is_err());
+}
+
+#[test]
+fn reads_a_commit_message_body_without_its_summary() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    std::fs::write(dir.join("a.txt"), "a\n").unwrap();
+    git(dir, &["add", "a.txt"]);
+    commit(dir, "summary only", 1000);
+    std::fs::write(dir.join("a.txt"), "b\n").unwrap();
+    git(dir, &["add", "a.txt"]);
+    commit(
+        dir,
+        "change a\n\nWhy a changed.\n\n- first\n- second\n",
+        1001,
+    );
+
+    let repo = read_repo(dir).expect("read repo");
+    assert_eq!(
+        read_commit_body(dir, &repo.commits[0].id).unwrap(),
+        "Why a changed.\n\n- first\n- second"
+    );
+    assert_eq!(read_commit_body(dir, &repo.commits[1].id).unwrap(), "");
+    assert!(read_commit_body(dir, "0000000000000000000000000000000000000000").is_err());
 }
 
 #[test]

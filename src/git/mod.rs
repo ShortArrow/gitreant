@@ -25,8 +25,8 @@ pub use branch::{
     create_branch_command, merge, merge_command,
 };
 pub use detail::{
-    read_commit, read_commit_diff, read_file_diff, read_range_diff, CommitDetail, FileChange,
-    FileDiff,
+    read_commit, read_commit_body, read_commit_diff, read_file_diff, read_range_diff, CommitDetail,
+    FileChange, FileDiff,
 };
 pub use diffstat::{count_command, count_lines, LineCount};
 pub use fetch::{fetch_command, fetch_remotes, tag_remotes, RemoteTagList};

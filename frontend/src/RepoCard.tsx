@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useBodyTip } from "./BodyTip";
 import { CommitHash } from "./CommitHash";
 import { CommitMenu } from "./CommitMenu";
 import { ContextMenu } from "./ContextMenu";
@@ -15,6 +16,7 @@ import {
   createBranch,
   createTag,
   deleteTag,
+  fetchCommitBody,
   fetchCommitDetail,
   fetchCommitDiff,
   fetchFileContent,
@@ -232,6 +234,7 @@ export function RepoCard({
   onLoadMore,
   onOpenSubmodule,
   loadDetail = fetchCommitDetail,
+  loadBody = fetchCommitBody,
   loadDiff = fetchFileDiff,
   loadCommitDiff = fetchCommitDiff,
   loadRangeDiff = fetchRangeDiff,
@@ -248,6 +251,7 @@ export function RepoCard({
   onOpenSubmodule?: (path: string, side: "here" | "right") => Promise<void>;
   /** Injectable for Storybook; defaults to the real API. */
   loadDetail?: (repoId: string, commitId: string) => Promise<CommitDetail>;
+  loadBody?: (repoId: string, commitId: string) => Promise<string>;
   loadDiff?: (
     repoId: string,
     commitId: string,
@@ -573,6 +577,7 @@ export function RepoCard({
       }),
     onMouseLeave: () => setHoverNode(null),
   });
+  const bodyTip = useBodyTip((commitId) => loadBody(repo.id, commitId));
   const [detail, setDetail] = useState<CommitDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [diffTarget, setDiffTarget] = useState<DiffTarget | null>(null);
@@ -1223,6 +1228,7 @@ export function RepoCard({
             {hoverNode.label}
           </span>
         )}
+        {bodyTip.tip}
 
         <ul className="commits">
           {view.commits.map((commit) => {
@@ -1239,6 +1245,7 @@ export function RepoCard({
                 style={{ height: ROW_HEIGHT }}
                 onClick={() => toggleSelected(commit.id)}
                 onContextMenu={(e) => openCommitMenu(e, commit)}
+                {...(uncommitted === undefined && bodyTip.rowProps(commit.id))}
               >
                 {lineCounts === "bars" &&
                   // At the row's start, so every row's axis lines up; a row

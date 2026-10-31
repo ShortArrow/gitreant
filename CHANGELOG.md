@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Resting the pointer on a commit row shows the rest of its message in a
+  popup, without changing the detail pane
+  ([ADR 0067](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0067-commit-body-on-hover.md)).
 - Hovering a graph node fades every row, node and edge off its
   first-parent chain
   ([ADR 0035](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0035-graph-node-navigation.md)).

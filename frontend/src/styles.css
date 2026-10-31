@@ -1116,6 +1116,23 @@ body {
 }
 
 /* The hash of the graph node under the pointer, beside the cursor. */
+/* The message body of the row under the pointer; it never takes the
+ * pointer, so moving onto the next row is not blocked. */
+.body-tip {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  max-width: min(480px, calc(100vw - 24px));
+  max-height: min(320px, calc(100vh - 24px));
+  overflow: hidden;
+  padding: 0 10px 8px;
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.2);
+}
+
 .node-tip {
   position: fixed;
   z-index: 100;

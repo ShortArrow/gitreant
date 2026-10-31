@@ -332,6 +332,32 @@ test.describe.serial("gitreant UI", () => {
     await expect(panel).toHaveCount(0);
   });
 
+  test("resting the pointer on a row shows its message body", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const tip = page.getByTestId("body-tip");
+
+    await page.getByTestId("commit-row").filter({ hasText: "main-1" }).hover();
+    await expect(tip).toBeVisible();
+    await expect(tip.locator(".detail-message").first()).toHaveText(
+      "Second line of the description wraps in the source.",
+    );
+    await expect(tip.getByTestId("detail-bullets").locator("li")).toHaveCount(2);
+    await expect(tip).not.toContainText("main-1");
+    await expect(page.getByTestId("commit-detail")).toHaveCount(0);
+
+    await page.getByTestId("commit-row").filter({ hasText: "main-2" }).hover();
+    await expect(tip).toHaveCount(0);
+    await page.waitForTimeout(800);
+    await expect(tip).toHaveCount(0);
+
+    await page.getByTestId("commit-row").filter({ hasText: "main-1" }).hover();
+    await expect(tip).toBeVisible();
+    await page.locator("h1, header").first().hover();
+    await expect(tip).toHaveCount(0);
+  });
+
   test("the detail pane holds still when the selection changes", async ({
     page,
   }) => {

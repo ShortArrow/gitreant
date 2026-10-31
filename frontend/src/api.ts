@@ -422,6 +422,25 @@ export async function fetchCommitDetail(
   return response.json();
 }
 
+/** Load one commit's message body without its summary; empty when the
+ *  message has none. */
+export async function fetchCommitBody(
+  repoId: string,
+  commitId: string,
+): Promise<string> {
+  const response = await apiFetch("/api/commit-body", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo: repoId, id: commitId }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || `commit body failed: ${response.status}`,
+    );
+  }
+  return ((await response.json()) as { body: string }).body;
+}
+
 /** One entry of the instant repository list (ADR 0023). */
 /** A submodule declared by a repository, for drawer grouping. */
 export interface SubmoduleEntry {

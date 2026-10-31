@@ -554,6 +554,17 @@ async fn commit_endpoint_returns_detail() {
         "line counts missing: {resp}"
     );
 
+    let request = format!("{{\"repo\": {repo_id:?}, \"id\": {head:?}}}");
+    let resp =
+        tokio::task::spawn_blocking(move || http_post_json(port, "/api/commit-body", &request))
+            .await
+            .unwrap();
+    assert!(resp.contains("200 OK"), "response: {resp}");
+    assert!(
+        resp.ends_with("{\"body\":\"Why the notes exist.\"}"),
+        "the body alone: {resp}"
+    );
+
     // Unknown repository or commit -> 404.
     let bad_repo = format!("{{\"repo\": \"/nowhere\", \"id\": {head:?}}}");
     let resp = tokio::task::spawn_blocking(move || http_post_json(port, "/api/commit", &bad_repo))

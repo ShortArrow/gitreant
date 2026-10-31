@@ -472,6 +472,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/status", post(repo_status))
         .route("/api/refresh", post(refresh))
         .route("/api/commit", post(commit_detail))
+        .route("/api/commit-body", post(commit_body))
         .route("/api/diff", post(file_diff))
         .route("/api/file", post(file_content))
         .route("/api/commit-diff", post(commit_diff))
@@ -1067,6 +1068,32 @@ async fn commit_detail(
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     .map_err(|message| (StatusCode::NOT_FOUND, message))?;
     Ok(Json(detail.into()))
+}
+
+/// A commit's message without its summary, which the row already shows.
+#[derive(Serialize)]
+struct CommitBodyView {
+    body: String,
+}
+
+/// The body of one commit's message, read when the pointer rests on its
+/// row; cheaper than [`commit_detail`], which also diffs the commit
+/// (ADR 0067).
+async fn commit_body(
+    State(state): State<AppState>,
+    Json(req): Json<CommitDetailRequest>,
+) -> Result<Json<CommitBodyView>, (StatusCode, String)> {
+    let Some(path) = state.repo_path(&req.repo) else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ));
+    };
+    let body = tokio::task::spawn_blocking(move || crate::git::read_commit_body(&path, &req.id))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(|message| (StatusCode::NOT_FOUND, message))?;
+    Ok(Json(CommitBodyView { body }))
 }
 
 #[derive(Deserialize)]

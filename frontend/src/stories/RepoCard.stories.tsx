@@ -19,9 +19,11 @@ const meta: Meta<typeof RepoCard> = {
   component: RepoCard,
   parameters: { layout: "padded" },
   // Clicking a commit row opens the detail panel with this mock; clicking a
-  // file (or "Diff all") in it opens the diff pane.
+  // file (or "Diff all") in it opens the diff pane. Resting on a row shows
+  // the mock's body.
   args: {
     loadDetail: async () => commitDetail,
+    loadBody: async () => commitDetail.message.split("\n\n").slice(1).join("\n\n"),
     loadDiff: async () => fileDiff,
     loadCommitDiff: async () => [fileDiff],
   },
