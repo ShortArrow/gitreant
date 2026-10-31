@@ -1192,6 +1192,7 @@ fn reads_nothing_a_listed_path_leads_into_git() {
         let listed = uncommitted_paths(root);
         assert!(listed.iter().any(|c| c.path == path), "{path} is listed");
         assert_reads_nothing(root, path);
+        assert_reads_nothing(&root.canonicalize().unwrap(), path);
     }
 }
 
