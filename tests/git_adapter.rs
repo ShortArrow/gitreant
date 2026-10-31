@@ -1091,6 +1091,26 @@ fn reads_a_file_on_the_side_a_diff_leads_to() {
     assert_eq!(working.lines, Some(1));
 }
 
+/// A committed file is read under the working tree's size limit, so a
+/// large blob in the history never lands in memory or in a response.
+#[test]
+fn reads_nothing_from_a_committed_file_over_the_size_limit() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    let limit = 4 * 1024 * 1024;
+    std::fs::write(dir.join("at.txt"), "a".repeat(limit)).unwrap();
+    std::fs::write(dir.join("over.txt"), "a".repeat(limit + 1)).unwrap();
+    git(dir, &["add", "."]);
+    commit(dir, "root", 1000);
+    let head = read_repo(dir).expect("read repo").commits[0].id.clone();
+
+    let at = |file: &str| read_file(dir, &head, file).expect(file);
+    assert_eq!(at("at.txt").map(|text| text.len()), Some(limit));
+    assert_eq!(at("over.txt").map(|text| text.len()), None);
+}
+
 /// The working tree side reads only a path the uncommitted changes list,
 /// so the repository's own files and ignored files stay out of reach.
 #[test]

@@ -35,6 +35,7 @@ pub struct UncommittedPath {
 
 /// Untracked files larger than this are not read: they count as binary,
 /// so a stray VM image or dataset never lands in memory or in a response.
+/// A file read whole, from the working tree or a commit, has the same limit.
 pub const READ_LIMIT: u64 = 4 * 1024 * 1024;
 
 impl UncommittedPath {

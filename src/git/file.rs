@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use super::detail::{blob_at, find_commit};
+use super::detail::{blob_id_at, find_commit, load_blob};
 use super::diff_attributes::DiffAttributes;
 use super::uncommitted::{
     in_working_tree, read_untracked, uncommitted_paths, READ_LIMIT, UNCOMMITTED_ID,
@@ -26,14 +26,30 @@ pub fn read_file(path: &Path, id: &str, file: &str) -> Result<Option<String>, St
         }
         read_untracked(&on_disk, READ_LIMIT)?
     } else {
-        let commit = find_commit(&repo, id)?;
-        let tree = commit.tree().map_err(|e| format!("tree: {e}"))?;
-        blob_at(&repo, &tree, file)?
+        read_committed(&repo, id, file)?
     };
     let mut attributes = DiffAttributes::of(&repo);
     Ok(data
         .filter(|data| !attributes.binary(file, &[], data))
         .map(|data| String::from_utf8_lossy(&data).into_owned()))
+}
+
+/// The contents of `file` in commit `id`'s tree, `None` when it is absent
+/// there or larger than [`READ_LIMIT`], whose size is read before its
+/// contents.
+fn read_committed(repo: &gix::Repository, id: &str, file: &str) -> Result<Option<Vec<u8>>, String> {
+    let commit = find_commit(repo, id)?;
+    let tree = commit.tree().map_err(|e| format!("tree: {e}"))?;
+    let Some(blob) = blob_id_at(&tree, file)? else {
+        return Ok(None);
+    };
+    let header = repo
+        .find_header(blob)
+        .map_err(|e| format!("blob {file}: {e}"))?;
+    if header.size() > READ_LIMIT {
+        return Ok(None);
+    }
+    load_blob(repo, blob, file).map(Some)
 }
 
 /// Whether `file` is exactly a path the uncommitted changes list, which
