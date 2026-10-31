@@ -23,9 +23,14 @@ is weighed.
   once it proves it holds the secret
   ([ADR 0063](adr/0063-request-token.md),
   [ADR 0064](adr/0064-prove-the-secret.md)).
-- Single-user, same-machine use is assumed. Remote exposure and multi-user
-  use are out of scope; safety behind a reverse proxy or similar is not
-  guaranteed.
+- One person uses the server, on the machine it runs on. Other accounts on
+  that machine, and containers or sandboxes that share its loopback, are
+  assumed to reach the server's port and to take a port it has left; they
+  are not assumed to read the user's files or memory. They get nothing
+  without the secret, and the CLI sends a server nothing until it proves
+  it holds the secret ([ADR 0071](adr/0071-other-accounts-in-scope.md)).
+- Remote exposure is out of scope; safety behind a reverse proxy or
+  similar is not guaranteed.
 - The contents of an opened repository (`.gitmodules`, ref names, paths,
   its git configuration, etc.) are treated as trusted by the user. The
   validity of a submodule's declared target is the repository maintainer's

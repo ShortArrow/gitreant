@@ -78,3 +78,4 @@ are canonical; the files below are their English translations.
 | [0068](0068-read-only-changed-paths.md) | Read the working tree only at a path the uncommitted changes list | Accepted |
 | [0069](0069-committed-read-limit.md) | Read a committed file under the working tree's size limit | Accepted |
 | [0070](0070-open-in-working-tree.md) | Open only a file that lies in the working tree | Accepted |
+| [0071](0071-other-accounts-in-scope.md) | Defend the server against other accounts on its machine | Accepted |
