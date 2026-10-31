@@ -46,8 +46,9 @@ there as well.
   its directory is resolved. This replaces the check that the path's
   directory resolves inside the working tree.
 - **The uncommitted diffs keep the same check.** A listed path that fails
-  it is shown as a binary file, with no content and no line count. A
-  deleted file has nothing on disk, so its diff comes from git as before.
+  it is shown as a binary file, with no content and no line count. Only a
+  deleted file skips the check: it has nothing on disk, so its diff comes
+  from git as before. A path the check cannot resolve fails it.
 - Reading a commit's tree is unchanged: it reads git objects, not files
   on disk.
 
@@ -65,6 +66,12 @@ there as well.
   `inner/.git./config` in a nested repository and `.git.` in a linked
   worktree. They read the same paths through the uncommitted diffs, and a
   git directory kept inside the working tree through both.
+- Another repository's git directory kept in the working tree under a
+  name other than `.git`, such as a bare `x.git` or a nested repository's
+  separate git directory, is listed by git as untracked files and read as
+  such. Git itself shows it as working-tree content.
+- The line counts of the uncommitted changes are still counted for a path
+  the check refuses, so they tell the size of such a file, not its text.
 - A hard link in the working tree to a file under `.git` is read as an
   untracked file. Making one needs write access to the working tree,
   which could copy the file as well.
