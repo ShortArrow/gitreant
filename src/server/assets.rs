@@ -100,6 +100,14 @@ mod tests {
     }
 
     #[test]
+    fn only_the_page_clears_the_cache() {
+        let clears = |response: &Response| response.headers().contains_key("clear-site-data");
+        assert!(clears(&answer(Place::Page, PAGE)));
+        assert!(!clears(&answer(Place::File("index.html"), PAGE)));
+        assert!(!clears(&answer(Place::Elsewhere, PAGE)));
+    }
+
+    #[test]
     fn any_other_path_is_sent_to_this_start_s_page() {
         let bare = format!("/{PAGE}");
         for path in [
