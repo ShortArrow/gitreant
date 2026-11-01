@@ -80,3 +80,4 @@ are canonical; the files below are their English translations.
 | [0070](0070-open-in-working-tree.md) | Open only a file that lies in the working tree | Accepted |
 | [0071](0071-other-accounts-in-scope.md) | Defend the server against other accounts on its machine | Accepted |
 | [0072](0072-no-browser-showing-the-secret.md) | Open no browser that would show the secret to other accounts | Accepted |
+| [0073](0073-page-under-a-path-of-each-start.md) | Open the page under a path of each start, and accept what a service worker left | Accepted |
