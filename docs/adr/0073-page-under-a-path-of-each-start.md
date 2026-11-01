@@ -1,4 +1,4 @@
-# ADR 0073: Open the page under a path of each start, and accept what a service worker left
+# ADR 0073: Open the page under a path of each start, and accept what a page left running
 
 ## Status
 
@@ -62,7 +62,8 @@ removes every setting. Both ways, and both headers, were tried on
   - the user's browser opens that address while it does;
   - gitreant later starts on the same port and its page is opened in that
     browser, before the browser drops the worker, or in a tab that window
-    holds, which gitreant's own opening never uses.
+    holds, which gitreant does not ask for: it hands the address to the
+    system or the browser, which picks the tab.
 
 ## Consequences
 
