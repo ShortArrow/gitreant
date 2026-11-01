@@ -272,7 +272,14 @@ fn refresh(cli: &Cli) -> ExitCode {
         eprintln!("no gitreant running on port {port}");
         return ExitCode::FAILURE;
     }
-    match post_refresh(port, token_of(port).as_deref()) {
+    let token = match trusted(port) {
+        Ok(token) => token,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match post_refresh(port, Some(&token)) {
         Ok(()) => {
             println!("re-verifying signatures on port {port}");
             ExitCode::SUCCESS
@@ -296,7 +303,18 @@ fn shutdown_running(cli: &Cli) -> ExitCode {
 }
 
 fn shutdown_port(port: u16) -> ExitCode {
-    match post_shutdown(port, token_of(port).as_deref()) {
+    if !ping(port) {
+        eprintln!("no gitreant to shut down on port {port}");
+        return ExitCode::FAILURE;
+    }
+    let token = match trusted(port) {
+        Ok(token) => token,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match post_shutdown(port, Some(&token)) {
         Ok(()) => {
             println!("gitreant on port {port} shut down");
             ExitCode::SUCCESS

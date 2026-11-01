@@ -157,3 +157,60 @@ fn picking_among_servers_shows_impostors_nothing_of_the_secret() {
         assert!(!requests.contains(GONE_SECRET), "{requests}");
     }
 }
+
+/// Re-verifying signatures and stopping servers send an impostor nothing of
+/// the secret either, whether the port is named or every server is meant
+/// (ADR 0074).
+#[test]
+fn refreshing_and_stopping_show_an_impostor_nothing_of_the_secret() {
+    let (port, seen) = listen_as_impostor();
+    let state = record_gone_server(port);
+    let port = port.to_string();
+
+    for form in [
+        &["--port", &port, "refresh"][..],
+        &["--port", &port, "--shutdown"],
+        &["--shutdown", "--all"],
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_gitreant"))
+            .env("GITREANT_STATE_DIR", state.path())
+            .args(form)
+            .output()
+            .unwrap();
+
+        assert!(!output.status.success(), "{form:?}: {output:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("cannot prove"), "{form:?}: {stderr}");
+    }
+    let requests = seen.lock().unwrap().join("\n---\n");
+    assert!(!requests.contains(GONE_SECRET), "{requests}");
+    assert!(!requests.contains("POST"), "{requests}");
+}
+
+/// Where nothing answers, stopping or re-verifying says so, rather than
+/// blaming a program that is not there.
+#[test]
+fn stopping_where_nothing_answers_says_so() {
+    let port = TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
+        .to_string();
+    let state = tempfile::tempdir().unwrap();
+
+    for form in [
+        &["--port", &port, "refresh"][..],
+        &["--port", &port, "--shutdown"],
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_gitreant"))
+            .env("GITREANT_STATE_DIR", state.path())
+            .args(form)
+            .output()
+            .unwrap();
+
+        assert!(!output.status.success(), "{form:?}: {output:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("no gitreant"), "{form:?}: {stderr}");
+    }
+}
