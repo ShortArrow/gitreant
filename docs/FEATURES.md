@@ -204,7 +204,9 @@ Git for Windows' own, which cannot see a GnuPG or Gpg4win keyring.
   `gitreant editor add`, `remove` and `list` or by hand.
 - **Theme.** Dark or light.
 - **Environment info.** The Info dialog gathers the CLI and page versions,
-  the server and the browser, ready to copy in one go.
+  the versions of the git, gh and gpg that gitreant runs, the server and
+  the browser, ready to copy in one go. Where the tools were found is left
+  out.
 
 ## Running and distribution
 
