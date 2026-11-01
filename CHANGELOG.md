@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The Info dialog shows the versions of the git, gh and gpg that gitreant
+  runs, without where they were found.
 - Resting the pointer on a commit row shows the rest of its message in a
   popup, without changing the detail pane
   ([ADR 0067](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0067-commit-body-on-hover.md)).
