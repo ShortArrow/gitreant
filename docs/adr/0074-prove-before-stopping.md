@@ -18,8 +18,7 @@ can take the port the server left. `gitreant --shutdown`, `gitreant
 --shutdown --all` and `gitreant refresh` then sent that program the
 record's secret. The secret was no longer any server's, but the CLI broke
 the rule [QUALITY](../QUALITY.md) states, that it sends a server nothing
-until the server proves it holds the secret, and reported the server shut
-down.
+until the server proves it holds the secret, and reported success.
 
 ## Decision
 
@@ -35,6 +34,9 @@ down.
 - Every request the CLI sends with a secret follows a proof of it.
 - A port where a program answers the ping but cannot prove the secret is
   reported as such, not as stopped.
+- A server of version 0.3.0, which keeps no record and holds no secret,
+  can no longer be stopped or asked to re-verify from a newer CLI. It is
+  stopped with its own `gitreant --shutdown`, or by ending its process.
 - A CLI test faces `refresh`, `--shutdown` and `--shutdown --all` with a
   program that answers the ping as a gitreant would, and checks that each
   fails and sends it no secret and no request beyond the ping. Another
