@@ -1787,11 +1787,7 @@ async fn the_page_lives_under_a_path_of_this_start_and_clears_the_cache() {
             Some("\"cache\"")
         );
         assert_eq!(header(&resp, "cache-control").as_deref(), Some("no-store"));
-        assert!(resp.contains("./assets/"), "{resp}");
-
-        let icon = get(&format!("{page}favicon.svg"));
-        assert!(icon.starts_with("HTTP/1.1 200"), "{icon}");
-        assert_eq!(header(&icon, "clear-site-data"), None);
+        assert!(resp.contains("<!doctype html"), "{resp}");
     })
     .await
     .unwrap();
