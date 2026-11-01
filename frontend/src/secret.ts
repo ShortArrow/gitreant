@@ -1,6 +1,7 @@
 /** The server's secret, which every API request carries (ADR 0063). The
  * address gitreant opens hands it over in its fragment; the page keeps it
- * in its own origin's storage, which a page on another port cannot read. */
+ * in its own tab's session storage, which no other tab or port reads, so a
+ * page another program left open on the port cannot take it (ADR 0073). */
 
 const SECRET_KEY = "gitreant-token";
 const SECRET_HEADER = "X-Gitreant-Token";
@@ -14,13 +15,19 @@ export function secretFrom(hash: string): string | null {
   return params.get("token") || null;
 }
 
-/** Take the secret from the address, keep it, and take it out of the
- * address bar and the session's history; else use the one kept. */
+/** Take the secret from the address, keep it for this tab, and take it out
+ * of the address bar and the session's history; else use the one this tab
+ * kept. A secret an earlier version kept for every tab is dropped. */
 export function initSecret() {
+  try {
+    localStorage.removeItem(SECRET_KEY);
+  } catch {
+    // Without storage, nothing was kept there.
+  }
   const handed = secretFrom(window.location.hash);
   if (handed) {
     try {
-      localStorage.setItem(SECRET_KEY, handed);
+      sessionStorage.setItem(SECRET_KEY, handed);
     } catch {
       // Without storage, the secret lasts as long as this page.
     }
@@ -33,7 +40,7 @@ export function initSecret() {
     return;
   }
   try {
-    secret = localStorage.getItem(SECRET_KEY);
+    secret = sessionStorage.getItem(SECRET_KEY);
   } catch {
     secret = null;
   }
