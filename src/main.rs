@@ -577,8 +577,11 @@ fn forward_to_running(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
             Err(e) => eprintln!("failed to add {}: {e}", absolute.display()),
         }
     }
-    if let Err(e) = trusted(cli.port()) {
-        eprintln!("{e}");
+    if trusted(cli.port()).is_err() {
+        eprintln!(
+            "port {} no longer proves it holds the secret of this user's server; opening nothing",
+            cli.port()
+        );
         return ExitCode::FAILURE;
     }
     let url = launch::page_url(cli.port(), Some(&token));
