@@ -51,29 +51,32 @@ removes every setting. Both ways, and both headers, were tried on
   and carries `Clear-Site-Data: "cache"`.
 - **The page asks the API past the cache.** Its requests are made with
   `cache: "no-store"`.
-- **The page keeps the secret for its own tab.** It holds it in session
-  storage, which no other tab reads, and drops a secret an earlier version
-  kept in the origin's storage.
-- **A service worker left on the port is accepted** as a way to read the
-  secret. It needs all of the following:
+- **The page keeps the secret for its own tab.** It holds it in the tab's
+  session storage rather than the origin's storage that every tab of the
+  origin reads, and drops a secret an earlier version kept there.
+- **What another account's page leaves running is accepted** as a way to
+  read the secret: a service worker, or a window of that page that holds a
+  reference to the tab the page later loads in, which the same-origin
+  policy lets it read. It needs all of the following:
   - another account, not an administrator, holds the port gitreant left;
   - the user's browser opens that address while it does;
   - gitreant later starts on the same port and its page is opened in that
-    browser, before the browser drops the worker.
+    browser, before the browser drops the worker, or in a tab that window
+    holds, which gitreant's own opening never uses.
 
 ## Consequences
 
 - A response another program left in the browser's cache does not reach
   the page opened from gitreant. Where the browser clears its cache on
   `Clear-Site-Data: "cache"`, it does not reach a bookmark of `/` either.
-- The page's settings stay across starts. The secret does not: a page
-  opened without it, from a bookmark or by hand, has none and says how to
-  open one that has it.
+- The page's settings stay across starts. A tab opened without the
+  secret, from a bookmark or by hand, has none and says how to open one
+  that has it.
 - The path is not a secret: whoever connects learns it from the `303`. It
   only has to be unknown before the start.
-- Other accounts get nothing without the secret, except through a service
-  worker as above. Clearing the browser's site data for `127.0.0.1`
-  removes one.
+- Other accounts get nothing without the secret, except as accepted
+  above. Clearing the browser's site data for `127.0.0.1` removes a
+  service worker; closing that page's windows removes the rest.
 - The path's derivation and the routing are unit-tested; the `303`, the
   headers and the page's files at the path are tested against a running
   server; and the page's requests are tested to skip the cache and its
