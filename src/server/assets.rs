@@ -40,7 +40,12 @@ fn place<'a>(path: &'a str, page: &str) -> Place<'a> {
 
 pub async fn static_handler(State(state): State<AppState>, uri: Uri) -> Response {
     let page = page_path(state.secret().as_str());
-    match place(uri.path(), &page) {
+    answer(place(uri.path(), &page), &page)
+}
+
+/// The response for a request that lands at `place`, given the page's path.
+fn answer(place: Place, page: &str) -> Response {
+    match place {
         Place::Page => page_response(),
         Place::File(file) => serve(file).unwrap_or_else(page_response),
         Place::Elsewhere => (
