@@ -2400,8 +2400,12 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("info-toggle").click();
     await expect(page.getByTestId("info-panel")).toBeVisible();
 
-    // CLI/SPA versions with commits, server, browser, language, viewport.
-    await expect(page.getByTestId("info-value")).toHaveCount(6);
+    // CLI/SPA versions with commits, git/gh/gpg, server, browser,
+    // language, viewport.
+    await expect(page.getByTestId("info-value")).toHaveCount(9);
+    await expect(page.getByTestId("info-value").nth(2)).toContainText(
+      "git version",
+    );
     await expect(page.getByTestId("info-value").first()).toContainText(
       /\d+\.\d+\.\d+ \(/,
     );
