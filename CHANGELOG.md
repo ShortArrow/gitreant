@@ -187,8 +187,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   server stopped gets nothing
   ([ADR 0064](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0064-prove-the-secret.md),
   [ADR 0074](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0074-prove-before-stopping.md)).
-  A server still running version 0.3.0 holds no secret, so it is stopped
-  with its own `gitreant --shutdown` or by ending its process.
+  A server still running version 0.3.0 or earlier keeps no record and
+  holds no secret, so it is stopped with its own `gitreant --shutdown` or
+  by ending its process.
 - The uncommitted diffs no longer show a file reached through a directory
   link or junction, or one that resolves into a `.git` directory or file or
   into the repository's git directory; it is shown as binary. Such a path,
