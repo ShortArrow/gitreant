@@ -82,3 +82,4 @@ are canonical; the files below are their English translations.
 | [0072](0072-no-browser-showing-the-secret.md) | Open no browser that would show the secret to other accounts | Accepted |
 | [0073](0073-page-under-a-path-of-each-start.md) | Open the page under a path of each start, and accept what a page left running | Accepted |
 | [0074](0074-prove-before-stopping.md) | Prove the secret before stopping a server or re-verifying its signatures | Accepted |
+| [0075](0075-prove-before-opening.md) | Prove the server again just before handing out its page | Accepted |
