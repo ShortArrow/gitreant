@@ -18,8 +18,8 @@ browser opens that account's page. The secret in the address is then no
 server's, but the page can leave a service worker that reads the secret
 of the next gitreant whose page opens on that port in that browser, the
 case [ADR 0073](0073-page-under-a-path-of-each-start.md) accepts. That
-ADR names a stale tab or a bookmark as the way the browser reaches such a
-page; here gitreant itself would take it there.
+ADR names a stale tab, a bookmark or the history as the way the browser
+reaches such a page; here gitreant itself would take it there.
 
 No check by the CLI can close the gap: whoever holds the port when the
 browser connects is the one it reaches.
@@ -27,17 +27,17 @@ browser connects is the one it reaches.
 ## Decision
 
 - **The CLI proves the server again after adding the repositories**, just
-  before it prints the page's address or opens it. A server that no
-  longer proves the secret gets no page opened, and the CLI says which
-  port could not prove it. The repositories it was asked to add stay
-  added.
+  before it prints the page's address or opens it. Where the port no
+  longer proves the secret, the CLI opens nothing and says the port no
+  longer proves it. The repositories it was asked to add stay added.
 
 ## Consequences
 
 - The gap between the last proof and the opening no longer includes the
   time the server takes to open the repositories; it is the time it takes
   to print the address and start the browser.
-- What remains is part of the case ADR 0073 accepts.
+- What remains is accepted, as the case ADR 0073 accepts, with this route
+  added to the ways the browser reaches such a page.
 - A CLI test faces `gitreant` with a program that proves the secret the
   first time it is asked and not after, and checks that no address with
   the secret is printed and the CLI fails.
