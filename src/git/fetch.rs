@@ -104,14 +104,14 @@ fn parse_remote_tags(stdout: &str) -> Vec<String> {
 /// The detached server has no console, so on Windows every child process
 /// would otherwise pop up a visible console window.
 #[cfg(windows)]
-pub(super) fn hide_console(command: &mut Command) {
+pub(crate) fn hide_console(command: &mut Command) {
     use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     command.creation_flags(CREATE_NO_WINDOW);
 }
 
 #[cfg(not(windows))]
-pub(super) fn hide_console(_command: &mut Command) {}
+pub(crate) fn hide_console(_command: &mut Command) {}
 
 #[cfg(test)]
 mod tests {

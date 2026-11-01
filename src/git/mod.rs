@@ -29,6 +29,7 @@ pub use detail::{
     FileChange, FileDiff,
 };
 pub use diffstat::{count_command, count_lines, LineCount};
+pub(crate) use fetch::hide_console;
 pub use fetch::{fetch_command, fetch_remotes, tag_remotes, RemoteTagList};
 pub use file::read_file;
 pub use gpg::{git_gpg, GitGpg};

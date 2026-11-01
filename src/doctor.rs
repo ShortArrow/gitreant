@@ -65,9 +65,13 @@ pub fn run_checks() -> Vec<ToolReport> {
         .collect()
 }
 
-/// `Some(version banner)` when `<program> --version` runs and succeeds.
+/// `Some(version banner)` when `<program> --version` runs and succeeds,
+/// with no console window of its own, as the server runs it too.
 fn probe(program: &std::ffi::OsStr) -> Option<String> {
-    let output = Command::new(program).arg("--version").output().ok()?;
+    let mut command = Command::new(program);
+    command.arg("--version");
+    crate::git::hide_console(&mut command);
+    let output = command.output().ok()?;
     if !output.status.success() {
         return None;
     }
