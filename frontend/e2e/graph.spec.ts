@@ -161,20 +161,20 @@ test.describe.serial("gitreant UI", () => {
       "href",
       "./favicon.svg",
     );
-    const svg = await page.request.get("/favicon.svg");
+    const svg = await page.request.get(new URL("./favicon.svg", page.url()).href);
     expect(svg.status()).toBe(200);
     expect(svg.headers()["content-type"]).toContain("image/svg+xml");
     expect(await svg.text()).toContain("<svg");
     // The tab picks its size from the multi-frame .ico; the large PNG
     // serves app-mode windows and install prompts.
-    const ico = await page.request.get("/favicon.ico");
+    const ico = await page.request.get(new URL("./favicon.ico", page.url()).href);
     expect(ico.status()).toBe(200);
     expect(ico.headers()["content-type"]).toMatch(/image\/(x-icon|vnd\.microsoft\.icon)/);
     await expect(page.locator('link[rel="icon"][href="./favicon.ico"]')).toHaveAttribute(
       "sizes",
       /16x16.*256x256/,
     );
-    const png = await page.request.get("/icon-512.png");
+    const png = await page.request.get(new URL("./icon-512.png", page.url()).href);
     expect(png.status()).toBe(200);
     expect(png.headers()["content-type"]).toContain("image/png");
   });

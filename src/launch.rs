@@ -13,7 +13,10 @@ use std::path::{Path, PathBuf};
 /// the secret for its requests (ADR 0063).
 pub fn page_url(port: u16, token: Option<&str>) -> String {
     match token.filter(|token| !token.is_empty()) {
-        Some(token) => format!("http://127.0.0.1:{port}/#token={token}"),
+        Some(token) => format!(
+            "http://127.0.0.1:{port}/{}/#token={token}",
+            crate::server::page_path(token)
+        ),
         None => format!("http://127.0.0.1:{port}/"),
     }
 }
@@ -224,10 +227,13 @@ mod tests {
     }
 
     #[test]
-    fn the_page_address_hands_the_secret_over_in_its_fragment() {
+    fn the_page_address_hands_the_secret_over_in_its_fragment_under_this_start_s_path() {
         assert_eq!(
             page_url(4000, Some("5ec2e7")),
-            "http://127.0.0.1:4000/#token=5ec2e7"
+            format!(
+                "http://127.0.0.1:4000/{}/#token=5ec2e7",
+                crate::server::page_path("5ec2e7")
+            )
         );
         assert_eq!(page_url(4000, None), "http://127.0.0.1:4000/");
         assert_eq!(page_url(4000, Some("")), "http://127.0.0.1:4000/");

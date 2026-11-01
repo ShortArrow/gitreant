@@ -74,6 +74,13 @@ pub fn prove(secret: &str, challenge: &str) -> String {
         .collect()
 }
 
+/// The path the page lives under for this start: unknown before the start,
+/// so nothing a program that held the port earlier left in the browser's
+/// cache answers for it (ADR 0073). It tells nothing of the secret.
+pub fn page_path(secret: &str) -> String {
+    prove(secret, "page path")[..32].to_string()
+}
+
 /// Whether `answer` proves `secret` for `challenge`, compared in constant
 /// time.
 pub fn proves(secret: &str, challenge: &str, answer: &str) -> bool {
@@ -207,6 +214,14 @@ mod tests {
             "what do ya want for nothing?",
             &prove("Jefe", "what do ya want for nothing?")
         ));
+    }
+
+    #[test]
+    fn the_page_s_path_comes_from_the_secret_and_tells_nothing_of_it() {
+        let path = page_path("Jefe");
+        assert_eq!(path, prove("Jefe", "page path")[..32]);
+        assert!(path.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_ne!(page_path("other"), path);
     }
 
     #[test]

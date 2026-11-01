@@ -8,7 +8,7 @@ use std::process::Command;
 
 use gitreant::app::Session;
 use gitreant::server::{
-    bind, ping, post_repo, post_shutdown, proves_secret, serve, AppState, Secret,
+    bind, page_path, ping, post_repo, post_shutdown, proves_secret, serve, AppState, Secret,
 };
 
 /// The secret every test server holds and every test request carries
@@ -150,7 +150,8 @@ async fn ping_add_dedupe_and_serve_spa() {
     assert!(err.is_err(), "expected error for non-repo path");
 
     // Unknown routes fall back to the SPA index.
-    let spa = tokio::task::spawn_blocking(move || http_get(port, "/some/client/route"))
+    let route = format!("/{}/some/client/route", page_path(SECRET));
+    let spa = tokio::task::spawn_blocking(move || http_get(port, &route))
         .await
         .unwrap();
     assert!(
@@ -1727,6 +1728,75 @@ fn http_raw(port: u16, head: &str) -> String {
     resp
 }
 
+/// The page lives under a path of this start, so nothing a program that held
+/// the port before left in the browser's cache answers for it, and the page
+/// clears what is left (ADR 0073).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_page_lives_under_a_path_of_this_start_and_clears_the_cache() {
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        serve(
+            listener,
+            AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
+    });
+    tokio::task::spawn_blocking(move || {
+        assert!((0..50).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            ping(port)
+        }));
+        let page = format!("/{}/", page_path(SECRET));
+        let get = |path: &str| {
+            http_raw(
+                port,
+                &format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}"),
+            )
+        };
+        let header = |resp: &str, name: &str| {
+            resp.lines()
+                .take_while(|line| !line.is_empty())
+                .find_map(|line| {
+                    let (key, value) = line.split_once(':')?;
+                    key.eq_ignore_ascii_case(name)
+                        .then(|| value.trim().to_string())
+                })
+        };
+
+        for path in ["/", "/assets/index.js", "/index.html"] {
+            let resp = get(path);
+            assert!(resp.starts_with("HTTP/1.1 303"), "{path}: {resp}");
+            assert_eq!(
+                header(&resp, "location").as_deref(),
+                Some(page.as_str()),
+                "{path}"
+            );
+            assert_eq!(
+                header(&resp, "cache-control").as_deref(),
+                Some("no-store"),
+                "{path}"
+            );
+        }
+
+        let resp = get(&page);
+        assert!(resp.starts_with("HTTP/1.1 200"), "{resp}");
+        assert_eq!(
+            header(&resp, "clear-site-data").as_deref(),
+            Some("\"cache\"")
+        );
+        assert_eq!(header(&resp, "cache-control").as_deref(), Some("no-store"));
+        assert!(resp.contains("./assets/"), "{resp}");
+
+        let icon = get(&format!("{page}favicon.svg"));
+        assert!(icon.starts_with("HTTP/1.1 200"), "{icon}");
+        assert_eq!(header(&icon, "clear-site-data"), None);
+    })
+    .await
+    .unwrap();
+}
+
 /// Only requests addressed to a loopback name, and state changes from the
 /// server's own page or from a client without a page, get through
 /// (ADR 0038).
@@ -1910,7 +1980,7 @@ async fn api_requests_need_the_servers_secret() {
         .contains("200"));
         assert!(status("POST /api/shutdown HTTP/1.1").contains("401"));
         assert!(status("GET /api/ping HTTP/1.1").contains("200"));
-        assert!(status("GET / HTTP/1.1").contains("200"));
+        assert!(status(&format!("GET /{}/ HTTP/1.1", page_path(SECRET))).contains("200"));
     })
     .await
     .unwrap();
