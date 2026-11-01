@@ -173,7 +173,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unless `--no-launcher` is given
   ([ADR 0072](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0072-no-browser-showing-the-secret.md)).
   The page opens under a path new at each start and clears the browser's
-  cache for its address, so a response another program left there while
+  cache for its origin, so a response another program left there while
   holding the port cannot read the secret. A service worker it left still
   can, as can a window of its page when gitreant's page opens in a tab
   that window holds; both are accepted. The page keeps the secret for its
