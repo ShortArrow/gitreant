@@ -197,8 +197,9 @@ fn run_doctor(cli: &Cli) -> ExitCode {
 /// Stop the running server and start a fresh one with the same repositories
 /// (plus any given on the command line). A new process starts with an empty
 /// signature cache, so restarting re-verifies every commit; it also picks up
-/// a rebuilt binary. The browser tab reconnects on the same port, so none is
-/// opened.
+/// a rebuilt binary. The new server draws a new secret and page path, so a
+/// tab of the old one can no longer use it; the new address is printed and
+/// no browser is opened.
 fn restart(cli: &Cli) -> ExitCode {
     let port = match cli.running_port() {
         Ok(port) => port,
