@@ -220,8 +220,9 @@ Git for Windows' own, which cannot see a GnuPG or Gpg4win keyring.
   makes when it starts, so another account on the same machine cannot
   read or change the repositories it shows. `gitreant` opens the page with
   it, and `gitreant list` prints each server's address with it; a page
-  opened without it says so. `gitreant` forwards to a running server, or
-  opens its page, only once it proves it holds the secret. The page opens
+  opened without it says so. `gitreant` forwards to a running server,
+  opens its page, stops it or asks it to re-verify signatures only once it
+  proves it holds the secret. The page opens
   under a path new at each start, where nothing a program that held the
   port before left in the browser's cache answers for it, and asks the
   browser to clear the rest of that cache. It keeps the secret for its own
