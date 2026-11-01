@@ -83,8 +83,10 @@ test.describe.serial("gitreant UI", () => {
     expect(page.url()).not.toContain("token");
     await expect(page.getByTestId("secret-missing")).toHaveCount(0);
 
-    // Without it, the page says how to open one that has it.
-    await page.evaluate(() => localStorage.clear());
+    // It stays with this tab: none of the origin's storage holds it, and
+    // another tab opened without it says how to open one that has it.
+    expect(await page.evaluate(() => localStorage.getItem("gitreant-token"))).toBeNull();
+    page = await page.context().newPage();
     await page.goto("/");
     await expect(page.getByTestId("secret-missing")).toContainText(
       "gitreant list",
