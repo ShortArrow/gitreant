@@ -17,7 +17,9 @@ history, the page can leave a response cached for a year or a service
 worker. When gitreant later starts on the same port and opens its page,
 the browser answers from what was left without asking the server, and the
 planted script reads the secret from the address or from the page's
-storage.
+storage. A page the user left open while that program held the port keeps
+running after it lets go, and reads what the real page later writes to
+the origin's storage.
 
 Any origin kept across starts can be poisoned this way, including a name
 under `localhost` known only to the user, since the browser reveals it to
@@ -49,6 +51,9 @@ removes every setting. Both ways, and both headers, were tried on
   and carries `Clear-Site-Data: "cache"`.
 - **The page asks the API past the cache.** Its requests are made with
   `cache: "no-store"`.
+- **The page keeps the secret for its own tab.** It holds it in session
+  storage, which no other tab reads, and drops a secret an earlier version
+  kept in the origin's storage.
 - **A service worker left on the port is accepted** as a way to read the
   secret. It needs all of the following:
   - another account, not an administrator, holds the port gitreant left;
@@ -61,7 +66,9 @@ removes every setting. Both ways, and both headers, were tried on
 - A response another program left in the browser's cache does not reach
   the page opened from gitreant. Where the browser clears its cache on
   `Clear-Site-Data: "cache"`, it does not reach a bookmark of `/` either.
-- The page's settings stay across starts.
+- The page's settings stay across starts. The secret does not: a page
+  opened without it, from a bookmark or by hand, has none and says how to
+  open one that has it.
 - The path is not a secret: whoever connects learns it from the `303`. It
   only has to be unknown before the start.
 - Other accounts get nothing without the secret, except through a service
@@ -69,4 +76,5 @@ removes every setting. Both ways, and both headers, were tried on
   removes one.
 - The path's derivation and the routing are unit-tested; the `303`, the
   headers and the page's files at the path are tested against a running
-  server; and the page's requests are tested to skip the cache.
+  server; and the page's requests are tested to skip the cache and its
+  secret to stay out of the origin's storage.

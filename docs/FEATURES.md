@@ -222,8 +222,9 @@ Git for Windows' own, which cannot see a GnuPG or Gpg4win keyring.
   it, and `gitreant list` prints each server's address with it; a page
   opened without it says so. `gitreant` forwards to a running server, or
   opens its page, only once it proves it holds the secret. The page opens
-  under a path new at each start and clears what the browser cached for
-  its address, so a response a program that held the port before left
-  there does not reach it.
+  under a path new at each start, where nothing a program that held the
+  port before left in the browser's cache answers for it, and asks the
+  browser to clear the rest of that cache. It keeps the secret for its own
+  tab, so a page opened from a bookmark has none.
 - **A dedicated window.** `--app` opens it as a window without an address
   bar (needs a Chromium-based browser).
