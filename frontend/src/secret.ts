@@ -46,14 +46,15 @@ export function onUnauthorized(listener: () => void): () => void {
   return () => unauthorized.delete(listener);
 }
 
-/** `fetch` with the secret in its header. */
+/** `fetch` with the secret in its header, never answered from the
+ * browser's cache, which another program on the port may have filled. */
 export async function apiFetch(
   input: string,
   init: RequestInit = {},
 ): Promise<Response> {
   const headers = new Headers(init.headers);
   if (secret) headers.set(SECRET_HEADER, secret);
-  const response = await fetch(input, { ...init, headers });
+  const response = await fetch(input, { ...init, headers, cache: "no-store" });
   if (response.status === 401) unauthorized.forEach((listener) => listener());
   return response;
 }
