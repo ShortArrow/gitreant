@@ -505,6 +505,9 @@ export interface AboutView {
   version: string;
   /** Short commit hash baked in at build time ("unknown" without git). */
   commit: string;
+  /** Each tool gitreant runs, with the first line of its version banner,
+   * or null where it did not answer. */
+  tools: { name: string; version: string | null }[];
 }
 
 export async function fetchAbout(): Promise<AboutView> {

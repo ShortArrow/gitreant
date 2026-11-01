@@ -269,6 +269,7 @@ const en = {
   infoBrowser: "Browser",
   infoLanguage: "Language",
   infoViewport: "Viewport",
+  infoToolMissing: "not found",
   cmdOpenInfo: "Show environment info",
 } as const;
 
@@ -514,6 +515,7 @@ const ja: Record<MsgKey, string> = {
   infoBrowser: "ブラウザ",
   infoLanguage: "言語",
   infoViewport: "画面",
+  infoToolMissing: "見つからない",
   cmdOpenInfo: "環境情報を表示",
 } as const;
 

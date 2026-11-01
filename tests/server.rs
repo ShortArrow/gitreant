@@ -1728,6 +1728,49 @@ fn http_raw(port: u16, head: &str) -> String {
     resp
 }
 
+/// The info dialog's answer names the version of each tool gitreant runs,
+/// and none of the paths it found them at.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn about_names_the_version_of_each_tool_gitreant_runs() {
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        serve(
+            listener,
+            AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
+    });
+    let body = tokio::task::spawn_blocking(move || {
+        assert!((0..50).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            ping(port)
+        }));
+        http_get(port, "/api/about")
+    })
+    .await
+    .unwrap();
+
+    let json = body.split("\r\n\r\n").nth(1).unwrap_or_default();
+    let about: serde_json::Value = serde_json::from_str(json).unwrap();
+    let tools = about["tools"].as_array().expect("tools");
+    let names: Vec<&str> = tools
+        .iter()
+        .filter_map(|tool| tool["name"].as_str())
+        .collect();
+    assert_eq!(names, ["git", "gh", "gpg"]);
+    assert!(
+        tools[0]["version"]
+            .as_str()
+            .is_some_and(|version| version.starts_with("git version")),
+        "{about}"
+    );
+    for tool in tools {
+        assert_eq!(tool.as_object().unwrap().len(), 2, "{tool}");
+    }
+}
+
 /// The page lives under a path of this start, so nothing a program that held
 /// the port before left in the browser's cache answers for it, and the page
 /// clears what is left (ADR 0073).

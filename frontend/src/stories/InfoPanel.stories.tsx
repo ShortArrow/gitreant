@@ -7,7 +7,15 @@ const meta: Meta<typeof InfoPanel> = {
   parameters: { layout: "fullscreen" },
   args: {
     onClose: () => console.log("close"),
-    loadAbout: async () => ({ version: "0.1.0", commit: "abc123def456" }),
+    loadAbout: async () => ({
+      version: "0.1.0",
+      commit: "abc123def456",
+      tools: [
+        { name: "git", version: "git version 2.51.0.windows.1" },
+        { name: "gh", version: "gh version 2.81.0 (2026-10-01)" },
+        { name: "gpg", version: null },
+      ],
+    }),
   },
 };
 export default meta;

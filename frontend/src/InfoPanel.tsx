@@ -23,6 +23,7 @@ export function infoItems(t: Translate, about: AboutView | null): InfoItem[] {
       label: t("infoSpaVersion"),
       value: `${__SPA_VERSION__} (${__SPA_COMMIT__})`,
     },
+    ...toolItems(t, about),
     { label: t("infoServer"), value: window.location.origin },
     { label: t("infoBrowser"), value: navigator.userAgent },
     { label: t("infoLanguage"), value: navigator.language },
@@ -31,6 +32,15 @@ export function infoItems(t: Translate, about: AboutView | null): InfoItem[] {
       value: `${window.innerWidth}x${window.innerHeight} @${window.devicePixelRatio}x`,
     },
   ];
+}
+
+/** One row per tool the server runs, with its version or a note that it
+ * was not found; none until the server's answer arrives. */
+export function toolItems(t: Translate, about: AboutView | null): InfoItem[] {
+  return (about?.tools ?? []).map((tool) => ({
+    label: tool.name,
+    value: tool.version ?? t("infoToolMissing"),
+  }));
 }
 
 /** The copy-friendly form: one "label: value" line per row. */

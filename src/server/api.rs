@@ -3,7 +3,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::convert::Infallible;
 use std::path::{Component, Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use axum::extract::State;
@@ -517,19 +517,52 @@ async fn ping(
     }
 }
 
-/// What this server was built from, for the info dialog.
+/// What this server was built from and the tools it runs, for the info
+/// dialog.
 #[derive(Serialize)]
 struct AboutView {
     version: &'static str,
     /// Short commit hash baked in at build time ("unknown" without git).
     commit: &'static str,
+    tools: Vec<ToolVersion>,
+}
+
+/// A tool gitreant runs: its name and the first line of its version
+/// banner, or none where it did not answer. Where it was found is left
+/// out, since a path may name the user and the dialog's text is pasted
+/// into bug reports.
+#[derive(Serialize, Clone)]
+struct ToolVersion {
+    name: &'static str,
+    version: Option<String>,
 }
 
 async fn about() -> Json<AboutView> {
+    let tools = tokio::task::spawn_blocking(tool_versions)
+        .await
+        .unwrap_or_default();
     Json(AboutView {
         version: env!("CARGO_PKG_VERSION"),
         commit: env!("GITREANT_COMMIT"),
+        tools,
     })
+}
+
+/// The tools' versions, looked up once per process: they are the same for
+/// every request.
+fn tool_versions() -> Vec<ToolVersion> {
+    static TOOLS: OnceLock<Vec<ToolVersion>> = OnceLock::new();
+    TOOLS
+        .get_or_init(|| {
+            crate::doctor::run_checks()
+                .into_iter()
+                .map(|report| ToolVersion {
+                    name: report.name,
+                    version: report.version,
+                })
+                .collect()
+        })
+        .clone()
 }
 
 /// View reads run gix and (for signed commits) git/gpg subprocesses; keep
