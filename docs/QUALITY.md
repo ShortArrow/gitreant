@@ -30,11 +30,12 @@ is weighed.
   They get nothing without the secret, and the CLI sends a server nothing
   until it proves it holds the secret
   ([ADR 0071](adr/0071-other-accounts-in-scope.md)). The one exception
-  accepted: a service worker one of them registered on a port gitreant
-  left, once the user's browser opened it there, can read the secret of a
-  gitreant whose page later opens on that port in the same browser. What
-  such a program left in the browser's cache does not reach the page
-  ([ADR 0073](adr/0073-page-under-a-path-of-each-start.md)).
+  accepted: a page one of them served on a port gitreant left, once the
+  user's browser opened it there, can leave a service worker, or a window
+  holding a reference to a tab, that reads the secret of a gitreant whose
+  page later opens on that port in the same browser. What such a page left
+  in the browser's cache, or in the origin's storage, does not reach the
+  page ([ADR 0073](adr/0073-page-under-a-path-of-each-start.md)).
 - Remote exposure is out of scope; safety behind a reverse proxy or
   similar is not guaranteed.
 - The contents of an opened repository (`.gitmodules`, ref names, paths,
