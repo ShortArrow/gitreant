@@ -79,7 +79,7 @@ removes every setting. Both ways, and both headers, were tried on
 - Other accounts get nothing without the secret, except as accepted
   above. Clearing the browser's site data for `127.0.0.1` removes a
   service worker; closing that page's windows removes the rest.
-- The path's derivation and the routing are unit-tested; the `303`, the
-  headers and the page's files at the path are tested against a running
-  server; and the page's requests are tested to skip the cache and its
-  secret to stay out of the origin's storage.
+- The path's derivation and the routing are unit-tested; the `303` and
+  the headers are tested against a running server; the page's files at
+  the path are tested end to end; and the page's requests are tested to
+  skip the cache and its secret to stay out of the origin's storage.
