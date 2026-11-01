@@ -1,7 +1,8 @@
 /** The server's secret, which every API request carries (ADR 0063). The
  * address gitreant opens hands it over in its fragment; the page keeps it
- * in its own tab's session storage, which no other tab or port reads, so a
- * page another program left open on the port cannot take it (ADR 0073). */
+ * in its own tab's session storage rather than the origin's storage every
+ * tab reads, so a page another program left open on the port does not get
+ * it from there (ADR 0073). */
 
 const SECRET_KEY = "gitreant-token";
 const SECRET_HEADER = "X-Gitreant-Token";
