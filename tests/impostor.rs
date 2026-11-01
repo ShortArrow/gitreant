@@ -214,3 +214,77 @@ fn stopping_where_nothing_answers_says_so() {
         assert!(stderr.contains("no gitreant"), "{form:?}: {stderr}");
     }
 }
+
+/// A program that proves the secret recorded for its port only the first
+/// time it is asked, as a server does that leaves the port to another
+/// program between the CLI's proof and its use.
+fn listen_as_server_that_leaves(secret: &'static str) -> u16 {
+    use hmac::{Hmac, Mac};
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    std::thread::spawn(move || {
+        let mut proofs = 0;
+        for stream in listener.incoming().flatten() {
+            let mut stream = stream;
+            let mut buf = [0u8; 4096];
+            let n = stream.read(&mut buf).unwrap_or(0);
+            let request = String::from_utf8_lossy(&buf[..n]).into_owned();
+            let challenge = request
+                .split_whitespace()
+                .nth(1)
+                .and_then(|path| path.split_once("challenge="))
+                .map(|(_, challenge)| challenge.to_string());
+            let body = match challenge {
+                Some(challenge) => {
+                    proofs += 1;
+                    let mut mac = Hmac::<sha2::Sha256>::new_from_slice(secret.as_bytes()).unwrap();
+                    mac.update(challenge.as_bytes());
+                    let answer: String = if proofs == 1 {
+                        mac.finalize()
+                            .into_bytes()
+                            .iter()
+                            .map(|b| format!("{b:02x}"))
+                            .collect()
+                    } else {
+                        "0".repeat(64)
+                    };
+                    format!("gitreant\n{answer}")
+                }
+                None if request.starts_with("GET /api/ping") => "gitreant".to_string(),
+                None => "{}".to_string(),
+            };
+            let _ = stream.write_all(
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .as_bytes(),
+            );
+        }
+    });
+    port
+}
+
+/// The CLI proves the server again just before it hands out the page's
+/// address, so a server gone after the first proof gets no page opened
+/// on its port (ADR 0075).
+#[test]
+fn a_server_gone_before_its_page_opens_gets_no_page_opened() {
+    let port = listen_as_server_that_leaves(GONE_SECRET);
+    let state = record_gone_server(port);
+    let repo = tempfile::tempdir().unwrap();
+    init_repo_with_commit(repo.path());
+
+    let output = Command::new(env!("CARGO_BIN_EXE_gitreant"))
+        .env("GITREANT_STATE_DIR", state.path())
+        .arg(repo.path())
+        .args(["--port", &port.to_string(), "--no-open"])
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success(), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(!stdout.contains("#token="), "{stdout}");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("cannot prove"), "{stderr}");
+}

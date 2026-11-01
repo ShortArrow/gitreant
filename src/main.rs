@@ -577,6 +577,10 @@ fn forward_to_running(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
             Err(e) => eprintln!("failed to add {}: {e}", absolute.display()),
         }
     }
+    if let Err(e) = trusted(cli.port()) {
+        eprintln!("{e}");
+        return ExitCode::FAILURE;
+    }
     let url = launch::page_url(cli.port(), Some(&token));
     println!("already serving on {url}");
     open_browser(cli, cli.port(), &url);
