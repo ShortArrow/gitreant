@@ -58,6 +58,16 @@ strip = true
 [dev-dependencies]
 tempfile = "3.27.0"
 
+# A record holding the server's secret gets an access list of its own on
+# Windows (ADR 0077).
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_System_Threading",
+] }
+
 # The executable's icon is a Windows resource; other targets have no
 # equivalent and skip it (see build.rs).
 [target.'cfg(windows)'.build-dependencies]

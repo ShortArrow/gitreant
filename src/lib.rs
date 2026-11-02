@@ -11,5 +11,7 @@ pub mod doctor;
 pub mod domain;
 pub mod git;
 pub mod launch;
+#[cfg(windows)]
+pub mod private_acl;
 pub mod records;
 pub mod server;
