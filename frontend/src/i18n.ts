@@ -100,7 +100,7 @@ const en = {
   revealInExplorer: "Reveal in file manager",
   openInEditor: "Open in editor",
   secretMissing:
-    "This page lacks the server's secret. Open gitreant from its command; this prints its address:",
+    "This page lacks the server's secret. Open it again from the command line with:",
   openWith: "Open with {name}",
   openWithChooser: "Open with…",
   settingsEditors: "Editors",
@@ -354,7 +354,7 @@ const ja: Record<MsgKey, string> = {
   revealInExplorer: "ファイルマネージャで開く",
   openInEditor: "エディタで開く",
   secretMissing:
-    "このページはサーバの秘密を持っていません。コマンドから gitreant を開いてください。アドレスは次で表示できます:",
+    "このページはサーバの秘密を持っていません。コマンドラインから次で開き直してください:",
   openWith: "{name} で開く",
   openWithChooser: "プログラムから開く…",
   settingsEditors: "エディタ",

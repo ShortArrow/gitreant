@@ -47,10 +47,10 @@ struct Cli {
     #[arg(long)]
     no_open: bool,
 
-    /// Hand the browser the page's address itself, secret included, rather
-    /// than a launcher file that keeps it off the command line (Linux and
-    /// macOS). In WSL, or where no launcher file can be written, the browser
-    /// opens only with this.
+    /// Hand the browser the page's address with the secret in it, rather
+    /// than a launcher file that posts the secret to the page. In WSL, or
+    /// where no launcher file can be written, the browser opens only with
+    /// this.
     #[arg(long)]
     no_launcher: bool,
 
@@ -423,7 +423,7 @@ fn server_json(record: &Record) -> serde_json::Value {
         .map(|entry| serde_json::json!({ "path": entry["path"], "added": entry["added"] }))
         .collect();
     serde_json::json!({
-        "url": launch::page_url(record.port, Some(&record.token)),
+        "url": launch::page_url(record.port),
         "port": record.port,
         "pid": record.pid,
         "started": record.started,
@@ -493,7 +493,7 @@ fn describe(servers: &[Record]) -> String {
 fn server_line(record: &Record, repos: Option<usize>) -> String {
     let mut line = format!(
         "{}  pid {}  started {}  v{}",
-        launch::page_url(record.port, Some(&record.token)),
+        launch::page_url(record.port),
         record.pid,
         started_at(record.started),
         record.version
@@ -539,13 +539,13 @@ fn start_background(cli: &Cli, port: u16, paths: &[PathBuf], open: bool) -> Exit
     };
     for _ in 0..100 {
         if let Ok(token) = trusted(port) {
-            let url = launch::page_url(port, Some(&token));
+            let url = launch::page_url(port);
             println!(
                 "gitreant serving on {url} (pid {}, stop with `gitreant --shutdown`)",
                 child.id()
             );
             if open {
-                open_browser(cli, port, &url);
+                open_browser(cli, port, &token);
             }
             return ExitCode::SUCCESS;
         }
@@ -585,9 +585,9 @@ fn forward_to_running(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
         );
         return ExitCode::FAILURE;
     }
-    let url = launch::page_url(cli.port(), Some(&token));
+    let url = launch::page_url(cli.port());
     println!("already serving on {url}");
-    open_browser(cli, cli.port(), &url);
+    open_browser(cli, cli.port(), &token);
     ExitCode::SUCCESS
 }
 
@@ -621,7 +621,7 @@ fn run_server(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
             }
         };
         let state = AppState::new(session);
-        let url = launch::page_url(addr.port(), Some(state.secret().as_str()));
+        let url = launch::page_url(addr.port());
         println!("gitreant serving on {url}");
         let record_dir = records::dir();
         if let Some(dir) = &record_dir {
@@ -636,7 +636,7 @@ fn run_server(cli: &Cli, paths: &[PathBuf]) -> ExitCode {
                 eprintln!("could not record this server in {}: {e}", dir.display());
             }
         }
-        open_browser(cli, addr.port(), &url);
+        open_browser(cli, addr.port(), state.secret().as_str());
         let served = serve(listener, state).await;
         if let Some(dir) = &record_dir {
             records::remove(dir, addr.port());
@@ -675,18 +675,19 @@ fn trusted(port: u16) -> Result<String, String> {
 }
 
 #[cfg(not(target_os = "android"))]
-fn open_browser(cli: &Cli, port: u16, url: &str) {
+fn open_browser(cli: &Cli, port: u16, token: &str) {
     if cli.no_open {
         return;
     }
-    let address_allowed = cfg!(windows) || cli.no_launcher;
+    let address_allowed = cli.no_launcher;
     let launcher = (!address_allowed)
-        .then(|| launcher_for(port, url))
+        .then(|| launcher_for(port, token))
         .flatten();
-    let Some(target) = launch::browser_target(address_allowed, launcher, url) else {
+    let address = launch::address_with_secret(port, token);
+    let Some(target) = launch::browser_target(address_allowed, launcher, &address) else {
         eprintln!(
-            "not opening the browser: its command line would show the secret to other \
-             accounts here; open the address above, or pass --no-launcher"
+            "not opening the browser: no launcher file can hand it the secret here; \
+             pass --no-launcher to hand it the address with the secret instead"
         );
         return;
     };
@@ -696,23 +697,22 @@ fn open_browser(cli: &Cli, port: u16, url: &str) {
     let _ = open::that(&target);
 }
 
-/// On Linux and macOS, where another account may read a process's command
-/// line, the address of a launcher file to open in place of `url`, so the
-/// secret in it never reaches the browser's (ADR 0063). None in WSL, whose
+/// The address of a launcher file that posts `token` to the page, opened in
+/// place of an address holding the secret (ADR 0076). None in WSL, whose
 /// browser cannot open a Linux file, and when the file cannot be written;
 /// the browser is then not opened (ADR 0072).
 #[cfg(not(target_os = "android"))]
-fn launcher_for(port: u16, url: &str) -> Option<String> {
+fn launcher_for(port: u16, token: &str) -> Option<String> {
     if in_wsl() {
         return None;
     }
     let records = records::dir()?;
-    let dir = if cfg!(target_os = "macos") {
-        records
-    } else {
+    let dir = if cfg!(target_os = "linux") {
         launch::launcher_dir(&records)
+    } else {
+        records
     };
-    let file = launch::write_launcher(&dir, port, url).ok()?;
+    let file = launch::write_launcher(&dir, port, &launch::page_url(port), token).ok()?;
     Some(launch::file_url(&file))
 }
 
@@ -744,13 +744,12 @@ fn open_app_window(url: &str) -> bool {
 /// Termux has no desktop opener; try its own URL handler and always print
 /// the address so the user can tap or paste it.
 #[cfg(target_os = "android")]
-fn open_browser(cli: &Cli, _port: u16, url: &str) {
+fn open_browser(cli: &Cli, port: u16, token: &str) {
     if !cli.no_open {
         let _ = std::process::Command::new("termux-open-url")
-            .arg(url)
+            .arg(launch::address_with_secret(port, token))
             .spawn();
     }
-    println!("gitreant is serving on {url}");
 }
 
 fn unix_now() -> i64 {

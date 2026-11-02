@@ -364,7 +364,8 @@ fn running_it_again_reopens_the_page_through_a_launcher() {
     assert!(gitreant(&["--port", &port.to_string()]).success());
     let html = std::fs::read_to_string(&launcher).expect("a launcher");
     let secret = gitreant::records::token(state.path(), port).expect("a record");
-    assert!(html.contains(&format!("#token={secret}")), "{html}");
+    assert!(html.contains(&format!("value=\"{secret}\"")), "{html}");
+    assert!(!html.contains("#token="), "{html}");
 
     assert!(gitreant(&["--port", &port.to_string(), "--shutdown"]).success());
     assert!(wait_until(|| !ping(port), Duration::from_secs(10)));

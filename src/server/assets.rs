@@ -1,67 +1,60 @@
-//! Serve the embedded SPA under a path of this start (ADR 0073), falling back
-//! to `index.html` for client-side routes.
+//! Serve the embedded SPA at `/`, falling back to `index.html` for
+//! client-side routes, and open it with the secret a launcher file posts
+//! (ADR 0076).
 
 use axum::extract::State;
 use axum::http::{header, HeaderName, HeaderValue, StatusCode, Uri};
-use axum::response::{IntoResponse, Redirect, Response};
+use axum::response::{IntoResponse, Response};
+use axum::Form;
 use rust_embed::RustEmbed;
+use serde::Deserialize;
 
-use super::guard::page_path;
 use super::AppState;
 
 #[derive(RustEmbed)]
 #[folder = "frontend/dist"]
 struct Assets;
 
-/// Where a request's path lands, given the page's path for this start.
-#[derive(Debug, PartialEq)]
-enum Place<'a> {
-    /// The page itself.
-    Page,
-    /// A file under the page's path.
-    File(&'a str),
-    /// Anywhere else, which is sent on to the page.
-    Elsewhere,
-}
-
-fn place<'a>(path: &'a str, page: &str) -> Place<'a> {
-    let Some(rest) = path
-        .strip_prefix('/')
-        .and_then(|path| path.strip_prefix(page))
-        .and_then(|path| path.strip_prefix('/'))
-    else {
-        return Place::Elsewhere;
-    };
-    match rest {
-        "" | "index.html" => Place::Page,
-        file => Place::File(file),
+pub async fn static_handler(uri: Uri) -> Response {
+    match uri.path().trim_start_matches('/') {
+        "" | "index.html" => page_response(None),
+        file => serve(file).unwrap_or_else(|| page_response(None)),
     }
 }
 
-pub async fn static_handler(State(state): State<AppState>, uri: Uri) -> Response {
-    let page = page_path(state.secret().as_str());
-    answer(place(uri.path(), &page), &page)
+/// What a launcher file posts to open the page.
+#[derive(Deserialize)]
+pub struct Handoff {
+    token: String,
 }
 
-/// The response for a request that lands at `place`, given the page's path.
-fn answer(place: Place, page: &str) -> Response {
-    match place {
-        Place::Page => page_response(),
-        Place::File(file) => serve(file).unwrap_or_else(page_response),
-        Place::Elsewhere => (
-            [(header::CACHE_CONTROL, "no-store")],
-            Redirect::to(&format!("/{page}/")),
+/// The page with the server's secret written into it, when the posted one
+/// matches; nothing of the page otherwise.
+pub async fn open_page(State(state): State<AppState>, Form(handoff): Form<Handoff>) -> Response {
+    let secret = state.secret().as_str();
+    if !super::guard::matches(secret, &handoff.token) {
+        return (
+            StatusCode::FORBIDDEN,
+            "the secret posted is not this server's",
         )
-            .into_response(),
+            .into_response();
     }
+    page_response(Some(secret))
 }
 
-/// `index.html`, never kept, and clearing what the browser cached for this
-/// origin, such as responses another program left there.
-fn page_response() -> Response {
-    let Some(mut response) = serve("index.html") else {
+/// `index.html`, with `secret` written into it when given, never kept, and
+/// clearing what the browser cached for this origin, such as responses
+/// another program left there.
+fn page_response(secret: Option<&str>) -> Response {
+    let Some(file) = Assets::get("index.html") else {
         return (StatusCode::NOT_FOUND, "not found").into_response();
     };
+    let html = String::from_utf8_lossy(&file.data);
+    let html = match secret {
+        Some(secret) => with_secret(&html, secret),
+        None => html.into_owned(),
+    };
+    let mut response = ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], html).into_response();
     let headers = response.headers_mut();
     headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     headers.insert(
@@ -69,6 +62,18 @@ fn page_response() -> Response {
         HeaderValue::from_static("\"cache\""),
     );
     response
+}
+
+/// `html` with `secret` in the meta tag the page reads it from.
+fn with_secret(html: &str, secret: &str) -> String {
+    let meta = format!("<meta name=\"gitreant-secret\" content=\"{secret}\">");
+    match html.find("<head>") {
+        Some(at) => {
+            let end = at + "<head>".len();
+            format!("{}{meta}{}", &html[..end], &html[end..])
+        }
+        None => format!("{meta}{html}"),
+    }
 }
 
 fn serve(path: &str) -> Option<Response> {
@@ -87,38 +92,25 @@ fn serve(path: &str) -> Option<Response> {
 mod tests {
     use super::*;
 
-    const PAGE: &str = "0123456789abcdef0123456789abcdef";
+    const META: &str = "<meta name=\"gitreant-secret\" content=\"5ec2e7\">";
 
     #[test]
-    fn the_page_and_its_files_live_under_this_start_s_path() {
-        assert_eq!(place(&format!("/{PAGE}/"), PAGE), Place::Page);
-        assert_eq!(place(&format!("/{PAGE}/index.html"), PAGE), Place::Page);
+    fn the_secret_goes_into_the_page_s_head() {
         assert_eq!(
-            place(&format!("/{PAGE}/assets/index.js"), PAGE),
-            Place::File("assets/index.js")
+            with_secret(
+                "<!doctype html><html><head><title>t</title></head>",
+                "5ec2e7"
+            ),
+            format!("<!doctype html><html><head>{META}<title>t</title></head>")
         );
+        assert_eq!(with_secret("<p>x</p>", "5ec2e7"), format!("{META}<p>x</p>"));
     }
 
     #[test]
     fn only_the_page_clears_the_cache() {
         let clears = |response: &Response| response.headers().contains_key("clear-site-data");
-        assert!(clears(&answer(Place::Page, PAGE)));
-        assert!(!clears(&answer(Place::File("index.html"), PAGE)));
-        assert!(!clears(&answer(Place::Elsewhere, PAGE)));
-    }
-
-    #[test]
-    fn any_other_path_is_sent_to_this_start_s_page() {
-        let bare = format!("/{PAGE}");
-        for path in [
-            "/",
-            "/index.html",
-            "/assets/index.js",
-            &bare,
-            "/0123/",
-            "/x/y",
-        ] {
-            assert_eq!(place(path, PAGE), Place::Elsewhere, "{path}");
-        }
+        assert!(clears(&page_response(None)));
+        assert!(clears(&page_response(Some("5ec2e7"))));
+        assert!(!clears(&serve("index.html").unwrap()));
     }
 }

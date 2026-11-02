@@ -8,7 +8,7 @@ use std::process::Command;
 
 use gitreant::app::Session;
 use gitreant::server::{
-    bind, page_path, ping, post_repo, post_shutdown, proves_secret, serve, AppState, Secret,
+    bind, ping, post_repo, post_shutdown, proves_secret, serve, AppState, Secret,
 };
 
 /// The secret every test server holds and every test request carries
@@ -150,8 +150,7 @@ async fn ping_add_dedupe_and_serve_spa() {
     assert!(err.is_err(), "expected error for non-repo path");
 
     // Unknown routes fall back to the SPA index.
-    let route = format!("/{}/some/client/route", page_path(SECRET));
-    let spa = tokio::task::spawn_blocking(move || http_get(port, &route))
+    let spa = tokio::task::spawn_blocking(move || http_get(port, "/some/client/route"))
         .await
         .unwrap();
     assert!(
@@ -1771,11 +1770,11 @@ async fn about_names_the_version_of_each_tool_gitreant_runs() {
     }
 }
 
-/// The page lives under a path of this start, so nothing a program that held
-/// the port before left in the browser's cache answers for it, and the page
-/// clears what is left (ADR 0073).
+/// The page opens at `/` with the secret a launcher file posts, from any
+/// origin, and never with another secret; a plain `GET` of `/` carries none.
+/// Both clear what the browser cached for the origin (ADR 0076).
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn the_page_lives_under_a_path_of_this_start_and_clears_the_cache() {
+async fn the_page_opens_with_the_secret_posted_to_it() {
     let (listener, addr) = bind(0).await.unwrap();
     let port = addr.port();
     tokio::spawn(async move {
@@ -1791,13 +1790,6 @@ async fn the_page_lives_under_a_path_of_this_start_and_clears_the_cache() {
             std::thread::sleep(std::time::Duration::from_millis(50));
             ping(port)
         }));
-        let page = format!("/{}/", page_path(SECRET));
-        let get = |path: &str| {
-            http_raw(
-                port,
-                &format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{port}"),
-            )
-        };
         let header = |resp: &str, name: &str| {
             resp.lines()
                 .take_while(|line| !line.is_empty())
@@ -1807,30 +1799,55 @@ async fn the_page_lives_under_a_path_of_this_start_and_clears_the_cache() {
                         .then(|| value.trim().to_string())
                 })
         };
+        let post = |host: &str, origin: &str, token: &str| {
+            let body = format!("token={token}");
+            let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+            write!(
+                stream,
+                "POST / HTTP/1.1\r\nHost: {host}\r\nOrigin: {origin}\r\n\
+                 Content-Type: application/x-www-form-urlencoded\r\n\
+                 Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
+            let mut resp = String::new();
+            stream.read_to_string(&mut resp).unwrap();
+            resp
+        };
+        let meta = format!("<meta name=\"gitreant-secret\" content=\"{SECRET}\">");
+        let local = format!("127.0.0.1:{port}");
 
-        for path in ["/", "/assets/index.js", "/index.html"] {
-            let resp = get(path);
-            assert!(resp.starts_with("HTTP/1.1 303"), "{path}: {resp}");
-            assert_eq!(
-                header(&resp, "location").as_deref(),
-                Some(page.as_str()),
-                "{path}"
-            );
-            assert_eq!(
-                header(&resp, "cache-control").as_deref(),
-                Some("no-store"),
-                "{path}"
-            );
-        }
-
-        let resp = get(&page);
-        assert!(resp.starts_with("HTTP/1.1 200"), "{resp}");
+        let opened = post(&local, "null", SECRET);
+        assert!(opened.starts_with("HTTP/1.1 200"), "{opened}");
+        assert!(opened.contains(&meta), "{opened}");
         assert_eq!(
-            header(&resp, "clear-site-data").as_deref(),
+            header(&opened, "cache-control").as_deref(),
+            Some("no-store")
+        );
+        assert_eq!(
+            header(&opened, "clear-site-data").as_deref(),
             Some("\"cache\"")
         );
-        assert_eq!(header(&resp, "cache-control").as_deref(), Some("no-store"));
-        assert!(resp.contains("<!doctype html"), "{resp}");
+
+        let other_site = post(&local, "http://attacker.example", SECRET);
+        assert!(other_site.starts_with("HTTP/1.1 200"), "{other_site}");
+
+        let wrong = post(&local, "null", "not-the-secret");
+        assert!(wrong.starts_with("HTTP/1.1 403"), "{wrong}");
+        assert!(!wrong.contains(SECRET), "{wrong}");
+
+        let rebound = post(&format!("attacker.example:{port}"), "null", SECRET);
+        assert!(rebound.starts_with("HTTP/1.1 403"), "{rebound}");
+        assert!(!rebound.contains(SECRET), "{rebound}");
+
+        let plain = http_raw(port, &format!("GET / HTTP/1.1\r\nHost: {local}"));
+        assert!(plain.starts_with("HTTP/1.1 200"), "{plain}");
+        assert!(!plain.contains("gitreant-secret"), "{plain}");
+        assert_eq!(header(&plain, "cache-control").as_deref(), Some("no-store"));
+        assert_eq!(
+            header(&plain, "clear-site-data").as_deref(),
+            Some("\"cache\"")
+        );
     })
     .await
     .unwrap();
@@ -2019,7 +2036,7 @@ async fn api_requests_need_the_servers_secret() {
         .contains("200"));
         assert!(status("POST /api/shutdown HTTP/1.1").contains("401"));
         assert!(status("GET /api/ping HTTP/1.1").contains("200"));
-        assert!(status(&format!("GET /{}/ HTTP/1.1", page_path(SECRET))).contains("200"));
+        assert!(status("GET / HTTP/1.1").contains("200"));
     })
     .await
     .unwrap();

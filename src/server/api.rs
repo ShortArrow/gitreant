@@ -465,6 +465,7 @@ impl AppState {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/ping", get(ping))
+        .route("/", get(assets::static_handler).post(assets::open_page))
         .route("/api/about", get(about))
         .route("/api/repos", post(add_repo).delete(remove_repo))
         .route("/api/list", get(list_light))

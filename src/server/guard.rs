@@ -96,6 +96,18 @@ fn same(a: &[u8], b: &[u8]) -> bool {
     a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
+/// Whether `given` is `secret`, compared in constant time.
+pub fn matches(secret: &str, given: &str) -> bool {
+    same(secret.as_bytes(), given.as_bytes())
+}
+
+/// Whether a request opens the page with a secret posted from a launcher
+/// file, whose origin is `null`: its body's secret stands in for the origin
+/// check (ADR 0076).
+pub fn opens_page(method: &Method, path: &str) -> bool {
+    method == Method::POST && path == "/"
+}
+
 /// The names a request may address the server by, port aside.
 const LOOPBACK_NAMES: [&str; 3] = ["127.0.0.1", "localhost", "[::1]"];
 
@@ -116,12 +128,12 @@ pub fn allowed(method: &Method, host: Option<&str>, origin: Option<&str>, port: 
 pub async fn guard(port: u16, secret: Secret, request: Request, next: Next) -> Response {
     let headers = request.headers();
     let text = |name| headers.get(name).and_then(|value| value.to_str().ok());
-    if !allowed(
-        request.method(),
-        text(header::HOST),
-        text(header::ORIGIN),
-        port,
-    ) {
+    let origin = if opens_page(request.method(), request.uri().path()) {
+        None
+    } else {
+        text(header::ORIGIN)
+    };
+    if !allowed(request.method(), text(header::HOST), origin, port) {
         return (StatusCode::FORBIDDEN, "request refused").into_response();
     }
     if !carries_secret(
@@ -132,7 +144,7 @@ pub async fn guard(port: u16, secret: Secret, request: Request, next: Next) -> R
     ) {
         return (
             StatusCode::UNAUTHORIZED,
-            "open gitreant from its command: `gitreant list` prints its address",
+            "open the page from the command line with `gitreant`",
         )
             .into_response();
     }
@@ -222,6 +234,22 @@ mod tests {
         assert_eq!(path, prove("Jefe", "page path")[..32]);
         assert!(path.chars().all(|c| c.is_ascii_hexdigit()));
         assert_ne!(page_path("other"), path);
+    }
+
+    #[test]
+    fn only_a_post_to_the_page_opens_it_from_any_origin() {
+        assert!(opens_page(&Method::POST, "/"));
+        assert!(!opens_page(&Method::GET, "/"));
+        assert!(!opens_page(&Method::POST, "/api/repos"));
+        assert!(!opens_page(&Method::POST, "/index.html"));
+    }
+
+    #[test]
+    fn a_posted_secret_matches_only_the_server_s_own() {
+        assert!(matches("5ec2e7", "5ec2e7"));
+        assert!(!matches("5ec2e7", "5ec2e8"));
+        assert!(!matches("5ec2e7", "5ec2"));
+        assert!(!matches("5ec2e7", ""));
     }
 
     #[test]

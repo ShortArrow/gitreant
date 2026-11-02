@@ -41,16 +41,31 @@ function memoryStorage(): Storage {
 
 /** Open the page at `hash` with the given storages, and return the secret
  * its next API request carries. */
-async function secretSent(hash: string, local: Storage, session: Storage) {
+async function secretSent(
+  hash: string,
+  local: Storage,
+  session: Storage,
+  posted: string | null = null,
+  addresses: string[] = [],
+) {
   const fetch = vi.fn(
     async (_input: string, _init: RequestInit) => new Response("{}"),
   );
   vi.stubGlobal("fetch", fetch);
   vi.stubGlobal("localStorage", local);
   vi.stubGlobal("sessionStorage", session);
+  vi.stubGlobal("document", {
+    querySelector: (selector: string) =>
+      selector === 'meta[name="gitreant-secret"]' && posted !== null
+        ? { content: posted }
+        : null,
+  });
   vi.stubGlobal("window", {
-    location: { hash, pathname: "/p/", search: "" },
-    history: { replaceState: () => {} },
+    location: { hash, pathname: "/", search: "?1a2b" },
+    history: {
+      replaceState: (_state: unknown, _title: string, url: string) =>
+        addresses.push(url),
+    },
   });
   try {
     initSecret();
@@ -73,3 +88,16 @@ test("the secret stays with its tab, out of storage other tabs read", async () =
   expect(await secretSent("", local, session)).toBe("5ec2e7");
   expect(await secretSent("", local, memoryStorage())).toBeNull();
 });
+
+test("the page takes the secret posted to it, and leaves its address at /", async () => {
+  const addresses: string[] = [];
+  const session = memoryStorage();
+  expect(
+    await secretSent("", memoryStorage(), session, "5ec2e7", addresses),
+  ).toBe("5ec2e7");
+  expect(session.getItem("gitreant-token")).toBe("5ec2e7");
+  expect(addresses).toEqual(["/"]);
+
+  expect(await secretSent("#token=f00d", memoryStorage(), memoryStorage(), null, addresses)).toBe("f00d");
+  expect(addresses).toEqual(["/", "/"]);
+});

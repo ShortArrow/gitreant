@@ -8,31 +8,36 @@
 
 use std::path::{Path, PathBuf};
 
-/// The page's address on `port`, with the server's secret in its fragment
-/// when there is one: a fragment never reaches a server, and the page keeps
-/// the secret for its requests (ADR 0063).
-pub fn page_url(port: u16, token: Option<&str>) -> String {
-    match token.filter(|token| !token.is_empty()) {
-        Some(token) => format!(
-            "http://127.0.0.1:{port}/{}/#token={token}",
-            crate::server::page_path(token)
-        ),
-        None => format!("http://127.0.0.1:{port}/"),
-    }
+/// The page's address on `port`: the same at every start, with no secret
+/// in it (ADR 0076).
+pub fn page_url(port: u16) -> String {
+    format!("http://127.0.0.1:{port}/")
 }
 
-/// A page that only moves on to `url`, for the browser to open in its
-/// place: the browser's command line then names a file, never the secret in
-/// `url`, which other accounts could read there (ADR 0063). A refresh and a
-/// link stand in where the script does not run.
-pub fn launcher_html(url: &str) -> String {
-    let quoted = serde_json::to_string(url).expect("a string serializes");
+/// The page's address with the server's `token` in its fragment, for where
+/// no launcher file can hand it over: a fragment never reaches a server,
+/// and the query, new at each start, keeps the address clear of a response
+/// another program cached (ADR 0076).
+pub fn address_with_secret(port: u16, token: &str) -> String {
+    format!(
+        "http://127.0.0.1:{port}/?{}#token={token}",
+        crate::server::page_path(token)
+    )
+}
+
+/// A page that posts `token` to the page at `url`, for the browser to open
+/// in its place: the secret then stays off the browser's command line, its
+/// address bar and its history, and a post is never answered from the
+/// browser's cache (ADR 0076). A button stands in where the script does
+/// not run.
+pub fn launcher_html(url: &str, token: &str) -> String {
     format!(
         "<!doctype html>\n<meta charset=\"utf-8\">\n\
-         <meta http-equiv=\"refresh\" content=\"0;url={url}\">\n\
          <title>gitreant</title>\n\
-         <script>location.replace({quoted})</script>\n\
-         <a href=\"{url}\">gitreant</a>\n"
+         <form method=\"post\" action=\"{url}\">\
+         <input type=\"hidden\" name=\"token\" value=\"{token}\">\
+         <noscript><button>gitreant</button></noscript></form>\n\
+         <script>document.forms[0].submit()</script>\n"
     )
 }
 
@@ -86,26 +91,27 @@ pub fn launcher_path(dir: &Path, port: u16) -> PathBuf {
     dir.join(format!("open-{port}.html"))
 }
 
-/// Write the launcher that moves on to `url` for the server on `port`, its
-/// owner's alone, as the record that holds the same secret is.
-pub fn write_launcher(dir: &Path, port: u16, url: &str) -> std::io::Result<PathBuf> {
+/// Write the launcher that posts `token` to the page at `url` for the
+/// server on `port`, its owner's alone, as the record that holds the same
+/// secret is.
+pub fn write_launcher(dir: &Path, port: u16, url: &str, token: &str) -> std::io::Result<PathBuf> {
     crate::records::create_private_dir(dir)?;
     let path = launcher_path(dir, port);
-    crate::records::write_private(&path, launcher_html(url).as_bytes())?;
+    crate::records::write_private(&path, launcher_html(url, token).as_bytes())?;
     Ok(path)
 }
 
-/// What to hand the browser for the page at `url` (ADR 0072): the address
-/// itself when `address_allowed`, where only an administrator reads a
-/// command line or the user chose `--no-launcher`; else the `launcher`
-/// file's address; else nothing, and the browser is not opened.
+/// What to hand the browser (ADR 0072, ADR 0076): the `address` with the
+/// secret when `address_allowed`, where the user chose `--no-launcher`;
+/// else the `launcher` file's address; else nothing, and the browser is not
+/// opened.
 pub fn browser_target(
     address_allowed: bool,
     launcher: Option<String>,
-    url: &str,
+    address: &str,
 ) -> Option<String> {
     if address_allowed {
-        Some(url.to_string())
+        Some(address.to_string())
     } else {
         launcher
     }
@@ -219,35 +225,49 @@ mod tests {
 
     #[test]
     fn the_browser_gets_the_secret_only_where_no_other_account_reads_it() {
-        let url = "http://127.0.0.1:4000/#token=5ec2e7";
+        let address = "http://127.0.0.1:4000/?5ec2#token=5ec2e7";
         let file = "file:///home/u/Downloads/.gitreant/open-4000.html".to_string();
-        assert_eq!(browser_target(true, None, url), Some(url.to_string()));
-        assert_eq!(browser_target(false, Some(file.clone()), url), Some(file));
-        assert_eq!(browser_target(false, None, url), None);
+        assert_eq!(
+            browser_target(true, None, address),
+            Some(address.to_string())
+        );
+        assert_eq!(
+            browser_target(false, Some(file.clone()), address),
+            Some(file)
+        );
+        assert_eq!(browser_target(false, None, address), None);
     }
 
     #[test]
-    fn the_page_address_hands_the_secret_over_in_its_fragment_under_this_start_s_path() {
+    fn the_page_address_is_the_same_at_every_start_and_carries_no_secret() {
+        assert_eq!(page_url(4000), "http://127.0.0.1:4000/");
+    }
+
+    #[test]
+    fn an_address_handed_over_carries_the_secret_past_a_cached_page() {
         assert_eq!(
-            page_url(4000, Some("5ec2e7")),
+            address_with_secret(4000, "5ec2e7"),
             format!(
-                "http://127.0.0.1:4000/{}/#token=5ec2e7",
+                "http://127.0.0.1:4000/?{}#token=5ec2e7",
                 crate::server::page_path("5ec2e7")
             )
         );
-        assert_eq!(page_url(4000, None), "http://127.0.0.1:4000/");
-        assert_eq!(page_url(4000, Some("")), "http://127.0.0.1:4000/");
     }
 
     #[test]
-    fn a_launcher_page_moves_on_to_the_address_it_holds() {
-        let html = launcher_html("http://127.0.0.1:4000/#token=5ec2e7");
+    fn a_launcher_page_posts_the_secret_to_the_page() {
+        let html = launcher_html("http://127.0.0.1:4000/", "5ec2e7");
         assert!(
-            html.contains(r#"location.replace("http://127.0.0.1:4000/#token=5ec2e7")"#),
+            html.contains(r#"<form method="post" action="http://127.0.0.1:4000/">"#),
             "{html}"
         );
-        assert!(html.contains(r#"content="0;url=http://127.0.0.1:4000/#token=5ec2e7""#));
-        assert!(html.contains(r#"<a href="http://127.0.0.1:4000/#token=5ec2e7">"#));
+        assert!(
+            html.contains(r#"<input type="hidden" name="token" value="5ec2e7">"#),
+            "{html}"
+        );
+        assert!(html.contains("document.forms[0].submit()"), "{html}");
+        assert!(html.contains("<noscript><button>"), "{html}");
+        assert!(!html.contains("#token="), "{html}");
     }
 
     #[test]
@@ -296,7 +316,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let tmp = tempfile::tempdir().unwrap();
         let dir = tmp.path().join(".gitreant");
-        let file = write_launcher(&dir, 4000, "http://127.0.0.1:4000/#token=s").unwrap();
+        let file = write_launcher(&dir, 4000, "http://127.0.0.1:4000/", "s").unwrap();
         assert_eq!(file, dir.join("open-4000.html"));
         let mode = |path: &Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode(&file), 0o600);

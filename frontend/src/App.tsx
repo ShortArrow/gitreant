@@ -664,7 +664,7 @@ export function App() {
     <div className={`layout${collapsed ? " layout-collapsed" : ""}`}>
       {secretMissing && (
         <div className="secret-missing" role="alert" data-testid="secret-missing">
-          {t("secretMissing")} <code>gitreant list</code>
+          {t("secretMissing")} <code>gitreant</code>
         </div>
       )}
       <Drawer

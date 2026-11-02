@@ -89,9 +89,29 @@ test.describe.serial("gitreant UI", () => {
     page = await page.context().newPage();
     await page.goto("/");
     await expect(page.getByTestId("secret-missing")).toContainText(
-      "gitreant list",
+      "gitreant",
     );
     await expect(page.locator('[data-repo-name="repoA"]')).toHaveCount(0);
+  });
+
+  test("the page opens with the secret a launcher posts to it", async ({
+    page,
+    baseURL,
+  }) => {
+    // As the launcher file does: a form posting the secret to the page.
+    const opened = await page.context().newPage();
+    await opened.setContent(
+      `<form method="post" action="${baseURL}/">` +
+        `<input type="hidden" name="token" value="${fixtures.secret}"></form>`,
+    );
+    await opened.evaluate(() => document.forms[0].submit());
+    await expect(opened.locator('[data-repo-name="repoA"]')).toBeVisible();
+    expect(opened.url()).toBe(`${baseURL}/`);
+    await expect(opened.getByTestId("secret-missing")).toHaveCount(0);
+
+    // A reload keeps it, asking the server with a plain GET.
+    await opened.reload();
+    await expect(opened.locator('[data-repo-name="repoA"]')).toBeVisible();
   });
 
   test("drawer lists the served repositories", async ({ page }) => {

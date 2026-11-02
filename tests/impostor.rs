@@ -285,7 +285,7 @@ fn a_server_gone_before_its_page_opens_gets_no_page_opened() {
     assert!(!output.status.success(), "{output:?}");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("added "), "{stdout}");
-    assert!(!stdout.contains("#token="), "{stdout}");
+    assert!(!stdout.contains("already serving"), "{stdout}");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("no longer proves"), "{stderr}");
     assert!(stderr.contains("opening nothing"), "{stderr}");
