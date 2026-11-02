@@ -122,6 +122,8 @@ gitreant restart      restart the running server, keeping the repositories it
                       picks up a rebuilt binary
 gitreant refresh      re-verify commit signatures in place, without restarting
                       (use after adding a key to your gpg keyring)
+gitreant open         open the running server's page again, with its secret,
+                      adding no repository
 gitreant list         list the running servers, one line each: URL, pid,
                       start time, version and how many repositories each
                       shows

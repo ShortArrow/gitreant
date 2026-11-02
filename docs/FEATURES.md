@@ -223,10 +223,11 @@ Git for Windows' own, which cannot see a GnuPG or Gpg4win keyring.
   read or change the repositories it shows. The page's address is
   `http://127.0.0.1:<port>/` at every start and carries no secret;
   `gitreant` opens the page through a launcher file that posts the secret
-  to it, and a page opened without the secret says so. `gitreant` forwards
+  to it, and a page opened without the secret names `gitreant open`, which
+  opens it again. `gitreant` forwards
   to a running server, opens its page, stops it or asks it to re-verify
   signatures only once it proves it holds the secret. The page asks the
-  browser to clear what it cached for the address, and keeps the secret
-  for its own tab, so a page opened from a bookmark has none.
+  browser to clear what it cached for the origin, loads its own files from
+  a path new at each start, and keeps the secret for its own tab.
 - **A dedicated window.** `--app` opens it as a window without an address
   bar (needs a Chromium-based browser).

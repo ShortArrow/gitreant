@@ -92,6 +92,8 @@ gitreant doctor       環境を確かめる。git（必須）、gh と gpg（機
                       なければ 0 以外で終わる。gpg は、gpg.program で決めたか
                       PATH で見つけた、git が使うものを示し、それが Git for
                       Windows 付属のものなら注意を出す
+gitreant open         動いているサーバのページを秘密付きで開き直す。リポジトリ
+                      は足さない
 gitreant list         稼働中のサーバを 1 行ずつ表示（URL・pid・起動時刻・版・
                       表示中のリポジトリの数）
   --verbose           各サーバのリポジトリと、それぞれがいつどう加わったか

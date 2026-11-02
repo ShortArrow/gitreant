@@ -35,8 +35,12 @@ for a year, and the page then set its address to `/` with
   submits the secret to `/` by `POST`. The server answers a `POST` to `/`
   whose secret matches with the page, the secret written into it, never
   cached and clearing the origin's cache; one whose secret does not match
-  gets no page. The page keeps the secret for its tab and sets its address
-  to `/`.
+  gets no page. The page takes the secret out of itself, keeps it for its
+  tab and sets its address to `/`.
+- **The page loads its files from a path of this start.** Its HTML names
+  a base at `/<value>/`, the value new at each start, so its scripts and
+  styles are asked for at addresses no program that held the port before
+  could have cached; the page's own address stays `/`.
 - **A `POST` to `/` passes the request guard from any origin.** The
   launcher's origin is `null`, so the check of
   [ADR 0038](0038-loopback-request-guard.md) on state changes does not
@@ -49,19 +53,26 @@ for a year, and the page then set its address to `/` with
   each start, keeps it clear of a response another program cached. In WSL
   and where the launcher file cannot be written, the browser is not
   opened, as [ADR 0072](0072-no-browser-showing-the-secret.md) decided.
+- **`gitreant open` opens the page again.** It asks the running server to
+  prove the secret and opens its page the same way, adding no repository;
+  a page opened without the secret names it.
 
 ## Consequences
 
 - The address is the same at every start and carries no secret, so a
-  person can check it at a glance and keep it as a bookmark. A tab opened
-  from it has no secret and says how to open one that has.
+  person can check it at a glance. A tab opened from it by hand has no
+  secret and names `gitreant open`.
 - On Windows the browser no longer receives the secret on its command
   line.
-- A reload, or a bookmark of `/`, asks the server with `GET`. It is kept
-  clear of a response another program cached only where the browser
-  clears its cache on `Clear-Site-Data: "cache"`.
+- A reload, or opening `/` by hand, asks the server for the page with
+  `GET`. That page is kept clear of a response another program cached
+  only where the browser clears its cache on `Clear-Site-Data: "cache"`;
+  its scripts and styles are, wherever it is answered by the server.
+- Opening `/` by hand while gitreant is not running is also how another
+  account's page reaches the browser, the case ADR 0073 accepts.
 - A service worker left on the port still reads the secret, the case ADR
   0073 accepts.
 - The launcher's form, the guard's exception for a `POST` to `/`, the
-  page answered to a matching and a mismatching secret, and the page's
-  reading of the secret are each tested.
+  page answered to a matching and a mismatching secret with its base,
+  the page's reading and removal of the secret, and `gitreant open` are
+  each tested.

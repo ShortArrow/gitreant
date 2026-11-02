@@ -11,8 +11,9 @@ $ cd frontend && pnpm dev   # frontend (Vite, proxies /api to :4000)
 ```
 
 Every API request carries the server's secret (ADR 0063), which the page
-takes from its address: open the Vite page with the `#token=…` that
-`gitreant list` prints after the backend's address.
+also takes from a `#token=…` fragment: open the Vite page with the
+`token` of the backend's record, `<port>.json` in gitreant's state
+directory, as that fragment.
 
 A release binary with the frontend embedded:
 
