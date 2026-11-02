@@ -172,15 +172,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   page through a launcher file, its owner's alone, that posts the secret
   to it, so the secret stays off the browser's command line, its address
   bar and its history, and a response another program cached at the
-  address does not answer the post; a page opened without the secret says
-  how to open one that has it
+  address does not answer the post; a page opened without the secret
+  names `gitreant open`, which opens it again
   ([ADR 0076](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0076-post-the-secret.md)).
   With `--no-launcher` the browser is handed the address with the secret
   in it instead; in WSL, or where the launcher file cannot be written, the
   browser is not opened without it
   ([ADR 0072](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0072-no-browser-showing-the-secret.md)).
-  The page clears the browser's cache for its origin and keeps the secret
-  for its own tab. A service worker another program left on the port
+  The page clears the browser's cache for its origin, loads its own files
+  from a path new at each start, and keeps the secret for its own tab. A service worker another program left on the port
   still reads the secret, as can a window of its page when gitreant's page
   opens in a tab that window holds; both are accepted
   ([ADR 0073](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0073-page-under-a-path-of-each-start.md)).
