@@ -86,3 +86,4 @@ are canonical; the files below are their English translations.
 | [0076](0076-post-the-secret.md) | Hand the secret over in a POST, at a fixed address | Accepted |
 | [0077](0077-private-records-on-windows.md) | Give the server records an access list of their own on Windows | Accepted |
 | [0078](0078-show-a-file-run-nothing.md) | Show a changed file in the file manager, and run nothing | Accepted |
+| [0079](0079-accept-the-cache-with-the-service-worker.md) | Accept what another account's page leaves in the cache, as its service worker is | Accepted |

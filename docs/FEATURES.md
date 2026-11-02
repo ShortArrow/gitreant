@@ -227,8 +227,7 @@ Git for Windows' own, which cannot see a GnuPG or Gpg4win keyring.
   to it, and a page opened without the secret names `gitreant open`, which
   opens it again. `gitreant` forwards to a running server, opens its page,
   stops it or asks it to re-verify signatures only once it proves it holds
-  the secret. The page asks the
-  browser to clear what it cached for the origin, loads its own files from
-  a path new at each start, and keeps the secret for its own tab.
+  the secret. The page keeps the
+  secret for its own tab.
 - **A dedicated window.** `--app` opens it as a window without an address
   bar (needs a Chromium-based browser).

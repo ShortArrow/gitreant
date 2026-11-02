@@ -44,12 +44,9 @@ is weighed.
   secret of a gitreant whose page later opens on that port in the same
   browser, or a window that reads it when the page opens in a tab that
   window holds. The page keeps the secret out of the origin's storage
-  ([ADR 0073](adr/0073-page-under-a-path-of-each-start.md)). What such a
-  page left in the browser's cache does not answer the post that opens
-  the page or the page's own files; it reaches a reload, or the page
-  opened by hand, only in a browser that ignores
-  `Clear-Site-Data: "cache"`
-  ([ADR 0076](adr/0076-post-the-secret.md)).
+  ([ADR 0073](adr/0073-page-under-a-path-of-each-start.md)). A response such a
+  page left in the browser's cache reads the secret under the same
+  conditions ([ADR 0079](adr/0079-accept-the-cache-with-the-service-worker.md)).
 - Remote exposure is out of scope; safety behind a reverse proxy or
   similar is not guaranteed.
 - The contents of an opened repository (`.gitmodules`, ref names, paths,

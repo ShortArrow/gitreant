@@ -183,20 +183,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `gitreant list` print, with no secret in it. `gitreant` opens the
   page through a launcher file, its owner's alone, that posts the secret
   to it, so the secret stays off the browser's command line, its address
-  bar and its history, and a response another program cached at the
-  address does not answer the post; a page opened without the secret
-  names `gitreant open`, which opens it again
+  bar and its history; a page opened without the secret names
+  `gitreant open`, which opens it again
   ([ADR 0076](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0076-post-the-secret.md)).
   With `--no-launcher` the browser is handed the address with the secret
   in it instead; in WSL, or where the launcher file cannot be written, the
   browser is not opened without it
   ([ADR 0072](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0072-no-browser-showing-the-secret.md)).
-  The page clears the browser's cache for its origin, loads its own files
-  from a path new at each start, and keeps the secret for its own tab. A
-  service worker another program left on the port still reads the
-  secret, as can a window of its page when gitreant's page opens in a tab
-  that window holds; both are accepted
-  ([ADR 0073](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0073-page-under-a-path-of-each-start.md)).
+  The page keeps the secret for its own tab. A service worker or a cached
+  response another program left on the port still reads the secret, as can
+  a window of its page when gitreant's page opens in a tab that window
+  holds; all are accepted
+  ([ADR 0073](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0073-page-under-a-path-of-each-start.md),
+  [ADR 0079](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0079-accept-the-cache-with-the-service-worker.md)).
 - `gitreant` forwards repositories to a running server, reads its list to
   restart it, opens its page, stops it or asks it to re-verify signatures,
   and `gitreant list` or a list of servers to pick from asks a server for

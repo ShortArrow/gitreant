@@ -82,3 +82,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0076](0076-post-the-secret.jp.md) | 秘密は POST で渡し、アドレスは固定する | Accepted |
 | [0077](0077-private-records-on-windows.jp.md) | Windows ではサーバの記録に専用のアクセス権を付ける | Accepted |
 | [0078](0078-show-a-file-run-nothing.jp.md) | 変更ファイルはファイルマネージャで表示し、何も実行しない | Accepted |
+| [0079](0079-accept-the-cache-with-the-service-worker.jp.md) | ほかのアカウントのページがキャッシュに残したものも、service worker と同じく受け入れる | Accepted |
