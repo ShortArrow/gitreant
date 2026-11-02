@@ -98,7 +98,6 @@ const en = {
   openRightPane: "Open in the right pane",
   moveLeftPane: "Move to the left pane",
   revealInExplorer: "Reveal in file manager",
-  openInEditor: "Open in editor",
   secretMissing:
     "This page lacks the server's secret. Open it again from the command line with:",
   openWith: "Open with {name}",
@@ -352,7 +351,6 @@ const ja: Record<MsgKey, string> = {
   openRightPane: "右のペインで開く",
   moveLeftPane: "左のペインへ移動",
   revealInExplorer: "ファイルマネージャで開く",
-  openInEditor: "エディタで開く",
   secretMissing:
     "このページはサーバの秘密を持っていません。コマンドラインから次で開き直してください:",
   openWith: "{name} で開く",

@@ -117,6 +117,48 @@ pub fn browser_target(
     }
 }
 
+/// Show `file` in the system's file manager without running it: handed to
+/// the default handler, a script or program in a repository would run
+/// (ADR 0078). Explorer's exit code says nothing, so it goes unread.
+#[cfg(windows)]
+pub fn reveal_file(file: &Path) -> std::io::Result<()> {
+    use std::os::windows::process::CommandExt;
+    std::process::Command::new("explorer")
+        .raw_arg(select_argument(file))
+        .status()
+        .map(|_| ())
+}
+
+/// Show `file` in the system's file manager without running it (ADR 0078).
+#[cfg(target_os = "macos")]
+pub fn reveal_file(file: &Path) -> std::io::Result<()> {
+    let status = std::process::Command::new("open")
+        .arg("-R")
+        .arg(file)
+        .status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(format!("open -R: {status}")))
+    }
+}
+
+/// Open the folder holding `file`, without running it: no opener here can
+/// select a file in it (ADR 0078).
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+pub fn reveal_file(file: &Path) -> std::io::Result<()> {
+    open::that(file.parent().unwrap_or(file))
+}
+
+/// Explorer's argument to select `file`, by the plain Windows path it needs:
+/// it reads neither forward slashes nor the verbatim prefix.
+#[cfg(windows)]
+fn select_argument(file: &Path) -> String {
+    let path = file.to_string_lossy().replace('/', "\\");
+    let path = path.strip_prefix(r"\\?\").unwrap_or(&path);
+    format!("/select,\"{path}\"")
+}
+
 /// Let a spawned program outlive this process and its console: its own
 /// process group, and on Windows no console of ours.
 #[cfg(windows)]
@@ -236,6 +278,19 @@ mod tests {
             Some(file)
         );
         assert_eq!(browser_target(false, None, address), None);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn explorer_selects_a_file_by_its_plain_windows_path() {
+        assert_eq!(
+            select_argument(Path::new(r"C:\a b/sub/run.cmd")),
+            r#"/select,"C:\a b\sub\run.cmd""#
+        );
+        assert_eq!(
+            select_argument(Path::new(r"\\?\C:\repo\run.cmd")),
+            r#"/select,"C:\repo\run.cmd""#
+        );
     }
 
     #[test]

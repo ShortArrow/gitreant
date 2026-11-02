@@ -456,3 +456,82 @@ fn open_reopens_the_page_and_adds_no_repository() {
     );
     assert!(wait_until(|| !ping(port), Duration::from_secs(10)));
 }
+
+/// Revealing a file hands its folder to the opener, so a program in a
+/// repository is shown and never run (ADR 0078).
+#[cfg(target_os = "linux")]
+#[test]
+fn revealing_a_program_opens_its_folder_and_runs_nothing() {
+    use std::io::{Read, Write};
+    use std::os::unix::fs::PermissionsExt;
+    let port = free_port();
+    let state = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+    let ran = tmp.path().join("ran");
+    let program = tmp.path().join("run.sh");
+    std::fs::write(&program, format!("#!/bin/sh\ntouch '{}'\n", ran.display())).unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    let opener = tempfile::tempdir().unwrap();
+    let opened = opener.path().join("opened");
+    let xdg_open = opener.path().join("xdg-open");
+    std::fs::write(
+        &xdg_open,
+        format!("#!/bin/sh\nprintf '%s' \"$1\" > '{}'\n", opened.display()),
+    )
+    .unwrap();
+    std::fs::set_permissions(&xdg_open, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let path_var = format!(
+        "{}:{}",
+        opener.path().display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+
+    let exe = env!("CARGO_BIN_EXE_gitreant");
+    let gitreant = |args: &[&str]| {
+        Command::new(exe)
+            .env("GITREANT_STATE_DIR", state.path())
+            .env("PATH", &path_var)
+            .args(args)
+            .status()
+            .unwrap()
+    };
+    let path = tmp.path().to_string_lossy().into_owned();
+    let port_arg = port.to_string();
+    assert!(gitreant(&[&path, "--port", &port_arg, "--no-open"]).success());
+    assert!(wait_until(|| ping(port), Duration::from_secs(30)));
+
+    let list = get_repos(port, state.path());
+    let json = list.split("\r\n\r\n").nth(1).unwrap_or_default();
+    let repos: serde_json::Value = serde_json::from_str(json).unwrap();
+    let id = repos[0]["id"]
+        .as_str()
+        .expect("a repository id")
+        .to_string();
+    let secret = gitreant::records::token(&state.path().join("servers"), port).expect("the record");
+    let body = serde_json::json!({ "repo": id, "path": "run.sh" }).to_string();
+    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+    write!(
+        stream,
+        "POST /api/reveal HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Gitreant-Token: {secret}\r\n\
+         Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    )
+    .unwrap();
+    let mut resp = String::new();
+    stream.read_to_string(&mut resp).unwrap();
+    assert!(resp.starts_with("HTTP/1.1 200"), "{resp}");
+
+    assert!(wait_until(|| opened.exists(), Duration::from_secs(10)));
+    let handed = std::fs::read_to_string(&opened).unwrap();
+    assert_eq!(
+        std::fs::canonicalize(&handed).unwrap(),
+        std::fs::canonicalize(tmp.path()).unwrap(),
+        "{handed}"
+    );
+    assert!(!ran.exists(), "the program ran");
+
+    assert!(gitreant(&["--port", &port_arg, "--shutdown"]).success());
+    assert!(wait_until(|| !ping(port), Duration::from_secs(10)));
+}

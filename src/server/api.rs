@@ -872,9 +872,10 @@ fn resolve_reveal_target(root: &Path, rel: Option<&str>) -> Result<PathBuf, Stri
     Ok(root.join(rel_path))
 }
 
-/// Open a repository folder — or a file inside it — with the OS default
-/// handler (Explorer / Finder / xdg-open): the drawer reveals a repo, the
-/// commit file list opens a file. A local, single-user desktop action.
+/// Show a repository folder, or a file inside it, in the file manager: the
+/// drawer reveals a repo, the commit file list a file. The default handler
+/// opens only the folder, since it would run a file that is a program
+/// (ADR 0078).
 async fn reveal(
     State(state): State<AppState>,
     Json(req): Json<RevealRequest>,
@@ -887,15 +888,22 @@ async fn reveal(
         target_to_open(&root, req.path.as_deref()).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     #[cfg(not(target_os = "android"))]
     {
-        tokio::task::spawn_blocking(move || open::that(target))
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-            .map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("open failed: {e}"),
-                )
-            })?;
+        let is_file = req.path.as_deref().is_some_and(|path| !path.is_empty());
+        tokio::task::spawn_blocking(move || {
+            if is_file {
+                crate::launch::reveal_file(&target)
+            } else {
+                open::that(target)
+            }
+        })
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("open failed: {e}"),
+            )
+        })?;
         Ok(StatusCode::OK)
     }
     #[cfg(target_os = "android")]

@@ -15,7 +15,7 @@ const meta: Meta<typeof CommitDetailPanel> = {
     repoPath: "/home/dev/repoA",
     onClose: () => {},
     onSelectFile: () => {},
-    onOpenFile: () => {},
+    onRevealFile: () => {},
     allDiffsShown: false,
     onToggleAllDiffs: () => {},
   },

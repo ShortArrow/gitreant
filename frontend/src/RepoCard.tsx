@@ -1462,7 +1462,7 @@ export function RepoCard({
           verifying={selectedCommit?.verifying}
           signatureKey={selectedCommit?.signature_key}
           onSelectFile={(path) => setDiffTarget({ kind: "file", path })}
-          onOpenFile={(path) => {
+          onRevealFile={(path) => {
             revealPath(repo.id, path).catch(() => {});
           }}
           loadEditors={() => fetchEditors().then((list) => list.editors)}

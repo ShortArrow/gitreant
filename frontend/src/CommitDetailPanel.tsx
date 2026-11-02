@@ -111,7 +111,7 @@ export function CommitDetailPanel({
   verifying,
   signatureKey,
   onSelectFile,
-  onOpenFile,
+  onRevealFile,
   loadEditors,
   onOpenWith,
   onOpenWithChooser,
@@ -133,7 +133,7 @@ export function CommitDetailPanel({
   /** Called with the repository-relative path of a clicked file. */
   onSelectFile: (path: string) => void;
   /** Open a changed file with the OS default handler. */
-  onOpenFile: (path: string) => void;
+  onRevealFile: (path: string) => void;
   /** The editors a file can also open with, read when its menu opens. */
   loadEditors?: () => Promise<Editor[]>;
   /** Open a changed file with the `editor`-th of them (ADR 0062). */
@@ -239,9 +239,9 @@ export function CommitDetailPanel({
           y={fileMenu.y}
           items={[
             {
-              id: "file-open",
-              label: t("openInEditor"),
-              run: () => onOpenFile(fileMenu.path),
+              id: "file-reveal",
+              label: t("revealInExplorer"),
+              run: () => onRevealFile(fileMenu.path),
             },
             ...(onOpenWith
               ? editors.map((editor, i) => ({

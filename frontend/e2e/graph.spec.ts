@@ -468,7 +468,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("graph")).toBeVisible();
   });
 
-  test("reveal a repo folder and open a changed file via the OS", async ({
+  test("reveal a repo folder and a changed file in the file manager", async ({
     page,
   }) => {
     // Both actions hit /api/reveal; stub it so nothing actually launches,
@@ -486,7 +486,7 @@ test.describe.serial("gitreant UI", () => {
     expect(reveals[0].path ?? null).toBeNull();
     expect(reveals[0].repo).toContain("repoA");
 
-    // File list: "Open in editor" opens the repository-relative file.
+    // File list: the same action shows the repository-relative file.
     await page.locator('[data-repo-name="repoA"]').click();
     await page
       .getByTestId("commit-row")
@@ -496,7 +496,7 @@ test.describe.serial("gitreant UI", () => {
       .getByTestId("detail-file")
       .filter({ hasText: "README.md" })
       .click({ button: "right" });
-    await page.getByTestId("file-open").click();
+    await page.getByTestId("file-reveal").click();
     await expect.poll(() => reveals.length).toBe(2);
     expect(reveals[1].path).toBe("README.md");
     expect(reveals[1].repo).toContain("repoA");
