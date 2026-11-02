@@ -873,8 +873,8 @@ fn resolve_reveal_target(root: &Path, rel: Option<&str>) -> Result<PathBuf, Stri
 }
 
 /// Show a repository folder, or a file inside it, in the file manager: the
-/// drawer reveals a repo, the commit file list a file. Neither goes to the
-/// default handler, which would run a program (ADR 0078).
+/// drawer reveals a repo, the commit file list a file. A file never reaches
+/// a default handler, which would run a program (ADR 0078).
 async fn reveal(
     State(state): State<AppState>,
     Json(req): Json<RevealRequest>,

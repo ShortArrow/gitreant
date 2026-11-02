@@ -462,7 +462,7 @@ fn open_reopens_the_page_and_adds_no_repository() {
 /// (ADR 0078).
 #[cfg(target_os = "linux")]
 #[test]
-fn revealing_a_program_opens_its_folder_and_runs_nothing() {
+fn revealing_a_program_hands_over_its_folder() {
     use std::io::{Read, Write};
     use std::os::unix::fs::PermissionsExt;
     let port = free_port();

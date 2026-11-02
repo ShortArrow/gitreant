@@ -16,8 +16,9 @@ pub struct GitGpg {
     pub bundled_with_git: bool,
 }
 
-/// The gpg git runs, read from the user's git configuration and `PATH`;
-/// `None` when it names nothing that exists.
+/// The gpg git runs, read from the user's and the system's git configuration
+/// and `PATH`, never from a repository's, since gitreant runs what this names
+/// itself (ADR 0078); `None` when it names nothing that exists.
 pub fn git_gpg() -> Option<GitGpg> {
     let (setting, name) = match configured(git_config) {
         Some((key, value)) => (Some(key), value),
@@ -69,7 +70,9 @@ fn bundled_with_git(gpg: &Path, exec: &Path) -> bool {
 }
 
 fn git_config(key: &str) -> Option<String> {
-    git_output(&["config", "--get", key])
+    ["--global", "--system"]
+        .into_iter()
+        .find_map(|scope| git_output(&["config", scope, "--get", key]))
 }
 
 fn git_exec_path() -> Option<PathBuf> {
