@@ -8,7 +8,7 @@ use std::process::Command;
 
 use gitreant::app::Session;
 use gitreant::server::{
-    bind, page_path, ping, post_repo, post_shutdown, proves_secret, serve, AppState, Secret,
+    bind, ping, post_repo, post_shutdown, proves_secret, serve, AppState, Secret,
 };
 
 /// The secret every test server holds and every test request carries
@@ -1815,21 +1815,17 @@ async fn the_page_opens_with_the_secret_posted_to_it() {
             resp
         };
         let meta = format!("<meta name=\"gitreant-secret\" content=\"{SECRET}\">");
-        let base = format!("<base href=\"/{}/\">", page_path(SECRET));
         let local = format!("127.0.0.1:{port}");
 
         let opened = post(&local, "null", SECRET);
         assert!(opened.starts_with("HTTP/1.1 200"), "{opened}");
         assert!(opened.contains(&meta), "{opened}");
-        assert!(opened.contains(&base), "{opened}");
+        assert!(!opened.contains("<base"), "{opened}");
         assert_eq!(
             header(&opened, "cache-control").as_deref(),
             Some("no-store")
         );
-        assert_eq!(
-            header(&opened, "clear-site-data").as_deref(),
-            Some("\"cache\"")
-        );
+        assert_eq!(header(&opened, "clear-site-data"), None);
 
         let other_site = post(&local, "http://attacker.example", SECRET);
         assert!(other_site.starts_with("HTTP/1.1 200"), "{other_site}");
@@ -1845,12 +1841,9 @@ async fn the_page_opens_with_the_secret_posted_to_it() {
         let plain = http_raw(port, &format!("GET / HTTP/1.1\r\nHost: {local}"));
         assert!(plain.starts_with("HTTP/1.1 200"), "{plain}");
         assert!(!plain.contains("gitreant-secret"), "{plain}");
-        assert!(plain.contains(&base), "{plain}");
+        assert!(!plain.contains("<base"), "{plain}");
         assert_eq!(header(&plain, "cache-control").as_deref(), Some("no-store"));
-        assert_eq!(
-            header(&plain, "clear-site-data").as_deref(),
-            Some("\"cache\"")
-        );
+        assert_eq!(header(&plain, "clear-site-data"), None);
     })
     .await
     .unwrap();

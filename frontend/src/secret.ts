@@ -30,10 +30,8 @@ function secretPosted(): string | null {
 
 /** Take the secret posted to the page or handed over in its address, keep
  * it for this tab, and take it out of the address bar and the session's
- * history, keeping the query of this start an address handing it over
- * carries, so a reload does not ask for a page another program cached at
- * `/`; else use the one this tab kept. A secret an earlier version kept for
- * every tab is dropped. */
+ * history; else use the one this tab kept. A secret an earlier version kept
+ * for every tab is dropped. */
 export function initSecret() {
   try {
     localStorage.removeItem(SECRET_KEY);
@@ -47,11 +45,7 @@ export function initSecret() {
     } catch {
       // Without storage, the secret lasts as long as this page.
     }
-    window.history.replaceState(
-      null,
-      "",
-      window.location.pathname + window.location.search,
-    );
+    window.history.replaceState(null, "", window.location.pathname);
     secret = handed;
     return;
   }
@@ -69,15 +63,14 @@ export function onUnauthorized(listener: () => void): () => void {
   return () => unauthorized.delete(listener);
 }
 
-/** `fetch` with the secret in its header, never answered from the
- * browser's cache, which another program on the port may have filled. */
+/** `fetch` with the secret in its header. */
 export async function apiFetch(
   input: string,
   init: RequestInit = {},
 ): Promise<Response> {
   const headers = new Headers(init.headers);
   if (secret) headers.set(SECRET_HEADER, secret);
-  const response = await fetch(input, { ...init, headers, cache: "no-store" });
+  const response = await fetch(input, { ...init, headers });
   if (response.status === 401) unauthorized.forEach((listener) => listener());
   return response;
 }

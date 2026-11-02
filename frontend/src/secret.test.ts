@@ -10,20 +10,6 @@ test("secretFrom reads the secret the address hands over", () => {
   expect(secretFrom("")).toBeNull();
 });
 
-test("apiFetch never answers from the browser's cache", async () => {
-  const fetch = vi.fn(async () => new Response("{}"));
-  vi.stubGlobal("fetch", fetch);
-  try {
-    await apiFetch("/api/repos");
-    expect(fetch).toHaveBeenCalledWith(
-      "/api/repos",
-      expect.objectContaining({ cache: "no-store" }),
-    );
-  } finally {
-    vi.unstubAllGlobals();
-  }
-});
-
 /** A storage that lives in a map, as `localStorage` and `sessionStorage` do. */
 function memoryStorage(): Storage {
   const items = new Map<string, string>();
@@ -62,7 +48,7 @@ async function secretSent(
         : null,
   });
   vi.stubGlobal("window", {
-    location: { hash, pathname: "/", search: hash ? "?1a2b" : "" },
+    location: { hash, pathname: "/" },
     history: {
       replaceState: (_state: unknown, _title: string, url: string) =>
         addresses.push(url),
@@ -117,5 +103,5 @@ test("the page takes the secret posted or handed to it, and keeps it out of the 
       addresses,
     ),
   ).toBe("f00d");
-  expect(addresses).toEqual(["/", "/?1a2b"]);
+  expect(addresses).toEqual(["/", "/"]);
 });

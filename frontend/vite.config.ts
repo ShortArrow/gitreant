@@ -19,9 +19,8 @@ try {
 /** The gitreant backend `pnpm dev` proxies the API to. */
 const BACKEND = "http://127.0.0.1:4000";
 
-// Assets are served from the Rust binary, and the page loads them from a path
-// of each start through its <base> (ADR 0076); relative base keeps them
-// working under any path.
+// Assets are served from the Rust binary; relative base keeps them working
+// under any path.
 export default defineConfig({
   base: "./",
   plugins: [react()],

@@ -74,14 +74,6 @@ pub fn prove(secret: &str, challenge: &str) -> String {
         .collect()
 }
 
-/// A value of this start, unknown before it: the path the page loads its
-/// files from and the query of an address holding the secret, so nothing a
-/// program that held the port earlier left in the browser's cache answers
-/// for them (ADR 0076). It tells nothing of the secret.
-pub fn page_path(secret: &str) -> String {
-    prove(secret, "page path")[..32].to_string()
-}
-
 /// Whether `answer` proves `secret` for `challenge`, compared in constant
 /// time.
 pub fn proves(secret: &str, challenge: &str, answer: &str) -> bool {
@@ -227,14 +219,6 @@ mod tests {
             "what do ya want for nothing?",
             &prove("Jefe", "what do ya want for nothing?")
         ));
-    }
-
-    #[test]
-    fn the_page_s_path_comes_from_the_secret_and_tells_nothing_of_it() {
-        let path = page_path("Jefe");
-        assert_eq!(path, prove("Jefe", "page path")[..32]);
-        assert!(path.chars().all(|c| c.is_ascii_hexdigit()));
-        assert_ne!(page_path("other"), path);
     }
 
     #[test]

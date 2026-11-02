@@ -1,27 +1,24 @@
 //! Serve the embedded SPA at `/`, falling back to `index.html` for
 //! client-side routes, and open it with the secret a launcher file posts
-//! (ADR 0076). The page loads its own files from a path of this start,
-//! which no program that held the port before could have cached.
+//! (ADR 0076).
 
 use axum::extract::State;
-use axum::http::{header, HeaderName, HeaderValue, StatusCode, Uri};
+use axum::http::{header, HeaderValue, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::Form;
 use rust_embed::RustEmbed;
 use serde::Deserialize;
 
-use super::guard::page_path;
 use super::AppState;
 
 #[derive(RustEmbed)]
 #[folder = "frontend/dist"]
 struct Assets;
 
-pub async fn static_handler(State(state): State<AppState>, uri: Uri) -> Response {
-    let page = page_path(state.secret().as_str());
-    match file_of(uri.path(), &page) {
-        None => page_response(&page, None),
-        Some(file) => serve(file).unwrap_or_else(|| page_response(&page, None)),
+pub async fn static_handler(uri: Uri) -> Response {
+    match file_of(uri.path()) {
+        None => page_response(None),
+        Some(file) => serve(file).unwrap_or_else(|| page_response(None)),
     }
 }
 
@@ -42,53 +39,39 @@ pub async fn open_page(State(state): State<AppState>, Form(handoff): Form<Handof
         )
             .into_response();
     }
-    page_response(&page_path(secret), Some(secret))
+    page_response(Some(secret))
 }
 
-/// The file a request's path names, under this start's path `page` or at
-/// the root; none for the page itself.
-fn file_of<'a>(path: &'a str, page: &str) -> Option<&'a str> {
-    let path = path.trim_start_matches('/');
-    let file = path
-        .strip_prefix(page)
-        .and_then(|rest| rest.strip_prefix('/'))
-        .unwrap_or(path);
-    Some(file).filter(|file| !file.is_empty() && *file != "index.html")
+/// The file a request's path names; none for the page itself.
+fn file_of(path: &str) -> Option<&str> {
+    Some(path.trim_start_matches('/')).filter(|file| !file.is_empty() && *file != "index.html")
 }
 
-/// `index.html` loading its files from this start's path `page`, with
-/// `secret` written into it when given, never kept, and clearing what the
-/// browser cached for this origin, such as responses another program left
-/// there.
-fn page_response(page: &str, secret: Option<&str>) -> Response {
+/// `index.html` with `secret` written into it when given, never kept.
+fn page_response(secret: Option<&str>) -> Response {
     let Some(file) = Assets::get("index.html") else {
         return (StatusCode::NOT_FOUND, "not found").into_response();
     };
-    let html = into_page(&String::from_utf8_lossy(&file.data), page, secret);
+    let html = into_page(&String::from_utf8_lossy(&file.data), secret);
     let mut response = ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], html).into_response();
-    let headers = response.headers_mut();
-    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
-    headers.insert(
-        HeaderName::from_static("clear-site-data"),
-        HeaderValue::from_static("\"cache\""),
-    );
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     response
 }
 
-/// `html` with a base at this start's path `page`, which its relative file
-/// addresses resolve against, and `secret` in the meta tag the page reads
-/// it from.
-fn into_page(html: &str, page: &str, secret: Option<&str>) -> String {
-    let base = format!("<base href=\"/{page}/\">");
-    let meta = secret
-        .map(|secret| format!("<meta name=\"gitreant-secret\" content=\"{secret}\">"))
-        .unwrap_or_default();
+/// `html` with `secret` in the meta tag the page reads it from, when given.
+fn into_page(html: &str, secret: Option<&str>) -> String {
+    let Some(secret) = secret else {
+        return html.to_string();
+    };
+    let meta = format!("<meta name=\"gitreant-secret\" content=\"{secret}\">");
     match html.find("<head>") {
         Some(at) => {
             let end = at + "<head>".len();
-            format!("{}{base}{meta}{}", &html[..end], &html[end..])
+            format!("{}{meta}{}", &html[..end], &html[end..])
         }
-        None => format!("{base}{meta}{html}"),
+        None => format!("{meta}{html}"),
     }
 }
 
@@ -108,45 +91,36 @@ fn serve(path: &str) -> Option<Response> {
 mod tests {
     use super::*;
 
-    const PAGE: &str = "0123456789abcdef0123456789abcdef";
-    const BASE: &str = "<base href=\"/0123456789abcdef0123456789abcdef/\">";
     const META: &str = "<meta name=\"gitreant-secret\" content=\"5ec2e7\">";
 
     #[test]
-    fn the_page_loads_its_files_from_this_start_s_path_and_holds_the_secret_posted() {
+    fn the_page_holds_the_secret_posted() {
         let html = "<!doctype html><html><head><title>t</title></head>";
         assert_eq!(
-            into_page(html, PAGE, Some("5ec2e7")),
-            format!("<!doctype html><html><head>{BASE}{META}<title>t</title></head>")
+            into_page(html, Some("5ec2e7")),
+            format!("<!doctype html><html><head>{META}<title>t</title></head>")
         );
+        assert_eq!(into_page(html, None), html);
         assert_eq!(
-            into_page(html, PAGE, None),
-            format!("<!doctype html><html><head>{BASE}<title>t</title></head>")
-        );
-        assert_eq!(
-            into_page("<p>x</p>", PAGE, Some("5ec2e7")),
-            format!("{BASE}{META}<p>x</p>")
+            into_page("<p>x</p>", Some("5ec2e7")),
+            format!("{META}<p>x</p>")
         );
     }
 
     #[test]
-    fn a_file_is_found_under_this_start_s_path_or_at_the_root() {
-        assert_eq!(
-            file_of(&format!("/{PAGE}/assets/index.js"), PAGE),
-            Some("assets/index.js")
-        );
-        assert_eq!(file_of("/assets/index.js", PAGE), Some("assets/index.js"));
-        assert_eq!(file_of("/favicon.svg", PAGE), Some("favicon.svg"));
-        for page in ["/", "/index.html", &format!("/{PAGE}/")] {
-            assert_eq!(file_of(page, PAGE), None, "{page}");
+    fn a_file_is_found_at_the_root() {
+        assert_eq!(file_of("/assets/index.js"), Some("assets/index.js"));
+        assert_eq!(file_of("/favicon.svg"), Some("favicon.svg"));
+        for page in ["/", "/index.html"] {
+            assert_eq!(file_of(page), None, "{page}");
         }
     }
 
     #[test]
-    fn only_the_page_clears_the_cache() {
-        let clears = |response: &Response| response.headers().contains_key("clear-site-data");
-        assert!(clears(&page_response(PAGE, None)));
-        assert!(clears(&page_response(PAGE, Some("5ec2e7"))));
-        assert!(!clears(&serve("index.html").unwrap()));
+    fn the_page_is_never_kept_and_leaves_the_browser_s_cache_alone() {
+        for response in [page_response(None), page_response(Some("5ec2e7"))] {
+            assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+            assert!(!response.headers().contains_key("clear-site-data"));
+        }
     }
 }

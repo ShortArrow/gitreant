@@ -15,14 +15,10 @@ pub fn page_url(port: u16) -> String {
 }
 
 /// The page's address with the server's `token` in its fragment, for where
-/// no launcher file can hand it over: a fragment never reaches a server,
-/// and the query, new at each start, keeps the address clear of a response
-/// another program cached (ADR 0076).
+/// no launcher file can hand it over: a fragment never reaches a server
+/// (ADR 0076).
 pub fn address_with_secret(port: u16, token: &str) -> String {
-    format!(
-        "http://127.0.0.1:{port}/?{}#token={token}",
-        crate::server::page_path(token)
-    )
+    format!("http://127.0.0.1:{port}/#token={token}")
 }
 
 /// A page that posts `token` to the page at `url`, for the browser to open
@@ -349,13 +345,10 @@ mod tests {
     }
 
     #[test]
-    fn an_address_handed_over_carries_the_secret_past_a_cached_page() {
+    fn an_address_handed_over_carries_the_secret_in_its_fragment() {
         assert_eq!(
             address_with_secret(4000, "5ec2e7"),
-            format!(
-                "http://127.0.0.1:4000/?{}#token=5ec2e7",
-                crate::server::page_path("5ec2e7")
-            )
+            "http://127.0.0.1:4000/#token=5ec2e7"
         );
     }
 
