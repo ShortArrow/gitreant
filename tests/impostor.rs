@@ -63,7 +63,7 @@ fn record_gone_server(port: u16) -> tempfile::TempDir {
         version: "0.3.0".to_string(),
         token: GONE_SECRET.to_string(),
     };
-    records::write(state.path(), &record).unwrap();
+    records::write(&state.path().join("servers"), &record).unwrap();
     state
 }
 
@@ -140,7 +140,7 @@ fn picking_among_servers_shows_impostors_nothing_of_the_secret() {
         version: "0.3.0".to_string(),
         token: GONE_SECRET.to_string(),
     };
-    records::write(state.path(), &record).unwrap();
+    records::write(&state.path().join("servers"), &record).unwrap();
 
     let output = Command::new(env!("CARGO_BIN_EXE_gitreant"))
         .env("GITREANT_STATE_DIR", state.path())

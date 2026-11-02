@@ -84,3 +84,4 @@ are canonical; the files below are their English translations.
 | [0074](0074-prove-before-stopping.md) | Prove the secret before stopping a server or re-verifying its signatures | Accepted |
 | [0075](0075-prove-before-opening.md) | Prove the server again just before handing out its page | Accepted |
 | [0076](0076-post-the-secret.md) | Hand the secret over in a POST, at a fixed address | Accepted |
+| [0077](0077-private-records-on-windows.md) | Give the server records an access list of their own on Windows | Accepted |

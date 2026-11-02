@@ -35,7 +35,7 @@ pub fn dir() -> Option<PathBuf> {
 
 fn dir_from(var: impl Fn(&str) -> Option<String>) -> Option<PathBuf> {
     if let Some(dir) = var("GITREANT_STATE_DIR") {
-        return Some(PathBuf::from(dir));
+        return Some(PathBuf::from(dir).join("servers"));
     }
     let base = if cfg!(windows) {
         PathBuf::from(var("LOCALAPPDATA")?)
@@ -59,14 +59,18 @@ pub fn write(dir: &Path, record: &Record) -> std::io::Result<()> {
     write_private(&path_of(dir, record.port), text.as_bytes())
 }
 
-/// Create `dir` and its parents, on Unix entered by its owner alone; on
-/// Windows a directory in the user's profile is the user's already.
+/// Create `dir` and its parents, entered by its owner alone: on Unix by
+/// its mode, on Windows by an access list of its own that the files in it
+/// inherit (ADR 0077).
 pub fn create_private_dir(dir: &Path) -> std::io::Result<()> {
     let mut builder = std::fs::DirBuilder::new();
     builder.recursive(true);
     #[cfg(unix)]
     std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
-    builder.create(dir)
+    builder.create(dir)?;
+    #[cfg(windows)]
+    crate::private_acl::protect(dir)?;
+    Ok(())
 }
 
 /// Replace the file at `path` with `contents`, on Unix readable by its
@@ -208,7 +212,7 @@ mod tests {
         };
         assert_eq!(
             dir_from(env(&[("GITREANT_STATE_DIR", "/t/state"), ("HOME", "/h")])),
-            Some(PathBuf::from("/t/state"))
+            Some(Path::new("/t/state").join("servers"))
         );
         let base = dir_from(env(&[
             ("LOCALAPPDATA", "/l"),
@@ -254,6 +258,20 @@ mod tests {
         remove(&dir, 4000);
         assert_eq!(running(&dir, |_| true), vec![record(4200)]);
         assert!(running(&tmp.path().join("missing"), |_| true).is_empty());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_record_s_directory_inherits_no_one_else_s_access_on_windows() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("servers");
+        write(&dir, &record(4000)).unwrap();
+        let sddl = crate::private_acl::dacl_sddl(&dir);
+        assert!(sddl.starts_with("D:P"), "{sddl}");
+        for path in [dir.clone(), path_of(&dir, 4000)] {
+            let sddl = crate::private_acl::dacl_sddl(&path);
+            assert_eq!(sddl.matches("(A;").count(), 3, "{}: {sddl}", path.display());
+        }
     }
 
     #[test]

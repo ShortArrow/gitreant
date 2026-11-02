@@ -32,7 +32,10 @@ is weighed.
   are assumed not to be administrators, who can read any file or process.
   They get nothing without the secret, and the CLI sends a server nothing
   until it proves it holds the secret
-  ([ADR 0071](adr/0071-other-accounts-in-scope.md)). The one exception
+  ([ADR 0071](adr/0071-other-accounts-in-scope.md)). The files holding the
+  secret are their owner's alone: by their mode on Unix, by an access list
+  inherited from nothing on Windows
+  ([ADR 0077](adr/0077-private-records-on-windows.md)). The one exception
   accepted: a page one of them served on a port gitreant left, once the
   user's browser opened it there, from a stale tab, a bookmark or the
   history, or from gitreant itself when the server left between its last

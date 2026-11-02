@@ -13,7 +13,8 @@ $ cd frontend && pnpm dev   # frontend (Vite, proxies /api to :4000)
 Every API request carries the server's secret (ADR 0063), which the page
 also takes from a `#token=…` fragment: open the Vite page with the
 `token` of the backend's record as that fragment: `<port>.json` in
-`GITREANT_STATE_DIR`, else in `gitreant/servers` under the state directory
+`servers` under `GITREANT_STATE_DIR`, else in `gitreant/servers` under the
+state directory
 (`%LOCALAPPDATA%` on Windows, `~/Library/Caches` on macOS,
 `$XDG_RUNTIME_DIR` or the XDG state directory elsewhere).
 

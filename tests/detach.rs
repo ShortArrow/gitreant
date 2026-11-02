@@ -63,7 +63,8 @@ fn wait_until(cond: impl Fn() -> bool, timeout: Duration) -> bool {
 /// on `port` keeps in its record in `state` (ADR 0063).
 fn get_repos(port: u16, state: &Path) -> String {
     use std::io::{Read, Write};
-    let secret = gitreant::records::token(state, port).expect("the server's record");
+    let secret =
+        gitreant::records::token(&state.join("servers"), port).expect("the server's record");
     let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
     write!(
         stream,
@@ -314,8 +315,10 @@ fn the_cli_finds_running_servers_without_a_port() {
     assert!(wait_until(|| !ping(first), Duration::from_secs(10)));
     assert!(gitreant(&["--shutdown"]).status.success());
     assert!(wait_until(|| !ping(second), Duration::from_secs(10)));
-    let no_records =
-        || std::fs::read_dir(state.path()).map_or(true, |mut entries| entries.next().is_none());
+    let no_records = || {
+        std::fs::read_dir(state.path().join("servers"))
+            .map_or(true, |mut entries| entries.next().is_none())
+    };
     assert!(
         wait_until(no_records, Duration::from_secs(10)),
         "records were not removed"
@@ -363,7 +366,7 @@ fn running_it_again_reopens_the_page_through_a_launcher() {
     assert!(!launcher.exists());
     assert!(gitreant(&["--port", &port.to_string()]).success());
     let html = std::fs::read_to_string(&launcher).expect("a launcher");
-    let secret = gitreant::records::token(state.path(), port).expect("a record");
+    let secret = gitreant::records::token(&state.path().join("servers"), port).expect("a record");
     assert!(html.contains(&format!("value=\"{secret}\"")), "{html}");
     assert!(!html.contains("#token="), "{html}");
 
@@ -436,7 +439,7 @@ fn open_reopens_the_page_and_adds_no_repository() {
     let opened = gitreant(elsewhere.path(), &["--port", &port_arg, "open"]);
     assert!(opened.status.success(), "{opened:?}");
     let html = std::fs::read_to_string(&launcher).expect("a launcher");
-    let secret = gitreant::records::token(state.path(), port).expect("a record");
+    let secret = gitreant::records::token(&state.path().join("servers"), port).expect("a record");
     assert!(html.contains(&format!("value=\"{secret}\"")), "{html}");
     let body = |resp: &str| {
         resp.split("\r\n\r\n")
