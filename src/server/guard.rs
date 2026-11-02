@@ -74,9 +74,10 @@ pub fn prove(secret: &str, challenge: &str) -> String {
         .collect()
 }
 
-/// The path the page lives under for this start: unknown before the start,
-/// so nothing a program that held the port earlier left in the browser's
-/// cache answers for it (ADR 0073). It tells nothing of the secret.
+/// A value of this start, unknown before it: the path the page loads its
+/// files from and the query of an address holding the secret, so nothing a
+/// program that held the port earlier left in the browser's cache answers
+/// for them (ADR 0076). It tells nothing of the secret.
 pub fn page_path(secret: &str) -> String {
     prove(secret, "page path")[..32].to_string()
 }

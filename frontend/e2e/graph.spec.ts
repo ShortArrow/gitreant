@@ -88,9 +88,9 @@ test.describe.serial("gitreant UI", () => {
     expect(await page.evaluate(() => localStorage.getItem("gitreant-token"))).toBeNull();
     page = await page.context().newPage();
     await page.goto("/");
-    await expect(page.getByTestId("secret-missing")).toContainText(
-      "gitreant",
-    );
+    await expect(
+      page.getByTestId("secret-missing").locator("code"),
+    ).toHaveText("gitreant open");
     await expect(page.locator('[data-repo-name="repoA"]')).toHaveCount(0);
   });
 
@@ -109,7 +109,7 @@ test.describe.serial("gitreant UI", () => {
     expect(opened.url()).toBe(`${baseURL}/`);
     await expect(opened.getByTestId("secret-missing")).toHaveCount(0);
 
-    // A reload keeps it, asking the server with a plain GET.
+    // A reload keeps it.
     await opened.reload();
     await expect(opened.locator('[data-repo-name="repoA"]')).toBeVisible();
   });

@@ -224,7 +224,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_browser_gets_the_secret_only_where_no_other_account_reads_it() {
+    fn the_browser_gets_the_address_only_when_the_user_asks_else_a_launcher() {
         let address = "http://127.0.0.1:4000/?5ec2#token=5ec2e7";
         let file = "file:///home/u/Downloads/.gitreant/open-4000.html".to_string();
         assert_eq!(

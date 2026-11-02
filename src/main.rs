@@ -103,6 +103,8 @@ enum Command {
     Restart,
     /// Re-verify commit signatures in place, without restarting.
     Refresh,
+    /// Open the running server's page with its secret, adding no repository.
+    Open,
     /// List the running gitreant servers, one line each.
     List {
         /// Also list each server's repositories, with how and when each came.
@@ -144,6 +146,7 @@ fn main() -> ExitCode {
         Some(Command::Doctor) => return run_doctor(&cli),
         Some(Command::Restart) => return restart(&cli),
         Some(Command::Refresh) => return refresh(&cli),
+        Some(Command::Open) => return open_page(&cli),
         Some(Command::List { verbose, json }) => return list(verbose, json),
         Some(Command::Editor { ref action }) => return editor(action),
         None => {}
@@ -197,9 +200,9 @@ fn run_doctor(cli: &Cli) -> ExitCode {
 /// Stop the running server and start a fresh one with the same repositories
 /// (plus any given on the command line). A new process starts with an empty
 /// signature cache, so restarting re-verifies every commit; it also picks up
-/// a rebuilt binary. The new server draws a new secret and page path, so a
-/// tab of the old one can no longer use it; the new address is printed and
-/// no browser is opened.
+/// a rebuilt binary. The new server draws a new secret, so a tab of the old
+/// one can no longer use it; `gitreant open` opens the new one, and no
+/// browser is opened here.
 fn restart(cli: &Cli) -> ExitCode {
     let port = match cli.running_port() {
         Ok(port) => port,
@@ -290,6 +293,33 @@ fn refresh(cli: &Cli) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// Open the running server's page again through a launcher file that posts
+/// its secret, once the server proves it holds it; the way back for a page
+/// opened without the secret (ADR 0076).
+fn open_page(cli: &Cli) -> ExitCode {
+    let port = match cli.running_port() {
+        Ok(port) => port,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if !ping(port) {
+        eprintln!("no gitreant running on port {port}");
+        return ExitCode::FAILURE;
+    }
+    let token = match trusted(port) {
+        Ok(token) => token,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    println!("opening {}", launch::page_url(port));
+    open_browser(cli, port, &token);
+    ExitCode::SUCCESS
 }
 
 /// Ask the running server to stop, mirroring `mo --shutdown`.
@@ -741,15 +771,18 @@ fn open_app_window(url: &str) -> bool {
     command.spawn().is_ok()
 }
 
-/// Termux has no desktop opener; try its own URL handler and always print
-/// the address so the user can tap or paste it.
+/// Termux has no desktop opener, and its browser cannot read a launcher
+/// file: try its own URL handler with the address holding the secret, and
+/// always print that address so the user can tap or paste it (ADR 0076).
 #[cfg(target_os = "android")]
 fn open_browser(cli: &Cli, port: u16, token: &str) {
+    let address = launch::address_with_secret(port, token);
     if !cli.no_open {
         let _ = std::process::Command::new("termux-open-url")
-            .arg(launch::address_with_secret(port, token))
+            .arg(&address)
             .spawn();
     }
+    println!("open the page with its secret at {address}");
 }
 
 fn unix_now() -> i64 {

@@ -17,12 +17,15 @@ export function secretFrom(hash: string): string | null {
   return params.get("token") || null;
 }
 
-/** The secret the server wrote into the page it answered a post with. */
+/** The secret the server wrote into the page it answered a post with,
+ * taken out of the page so nothing that reads the page later finds it. */
 function secretPosted(): string | null {
   const meta = document.querySelector<HTMLMetaElement>(
     'meta[name="gitreant-secret"]',
   );
-  return meta?.content || null;
+  const posted = meta?.content || null;
+  meta?.remove();
+  return posted;
 }
 
 /** Take the secret posted to the page or handed over in its address, keep

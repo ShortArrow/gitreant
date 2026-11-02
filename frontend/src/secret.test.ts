@@ -47,6 +47,7 @@ async function secretSent(
   session: Storage,
   posted: string | null = null,
   addresses: string[] = [],
+  removed: string[] = [],
 ) {
   const fetch = vi.fn(
     async (_input: string, _init: RequestInit) => new Response("{}"),
@@ -57,7 +58,7 @@ async function secretSent(
   vi.stubGlobal("document", {
     querySelector: (selector: string) =>
       selector === 'meta[name="gitreant-secret"]' && posted !== null
-        ? { content: posted }
+        ? { content: posted, remove: () => removed.push(posted) }
         : null,
   });
   vi.stubGlobal("window", {
@@ -88,16 +89,33 @@ test("the secret stays with its tab, out of storage other tabs read", async () =
   expect(await secretSent("", local, session)).toBe("5ec2e7");
   expect(await secretSent("", local, memoryStorage())).toBeNull();
 });
-
-test("the page takes the secret posted to it, and leaves its address at /", async () => {
-  const addresses: string[] = [];
-  const session = memoryStorage();
-  expect(
-    await secretSent("", memoryStorage(), session, "5ec2e7", addresses),
-  ).toBe("5ec2e7");
-  expect(session.getItem("gitreant-token")).toBe("5ec2e7");
-  expect(addresses).toEqual(["/"]);
-
-  expect(await secretSent("#token=f00d", memoryStorage(), memoryStorage(), null, addresses)).toBe("f00d");
-  expect(addresses).toEqual(["/", "/"]);
-});
+
+test("the page takes the secret posted to it, and leaves its address at /", async () => {
+  const addresses: string[] = [];
+  const removed: string[] = [];
+  const session = memoryStorage();
+  expect(
+    await secretSent(
+      "",
+      memoryStorage(),
+      session,
+      "5ec2e7",
+      addresses,
+      removed,
+    ),
+  ).toBe("5ec2e7");
+  expect(session.getItem("gitreant-token")).toBe("5ec2e7");
+  expect(addresses).toEqual(["/"]);
+  expect(removed).toEqual(["5ec2e7"]);
+
+  expect(
+    await secretSent(
+      "#token=f00d",
+      memoryStorage(),
+      memoryStorage(),
+      null,
+      addresses,
+    ),
+  ).toBe("f00d");
+  expect(addresses).toEqual(["/", "/"]);
+});

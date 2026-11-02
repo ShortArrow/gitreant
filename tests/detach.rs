@@ -371,3 +371,51 @@ fn running_it_again_reopens_the_page_through_a_launcher() {
     assert!(wait_until(|| !ping(port), Duration::from_secs(10)));
     assert!(!launcher.exists(), "the launcher goes with the server");
 }
+
+/// `gitreant open` opens the running server's page again through a
+/// launcher that posts its secret, from any directory, and adds no
+/// repository (ADR 0076).
+#[cfg(target_os = "linux")]
+#[test]
+fn open_reopens_the_page_and_adds_no_repository() {
+    let port = free_port();
+    let state = tempfile::tempdir().unwrap();
+    let downloads = tempfile::tempdir().unwrap();
+    let tmp = tempfile::tempdir().unwrap();
+    let elsewhere = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+    let exe = env!("CARGO_BIN_EXE_gitreant");
+    let gitreant = |dir: &Path, args: &[&str]| {
+        Command::new(exe)
+            .current_dir(dir)
+            .env("GITREANT_STATE_DIR", state.path())
+            .env("XDG_DOWNLOAD_DIR", downloads.path())
+            .args(args)
+            .status()
+            .unwrap()
+    };
+    let path = tmp.path().to_string_lossy().into_owned();
+    let port_arg = port.to_string();
+    assert!(gitreant(tmp.path(), &[&path, "--port", &port_arg, "--no-open"]).success());
+    assert!(wait_until(|| ping(port), Duration::from_secs(30)));
+    let before = get_repos(port, state.path());
+
+    assert!(gitreant(elsewhere.path(), &["--port", &port_arg, "open"]).success());
+    let launcher = downloads
+        .path()
+        .join(".gitreant")
+        .join(format!("open-{port}.html"));
+    let html = std::fs::read_to_string(&launcher).expect("a launcher");
+    let secret = gitreant::records::token(state.path(), port).expect("a record");
+    assert!(html.contains(&format!("value=\"{secret}\"")), "{html}");
+    let body = |resp: &str| {
+        resp.split("\r\n\r\n")
+            .nth(1)
+            .unwrap_or_default()
+            .to_string()
+    };
+    assert_eq!(body(&get_repos(port, state.path())), body(&before));
+
+    assert!(gitreant(elsewhere.path(), &["--port", &port_arg, "--shutdown"]).success());
+    assert!(wait_until(|| !ping(port), Duration::from_secs(10)));
+}
