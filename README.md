@@ -98,7 +98,8 @@ and Termux, with a `SHA256SUMS`. To build from source, see
 ```
 gitreant [PATH...]
   -p, --port <PORT>   port to listen on / connect to (default 4000); left out,
-                      --shutdown, restart and refresh find the running server
+                      --shutdown, restart, refresh and open find the running
+                      server
       --no-open       do not open the browser automatically
       --app           open in a chromeless window instead of a tab (needs a
                       Chromium-based browser; falls back to the ordinary

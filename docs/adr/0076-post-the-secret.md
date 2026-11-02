@@ -50,7 +50,9 @@ for a year, and the page then set its address to `/` with
   `--no-launcher`, and on Android, where the browser cannot read the
   launcher, the browser is handed
   `http://127.0.0.1:<port>/?<value>#token=<secret>`, whose query, new at
-  each start, keeps it clear of a response another program cached. In WSL
+  each start, keeps it clear of a response another program cached. The
+  page takes the fragment out of its address and keeps the query, so a
+  reload asks for the same address. In WSL
   and where the launcher file cannot be written, the browser is not
   opened, as [ADR 0072](0072-no-browser-showing-the-secret.md) decided.
 - **`gitreant open` opens the page again.** It asks the running server to
@@ -73,6 +75,7 @@ for a year, and the page then set its address to `/` with
 - A service worker left on the port still reads the secret, the case ADR
   0073 accepts.
 - The launcher's form, the guard's exception for a `POST` to `/`, the
-  page answered to a matching and a mismatching secret with its base,
+  page and its base answered to a matching secret and nothing of it to
+  another,
   the page's reading and removal of the secret, and `gitreant open` are
   each tested.

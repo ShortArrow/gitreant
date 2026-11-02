@@ -75,7 +75,7 @@ $ cargo install gitreant
 ```
 gitreant [PATH...]
   -p, --port <PORT>   待受/接続ポート（既定 4000）。省くと、--shutdown・
-                      restart・refresh は動いているサーバを探す
+                      restart・refresh・open は動いているサーバを探す
       --no-open       ブラウザを自動で開かない
       --app           タブではなく枠なしウィンドウで開く（Chromium系が
                       必要。無ければ通常のブラウザで開く。--no-open が優先）

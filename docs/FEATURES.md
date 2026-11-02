@@ -214,8 +214,8 @@ Git for Windows' own, which cannot see a GnuPG or Gpg4win keyring.
   runtime dependencies.
 - **Detaches from the terminal.** It runs in the background by default;
   `gitreant --shutdown` stops it, and `--foreground` keeps it attached.
-  `gitreant list` shows the running servers, and `--shutdown`, `restart`
-  and `refresh` find the only one without `--port`. With `--verbose` it
+  `gitreant list` shows the running servers, and `--shutdown`, `restart`,
+  `refresh` and `open` find the only one without `--port`. With `--verbose` it
   also shows how each repository came: at startup, from the CLI or from the
   browser.
 - **A secret per start.** Every API request carries a secret the server
@@ -224,9 +224,9 @@ Git for Windows' own, which cannot see a GnuPG or Gpg4win keyring.
   `http://127.0.0.1:<port>/` at every start and carries no secret;
   `gitreant` opens the page through a launcher file that posts the secret
   to it, and a page opened without the secret names `gitreant open`, which
-  opens it again. `gitreant` forwards
-  to a running server, opens its page, stops it or asks it to re-verify
-  signatures only once it proves it holds the secret. The page asks the
+  opens it again. `gitreant` forwards to a running server, opens its page,
+  stops it or asks it to re-verify signatures only once it proves it holds
+  the secret. The page asks the
   browser to clear what it cached for the origin, loads its own files from
   a path new at each start, and keeps the secret for its own tab.
 - **A dedicated window.** `--app` opens it as a window without an address
