@@ -85,3 +85,4 @@ are canonical; the files below are their English translations.
 | [0075](0075-prove-before-opening.md) | Prove the server again just before handing out its page | Accepted |
 | [0076](0076-post-the-secret.md) | Hand the secret over in a POST, at a fixed address | Accepted |
 | [0077](0077-private-records-on-windows.md) | Give the server records an access list of their own on Windows | Accepted |
+| [0078](0078-show-a-file-run-nothing.md) | Show a changed file in the file manager, and run nothing | Accepted |
