@@ -79,3 +79,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0073](0073-page-under-a-path-of-each-start.jp.md) | ページを起動ごとのパスの下で開き、ページが動かし続けるものは受け入れる | Accepted |
 | [0074](0074-prove-before-stopping.jp.md) | サーバの停止と署名の再検証の前にも秘密を示させる | Accepted |
 | [0075](0075-prove-before-opening.jp.md) | ページを渡す直前にもう一度サーバに秘密を示させる | Accepted |
+| [0076](0076-post-the-secret.jp.md) | 秘密は POST で渡し、アドレスは固定する | Accepted |

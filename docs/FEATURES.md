@@ -220,14 +220,13 @@ Git for Windows' own, which cannot see a GnuPG or Gpg4win keyring.
   browser.
 - **A secret per start.** Every API request carries a secret the server
   makes when it starts, so another account on the same machine cannot
-  read or change the repositories it shows. `gitreant` opens the page with
-  it, and `gitreant list` prints each server's address with it; a page
-  opened without it says so. `gitreant` forwards to a running server,
-  opens its page, stops it or asks it to re-verify signatures only once it
-  proves it holds the secret. The page opens
-  under a path new at each start, where nothing a program that held the
-  port before left in the browser's cache answers for it, and asks the
-  browser to clear the rest of that cache. It keeps the secret for its own
-  tab, so a page opened from a bookmark has none.
+  read or change the repositories it shows. The page's address is
+  `http://127.0.0.1:<port>/` at every start and carries no secret;
+  `gitreant` opens the page through a launcher file that posts the secret
+  to it, and a page opened without the secret says so. `gitreant` forwards
+  to a running server, opens its page, stops it or asks it to re-verify
+  signatures only once it proves it holds the secret. The page asks the
+  browser to clear what it cached for the address, and keeps the secret
+  for its own tab, so a page opened from a bookmark has none.
 - **A dedicated window.** `--app` opens it as a window without an address
   bar (needs a Chromium-based browser).

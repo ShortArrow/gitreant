@@ -16,7 +16,10 @@ is weighed.
 
 - The server binds to 127.0.0.1 only. It answers only requests addressed to
   a loopback name, and changes state only for its own page or a client that
-  is not a page ([ADR 0038](adr/0038-loopback-request-guard.md)).
+  is not a page ([ADR 0038](adr/0038-loopback-request-guard.md)). A `POST`
+  to `/`, which opens the page, passes from any origin and is answered
+  only when its body carries the secret
+  ([ADR 0076](adr/0076-post-the-secret.md)).
 - Every request under `/api/` carries a secret the server draws from the
   operating system's random source at each start; only `/api/ping`, which
   says a gitreant answers, needs none. The CLI trusts a running server only
