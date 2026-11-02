@@ -29,9 +29,11 @@ function secretPosted(): string | null {
 }
 
 /** Take the secret posted to the page or handed over in its address, keep
- * it for this tab, and leave the address at the page's own, with no secret
- * and no value of this start; else use the one this tab kept. A secret an
- * earlier version kept for every tab is dropped. */
+ * it for this tab, and take it out of the address bar and the session's
+ * history, keeping the query of this start an address handing it over
+ * carries, so a reload does not ask for a page another program cached at
+ * `/`; else use the one this tab kept. A secret an earlier version kept for
+ * every tab is dropped. */
 export function initSecret() {
   try {
     localStorage.removeItem(SECRET_KEY);
@@ -45,7 +47,11 @@ export function initSecret() {
     } catch {
       // Without storage, the secret lasts as long as this page.
     }
-    window.history.replaceState(null, "", window.location.pathname);
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + window.location.search,
+    );
     secret = handed;
     return;
   }

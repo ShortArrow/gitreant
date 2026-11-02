@@ -44,18 +44,18 @@ struct Cli {
     port: Option<u16>,
 
     /// Do not open a browser window.
-    #[arg(long)]
+    #[arg(long, global = true)]
     no_open: bool,
 
     /// Hand the browser the page's address with the secret in it, rather
     /// than a launcher file that posts the secret to the page. In WSL, or
     /// where no launcher file can be written, the browser opens only with
     /// this.
-    #[arg(long)]
+    #[arg(long, global = true)]
     no_launcher: bool,
 
     /// Open in a chromeless app window instead of a browser tab.
-    #[arg(long)]
+    #[arg(long, global = true)]
     app: bool,
 
     /// Run the server in the current terminal instead of detaching.
@@ -317,8 +317,14 @@ fn open_page(cli: &Cli) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    println!("opening {}", launch::page_url(port));
-    open_browser(cli, port, &token);
+    if cli.no_open {
+        eprintln!("nothing to open: --no-open was given");
+        return ExitCode::FAILURE;
+    }
+    if !open_browser(cli, port, &token) {
+        return ExitCode::FAILURE;
+    }
+    println!("opened {}", launch::page_url(port));
     ExitCode::SUCCESS
 }
 
@@ -704,10 +710,12 @@ fn trusted(port: u16) -> Result<String, String> {
     }
 }
 
+/// Hand the browser the page of the server on `port`, whether it was
+/// handed over.
 #[cfg(not(target_os = "android"))]
-fn open_browser(cli: &Cli, port: u16, token: &str) {
+fn open_browser(cli: &Cli, port: u16, token: &str) -> bool {
     if cli.no_open {
-        return;
+        return false;
     }
     let address_allowed = cli.no_launcher;
     let launcher = (!address_allowed)
@@ -719,12 +727,12 @@ fn open_browser(cli: &Cli, port: u16, token: &str) {
             "not opening the browser: no launcher file can hand it the secret here; \
              pass --no-launcher to hand it the address with the secret instead"
         );
-        return;
+        return false;
     };
     if cli.app && open_app_window(&target) {
-        return;
+        return true;
     }
-    let _ = open::that(&target);
+    open::that(&target).is_ok()
 }
 
 /// The address of a launcher file that posts `token` to the page, opened in
@@ -775,14 +783,15 @@ fn open_app_window(url: &str) -> bool {
 /// file: try its own URL handler with the address holding the secret, and
 /// always print that address so the user can tap or paste it (ADR 0076).
 #[cfg(target_os = "android")]
-fn open_browser(cli: &Cli, port: u16, token: &str) {
+fn open_browser(cli: &Cli, port: u16, token: &str) -> bool {
     let address = launch::address_with_secret(port, token);
-    if !cli.no_open {
-        let _ = std::process::Command::new("termux-open-url")
+    let opened = !cli.no_open
+        && std::process::Command::new("termux-open-url")
             .arg(&address)
-            .spawn();
-    }
+            .spawn()
+            .is_ok();
     println!("open the page with its secret at {address}");
+    opened
 }
 
 fn unix_now() -> i64 {

@@ -384,6 +384,7 @@ fn open_reopens_the_page_and_adds_no_repository() {
     let tmp = tempfile::tempdir().unwrap();
     let elsewhere = tempfile::tempdir().unwrap();
     init_repo_with_commit(tmp.path());
+    init_repo_with_commit(elsewhere.path());
     let exe = env!("CARGO_BIN_EXE_gitreant");
     let gitreant = |dir: &Path, args: &[&str]| {
         Command::new(exe)
@@ -399,12 +400,19 @@ fn open_reopens_the_page_and_adds_no_repository() {
     assert!(gitreant(tmp.path(), &[&path, "--port", &port_arg, "--no-open"]).success());
     assert!(wait_until(|| ping(port), Duration::from_secs(30)));
     let before = get_repos(port, state.path());
-
-    assert!(gitreant(elsewhere.path(), &["--port", &port_arg, "open"]).success());
     let launcher = downloads
         .path()
         .join(".gitreant")
         .join(format!("open-{port}.html"));
+    assert!(!launcher.exists());
+
+    assert!(!gitreant(
+        elsewhere.path(),
+        &["--port", &port_arg, "open", "--no-open"]
+    )
+    .success());
+    assert!(!launcher.exists(), "--no-open opens nothing");
+    assert!(gitreant(elsewhere.path(), &["--port", &port_arg, "open"]).success());
     let html = std::fs::read_to_string(&launcher).expect("a launcher");
     let secret = gitreant::records::token(state.path(), port).expect("a record");
     assert!(html.contains(&format!("value=\"{secret}\"")), "{html}");

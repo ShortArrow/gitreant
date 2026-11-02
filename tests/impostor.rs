@@ -204,6 +204,7 @@ fn stopping_where_nothing_answers_says_so() {
         &["--port", &port, "refresh"][..],
         &["--port", &port, "--shutdown"],
         &["--port", &port, "open"],
+        &["open", "--no-launcher", "--port", &port],
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_gitreant"))
             .env("GITREANT_STATE_DIR", state.path())

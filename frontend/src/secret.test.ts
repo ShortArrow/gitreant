@@ -62,7 +62,7 @@ async function secretSent(
         : null,
   });
   vi.stubGlobal("window", {
-    location: { hash, pathname: "/", search: "?1a2b" },
+    location: { hash, pathname: "/", search: hash ? "?1a2b" : "" },
     history: {
       replaceState: (_state: unknown, _title: string, url: string) =>
         addresses.push(url),
@@ -90,7 +90,7 @@ test("the secret stays with its tab, out of storage other tabs read", async () =
   expect(await secretSent("", local, memoryStorage())).toBeNull();
 });
 
-test("the page takes the secret posted to it, and leaves its address at /", async () => {
+test("the page takes the secret posted or handed to it, and keeps it out of the address", async () => {
   const addresses: string[] = [];
   const removed: string[] = [];
   const session = memoryStorage();
@@ -117,5 +117,5 @@ test("the page takes the secret posted to it, and leaves its address at /", asyn
       addresses,
     ),
   ).toBe("f00d");
-  expect(addresses).toEqual(["/", "/"]);
+  expect(addresses).toEqual(["/", "/?1a2b"]);
 });
