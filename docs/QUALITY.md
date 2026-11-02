@@ -57,9 +57,9 @@ is weighed.
   validity of a submodule's declared target is the repository maintainer's
   responsibility; gitreant only renders declared paths (those that are git
   repositories) read-only, with no isolation beyond what plain git offers.
-  What git itself runs from a repository's configuration, such as
-  `core.fsmonitor`, runs as it would under plain git. gitreant itself never
-  runs a repository's file
+  What git itself runs from a repository, such as `core.fsmonitor` or a
+  hook, runs as it would under plain git. gitreant itself never runs a
+  repository's file
   ([ADR 0078](adr/0078-show-a-file-run-nothing.md)); defending against
   untrusted repository content beyond that is out of scope.
 

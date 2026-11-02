@@ -31,6 +31,9 @@ shell had no part to play there.
 - **So does the repository's folder.** Explorer opens it directly, Finder
   shows it selected (`open -R`), and elsewhere the opener is handed the
   folder, as it was.
+- **gitreant probes only the gpg the user's or the system's git
+  configuration names.** It runs that program itself with `--version`, so
+  it no longer reads `gpg.program` from a repository it was started in.
 - **The menu says what happens.** The file's entry reads as the drawer's
   does, "Reveal in file manager". Opening a file for editing stays with the
   editors the user listed and, on Windows, the system's chooser.
@@ -39,10 +42,15 @@ shell had no part to play there.
 
 - Choosing the entry no longer opens a file in its default application.
 - A program in a repository is shown and not run.
+- `gitreant doctor` and the signature check's probe ignore a repository's
+  `gpg.program`. Git still honours it when it verifies a signature there, as
+  plain git does.
 - On macOS, revealing a repository shows it selected in its parent folder
   rather than opening it.
 - On Linux, the file is not selected in the folder that opens.
-- Unit tests check Explorer's arguments and the folder chosen for a path. A
+- A CLI test runs `gitreant doctor` in a repository whose `gpg.program`
+  names a script, and checks that the script did not run. Unit tests check
+  Explorer's arguments and the folder chosen for a path. A
   Linux test faces a running server with an opener that records what it is
   handed, and checks that an executable file, `.` and the repository each
   hand it the repository's folder. Nothing tests the Finder route. On
