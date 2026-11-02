@@ -79,8 +79,8 @@ gitreant [PATH...]
       --no-open       ブラウザを自動で開かない
       --app           タブではなく枠なしウィンドウで開く（Chromium系が
                       必要。無ければ通常のブラウザで開く。--no-open が優先）
-      --no-launcher   Linux と macOS で、秘密をコマンドラインに載せない起動用
-                      ファイルではなく、秘密付きのアドレスをブラウザに渡す。
+      --no-launcher   秘密をページへ POST する起動用ファイルではなく、
+                      秘密付きのアドレスをブラウザに渡す。
                       WSL や起動用ファイルを書けないときは、これを付けた
                       ときだけブラウザを開く
       --foreground    detachせず現在のターミナルでサーバを実行
@@ -92,8 +92,8 @@ gitreant doctor       環境を確かめる。git（必須）、gh と gpg（機
                       なければ 0 以外で終わる。gpg は、gpg.program で決めたか
                       PATH で見つけた、git が使うものを示し、それが Git for
                       Windows 付属のものなら注意を出す
-gitreant list         稼働中のサーバを 1 行ずつ表示（ページに要る秘密付きの
-                      URL・pid・起動時刻・版・表示中のリポジトリの数）
+gitreant list         稼働中のサーバを 1 行ずつ表示（URL・pid・起動時刻・版・
+                      表示中のリポジトリの数）
   --verbose           各サーバのリポジトリと、それぞれがいつどう加わったか
                       （起動時・CLI・ブラウザ）も表示
   --json              すべてを JSON で出力
