@@ -180,8 +180,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   browser is not opened without it
   ([ADR 0072](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0072-no-browser-showing-the-secret.md)).
   The page clears the browser's cache for its origin, loads its own files
-  from a path new at each start, and keeps the secret for its own tab. A service worker another program left on the port
-  still reads the secret, as can a window of its page when gitreant's page
+  from a path new at each start, and keeps the secret for its own tab. A
+  service worker another program left on the port still reads the secret, as can a window of its page when gitreant's page
   opens in a tab that window holds; both are accepted
   ([ADR 0073](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0073-page-under-a-path-of-each-start.md)).
 - `gitreant` forwards repositories to a running server, reads its list to
