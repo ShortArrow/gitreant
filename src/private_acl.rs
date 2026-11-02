@@ -23,10 +23,18 @@ use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken}
 /// current user, SYSTEM and Administrators, for it and what it holds; the
 /// files already in it take it too.
 pub fn protect(dir: &Path) -> io::Result<()> {
-    let sddl = format!(
-        "D:P(A;OICI;FA;;;{})(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)",
-        user_sid()?
-    );
+    set_dacl(
+        dir,
+        &format!(
+            "D:P(A;OICI;FA;;;{})(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)",
+            user_sid()?
+        ),
+    )
+}
+
+/// Set the access list `sddl` describes on `dir`, the files already in it
+/// taking its inheritable entries.
+fn set_dacl(dir: &Path, sddl: &str) -> io::Result<()> {
     let sddl = wide(sddl.as_ref());
     let path = wide(dir.as_os_str());
     let mut descriptor: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
@@ -88,9 +96,10 @@ fn user_sid() -> io::Result<String> {
             size,
             &mut size,
         );
+        let failure = (read == 0).then(io::Error::last_os_error);
         CloseHandle(token);
-        if read == 0 {
-            return Err(io::Error::last_os_error());
+        if let Some(failure) = failure {
+            return Err(failure);
         }
         let user = buffer.as_ptr().cast::<TOKEN_USER>().read_unaligned();
         let mut text: *mut u16 = std::ptr::null_mut();
@@ -169,14 +178,22 @@ mod tests {
     #[test]
     fn a_protected_directory_and_what_it_holds_grant_only_the_user_system_and_administrators() {
         let tmp = tempfile::tempdir().unwrap();
+        let user = user_sid();
+        // A parent that also lets every user read, as a profile may let a
+        // sandbox's group, so what is already inside inherits that.
+        set_dacl(
+            tmp.path(),
+            &format!("D:P(A;OICI;FA;;;{user})(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FR;;;BU)"),
+        )
+        .unwrap();
         let dir = tmp.path().join("servers");
         std::fs::create_dir(&dir).unwrap();
         let held = dir.join("4000.json");
         std::fs::write(&held, "{}").unwrap();
+        assert!(trustees(&dacl_sddl(&held)).contains(&"BU".to_string()));
 
         protect(&dir).unwrap();
 
-        let user = user_sid();
         for path in [&dir, &held] {
             let sddl = dacl_sddl(path);
             let dacl = sddl.split("D:").nth(1).unwrap_or_default();

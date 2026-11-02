@@ -28,7 +28,7 @@ async function waitForServer(port: number, timeoutMs: number) {
 /** The secret the server on `port` wrote in its record (ADR 0063), which
  * the page is opened with and the tests' own API requests carry. */
 export function serverSecret(port: number): string {
-  const dir = path.join(frontendDir, "e2e", ".tmp", "servers");
+  const dir = path.join(frontendDir, "e2e", ".tmp", "state", "servers");
   const record = path.join(dir, `${port}.json`);
   return (JSON.parse(readFileSync(record, "utf8")) as { token: string }).token;
 }
@@ -64,7 +64,7 @@ export async function buildAndServe(
       stdio: "ignore",
       env: {
         ...process.env,
-        GITREANT_STATE_DIR: path.join(frontendDir, "e2e", ".tmp", "servers"),
+        GITREANT_STATE_DIR: path.join(frontendDir, "e2e", ".tmp", "state"),
         GITREANT_CONFIG_DIR: path.join(frontendDir, "e2e", ".tmp", "config"),
       },
     },

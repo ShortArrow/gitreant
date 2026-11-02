@@ -35,7 +35,7 @@ pub fn dir() -> Option<PathBuf> {
 
 fn dir_from(var: impl Fn(&str) -> Option<String>) -> Option<PathBuf> {
     if let Some(dir) = var("GITREANT_STATE_DIR") {
-        return Some(PathBuf::from(dir));
+        return Some(PathBuf::from(dir).join("servers"));
     }
     let base = if cfg!(windows) {
         PathBuf::from(var("LOCALAPPDATA")?)
@@ -212,7 +212,7 @@ mod tests {
         };
         assert_eq!(
             dir_from(env(&[("GITREANT_STATE_DIR", "/t/state"), ("HOME", "/h")])),
-            Some(PathBuf::from("/t/state"))
+            Some(Path::new("/t/state").join("servers"))
         );
         let base = dir_from(env(&[
             ("LOCALAPPDATA", "/l"),
