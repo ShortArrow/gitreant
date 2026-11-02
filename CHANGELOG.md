@@ -159,6 +159,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- On Windows the directory holding each server's record and its secret
+  gets an access list of its own, granting only the user, SYSTEM and
+  Administrators; it inherited whatever the profile granted, which on one
+  machine let a sandbox's accounts read the secret
+  ([ADR 0077](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0077-private-records-on-windows.md)).
 - The server refuses requests addressed to any name but a loopback one,
   which DNS rebinding would need, and state changes from another site's
   page, such as a shutdown sent from any open tab
