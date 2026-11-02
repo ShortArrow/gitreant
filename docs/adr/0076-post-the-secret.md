@@ -70,6 +70,11 @@ for a year, and the page then set its address to `/` with
   `GET`. That page is kept clear of a response another program cached
   only where the browser clears its cache on `Clear-Site-Data: "cache"`;
   its scripts and styles are, wherever it is answered by the server.
+- A page opened by the post is reloaded at `/` with `GET`. A cache that
+  follows RFC 9111, section 4.4, drops what it stored for `/` once the
+  post to `/` is answered, so the reload reaches the server even where
+  `Clear-Site-Data` is ignored; Chromium was seen to do so, Firefox and
+  Safari were not tried.
 - Opening `/` by hand while gitreant is not running is also how another
   account's page reaches the browser, the case ADR 0073 accepts.
 - A service worker left on the port still reads the secret, the case ADR
