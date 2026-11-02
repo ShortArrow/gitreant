@@ -16,14 +16,21 @@ program it runs, and left it. So the repository's file extension chose the
 program to run, against the rule in [QUALITY](../QUALITY.md) that a request
 picks a program only by its place in a list the user configured.
 
+The repository's folder went the same way. On macOS `open` runs a folder
+named `x.app` that holds a program, and a repository or submodule can be
+named so. On Windows the handler went through `cmd /c start`; a script
+beside the folder did not run when this was tried on 2026-11-02, but a
+shell had no part to play there.
+
 ## Decision
 
 - **A file goes to the file manager, not to the default handler.**
   `/api/reveal` shows it selected in Explorer (`explorer /select,`) or
   Finder (`open -R`), and elsewhere opens the folder holding it, where no
   opener can select a file. ADR 0070's checks on the path still come first.
-- **The default handler opens only the repository's folder**, as the drawer
-  asks.
+- **So does the repository's folder.** Explorer opens it directly, Finder
+  shows it selected (`open -R`), and elsewhere the opener is handed the
+  folder, as it was.
 - **The menu says what happens.** The file's entry reads as the drawer's
   does, "Reveal in file manager". Opening a file for editing stays with the
   editors the user listed and, on Windows, the system's chooser.
@@ -32,9 +39,12 @@ picks a program only by its place in a list the user configured.
 
 - Choosing the entry no longer opens a file in its default application.
 - A program in a repository is shown and not run.
+- On macOS, revealing a repository shows it selected in its parent folder
+  rather than opening it.
 - On Linux, the file is not selected in the folder that opens.
-- A unit test checks Explorer's argument. A Linux test faces a running
-  server with an opener that records what it is handed, and checks that it
-  gets the folder and that an executable file did not run. On 2026-11-02,
-  on Windows, a running server was asked to reveal a `run.cmd` and its
-  marker file did not appear.
+- Unit tests check Explorer's arguments and the folder chosen for a path. A
+  Linux test faces a running server with an opener that records what it is
+  handed, and checks that an executable file, `.` and the repository each
+  hand it the repository's folder. Nothing tests the Finder route. On
+  2026-11-02, on Windows, a running server was asked to reveal a `run.cmd`
+  and its folder, and the marker file did not appear.
