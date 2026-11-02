@@ -458,7 +458,8 @@ fn open_reopens_the_page_and_adds_no_repository() {
 }
 
 /// Revealing a file hands its folder to the opener, so a program in a
-/// repository is shown and never run (ADR 0078).
+/// repository is never handed over to run; a folder goes as it is
+/// (ADR 0078).
 #[cfg(target_os = "linux")]
 #[test]
 fn revealing_a_program_opens_its_folder_and_runs_nothing() {
@@ -468,9 +469,8 @@ fn revealing_a_program_opens_its_folder_and_runs_nothing() {
     let state = tempfile::tempdir().unwrap();
     let tmp = tempfile::tempdir().unwrap();
     init_repo_with_commit(tmp.path());
-    let ran = tmp.path().join("ran");
     let program = tmp.path().join("run.sh");
-    std::fs::write(&program, format!("#!/bin/sh\ntouch '{}'\n", ran.display())).unwrap();
+    std::fs::write(&program, "#!/bin/sh\n").unwrap();
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
 
     let opener = tempfile::tempdir().unwrap();
@@ -510,27 +510,30 @@ fn revealing_a_program_opens_its_folder_and_runs_nothing() {
         .expect("a repository id")
         .to_string();
     let secret = gitreant::records::token(&state.path().join("servers"), port).expect("the record");
-    let body = serde_json::json!({ "repo": id, "path": "run.sh" }).to_string();
-    let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
-    write!(
-        stream,
-        "POST /api/reveal HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Gitreant-Token: {secret}\r\n\
-         Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-        body.len()
-    )
-    .unwrap();
-    let mut resp = String::new();
-    stream.read_to_string(&mut resp).unwrap();
-    assert!(resp.starts_with("HTTP/1.1 200"), "{resp}");
-
-    assert!(wait_until(|| opened.exists(), Duration::from_secs(10)));
-    let handed = std::fs::read_to_string(&opened).unwrap();
+    let reveal = |body: serde_json::Value| {
+        let _ = std::fs::remove_file(&opened);
+        let body = body.to_string();
+        let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+        write!(
+            stream,
+            "POST /api/reveal HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Gitreant-Token: {secret}\r\n\
+             Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        )
+        .unwrap();
+        let mut resp = String::new();
+        stream.read_to_string(&mut resp).unwrap();
+        assert!(resp.starts_with("HTTP/1.1 200"), "{resp}");
+        assert!(wait_until(|| opened.exists(), Duration::from_secs(10)));
+        std::fs::canonicalize(std::fs::read_to_string(&opened).unwrap()).unwrap()
+    };
+    let root = std::fs::canonicalize(tmp.path()).unwrap();
     assert_eq!(
-        std::fs::canonicalize(&handed).unwrap(),
-        std::fs::canonicalize(tmp.path()).unwrap(),
-        "{handed}"
+        reveal(serde_json::json!({ "repo": id, "path": "run.sh" })),
+        root
     );
-    assert!(!ran.exists(), "the program ran");
+    assert_eq!(reveal(serde_json::json!({ "repo": id, "path": "." })), root);
+    assert_eq!(reveal(serde_json::json!({ "repo": id })), root);
 
     assert!(gitreant(&["--port", &port_arg, "--shutdown"]).success());
     assert!(wait_until(|| !ping(port), Duration::from_secs(10)));

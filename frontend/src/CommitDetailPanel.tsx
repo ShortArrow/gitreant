@@ -132,7 +132,7 @@ export function CommitDetailPanel({
   signatureKey?: string;
   /** Called with the repository-relative path of a clicked file. */
   onSelectFile: (path: string) => void;
-  /** Open a changed file with the OS default handler. */
+  /** Show a changed file in the file manager. */
   onRevealFile: (path: string) => void;
   /** The editors a file can also open with, read when its menu opens. */
   loadEditors?: () => Promise<Editor[]>;

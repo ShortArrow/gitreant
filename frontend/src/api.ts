@@ -595,8 +595,8 @@ export async function pickFolder(): Promise<string | null> {
   return data.path;
 }
 
-/** Open a repository folder (or a repository-relative file when `path` is
- * given) with the OS default handler on the server machine. */
+/** Show a repository folder (or a repository-relative file when `path` is
+ * given) in the file manager on the server machine. */
 export async function revealPath(repo: string, path?: string): Promise<void> {
   const response = await apiFetch("/api/reveal", {
     method: "POST",

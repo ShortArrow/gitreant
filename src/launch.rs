@@ -119,20 +119,46 @@ pub fn browser_target(
 
 /// Show `file` in the system's file manager without running it: handed to
 /// the default handler, a script or program in a repository would run
-/// (ADR 0078). Explorer's exit code says nothing, so it goes unread.
+/// (ADR 0078).
 #[cfg(windows)]
 pub fn reveal_file(file: &Path) -> std::io::Result<()> {
+    explorer(select_argument(file))
+}
+
+/// Show the folder `dir` in the system's file manager, by Explorer itself
+/// rather than through a shell (ADR 0078).
+#[cfg(windows)]
+pub fn reveal_folder(dir: &Path) -> std::io::Result<()> {
+    explorer(folder_argument(dir))
+}
+
+/// Run Explorer with `argument`, quoted as it needs. Its exit code says
+/// nothing, so it goes unread.
+#[cfg(windows)]
+fn explorer(argument: String) -> std::io::Result<()> {
     use std::os::windows::process::CommandExt;
     std::process::Command::new("explorer")
-        .raw_arg(select_argument(file))
+        .raw_arg(argument)
         .status()
         .map(|_| ())
 }
 
-/// Show `file` in the system's file manager without running it (ADR 0078).
+/// Explorer's argument to select `file`.
+#[cfg(windows)]
+fn select_argument(file: &Path) -> String {
+    format!("/select,{}", folder_argument(file))
+}
+
+/// `path` quoted, with the backslashes Explorer needs.
+#[cfg(windows)]
+fn folder_argument(path: &Path) -> String {
+    format!("\"{}\"", path.to_string_lossy().replace('/', "\\"))
+}
+
+/// Show `file` selected in Finder without running it (ADR 0078).
 #[cfg(target_os = "macos")]
 pub fn reveal_file(file: &Path) -> std::io::Result<()> {
-    let status = std::process::Command::new("open")
+    let status = std::process::Command::new("/usr/bin/open")
         .arg("-R")
         .arg(file)
         .status()?;
@@ -143,20 +169,34 @@ pub fn reveal_file(file: &Path) -> std::io::Result<()> {
     }
 }
 
-/// Open the folder holding `file`, without running it: no opener here can
+/// Show the folder `dir` selected in Finder: opened, a folder named `x.app`
+/// that holds a program would run (ADR 0078).
+#[cfg(target_os = "macos")]
+pub fn reveal_folder(dir: &Path) -> std::io::Result<()> {
+    reveal_file(dir)
+}
+
+/// Open the folder showing `file`, without running it: no opener here can
 /// select a file in it (ADR 0078).
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
 pub fn reveal_file(file: &Path) -> std::io::Result<()> {
-    open::that(file.parent().unwrap_or(file))
+    open::that(folder_showing(file))
 }
 
-/// Explorer's argument to select `file`, by the plain Windows path it needs:
-/// it reads neither forward slashes nor the verbatim prefix.
-#[cfg(windows)]
-fn select_argument(file: &Path) -> String {
-    let path = file.to_string_lossy().replace('/', "\\");
-    let path = path.strip_prefix(r"\\?\").unwrap_or(&path);
-    format!("/select,\"{path}\"")
+/// Open the folder `dir`.
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+pub fn reveal_folder(dir: &Path) -> std::io::Result<()> {
+    open::that(dir)
+}
+
+/// `path` when it is a folder, else the folder holding it.
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+fn folder_showing(path: &Path) -> &Path {
+    if path.is_dir() {
+        path
+    } else {
+        path.parent().unwrap_or(path)
+    }
 }
 
 /// Let a spawned program outlive this process and its console: its own
@@ -282,15 +322,25 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
-    fn explorer_selects_a_file_by_its_plain_windows_path() {
+    fn explorer_selects_a_file_and_opens_a_folder_by_a_windows_path() {
         assert_eq!(
             select_argument(Path::new(r"C:\a b/sub/run.cmd")),
             r#"/select,"C:\a b\sub\run.cmd""#
         );
         assert_eq!(
-            select_argument(Path::new(r"\\?\C:\repo\run.cmd")),
-            r#"/select,"C:\repo\run.cmd""#
+            folder_argument(Path::new(r"C:\a b/x.cmd")),
+            r#""C:\a b\x.cmd""#
         );
+    }
+
+    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+    #[test]
+    fn the_folder_shown_for_a_path_is_its_own_or_the_one_holding_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let file = tmp.path().join("run.sh");
+        std::fs::write(&file, "").unwrap();
+        assert_eq!(folder_showing(&file), tmp.path());
+        assert_eq!(folder_showing(tmp.path()), tmp.path());
     }
 
     #[test]
