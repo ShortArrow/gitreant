@@ -378,6 +378,7 @@ fn running_it_again_reopens_the_page_through_a_launcher() {
 #[cfg(target_os = "linux")]
 #[test]
 fn open_reopens_the_page_and_adds_no_repository() {
+    use std::os::unix::fs::PermissionsExt;
     let port = free_port();
     let state = tempfile::tempdir().unwrap();
     let downloads = tempfile::tempdir().unwrap();
@@ -385,19 +386,34 @@ fn open_reopens_the_page_and_adds_no_repository() {
     let elsewhere = tempfile::tempdir().unwrap();
     init_repo_with_commit(tmp.path());
     init_repo_with_commit(elsewhere.path());
+    // A runner has no desktop: an opener that only succeeds stands in for one.
+    let opener = tempfile::tempdir().unwrap();
+    let xdg_open = opener.path().join("xdg-open");
+    std::fs::write(&xdg_open, "#!/bin/sh\nexit 0\n").unwrap();
+    std::fs::set_permissions(&xdg_open, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let path_var = format!(
+        "{}:{}",
+        opener.path().display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
     let exe = env!("CARGO_BIN_EXE_gitreant");
     let gitreant = |dir: &Path, args: &[&str]| {
         Command::new(exe)
             .current_dir(dir)
             .env("GITREANT_STATE_DIR", state.path())
             .env("XDG_DOWNLOAD_DIR", downloads.path())
+            .env("PATH", &path_var)
             .args(args)
-            .status()
+            .output()
             .unwrap()
     };
     let path = tmp.path().to_string_lossy().into_owned();
     let port_arg = port.to_string();
-    assert!(gitreant(tmp.path(), &[&path, "--port", &port_arg, "--no-open"]).success());
+    assert!(
+        gitreant(tmp.path(), &[&path, "--port", &port_arg, "--no-open"])
+            .status
+            .success()
+    );
     assert!(wait_until(|| ping(port), Duration::from_secs(30)));
     let before = get_repos(port, state.path());
     let launcher = downloads
@@ -406,13 +422,19 @@ fn open_reopens_the_page_and_adds_no_repository() {
         .join(format!("open-{port}.html"));
     assert!(!launcher.exists());
 
-    assert!(!gitreant(
+    let refused = gitreant(
         elsewhere.path(),
-        &["--port", &port_arg, "open", "--no-open"]
-    )
-    .success());
+        &["--port", &port_arg, "open", "--no-open"],
+    );
+    assert!(!refused.status.success(), "{refused:?}");
+    assert!(
+        String::from_utf8_lossy(&refused.stderr).contains("--no-open was given"),
+        "{refused:?}"
+    );
     assert!(!launcher.exists(), "--no-open opens nothing");
-    assert!(gitreant(elsewhere.path(), &["--port", &port_arg, "open"]).success());
+
+    let opened = gitreant(elsewhere.path(), &["--port", &port_arg, "open"]);
+    assert!(opened.status.success(), "{opened:?}");
     let html = std::fs::read_to_string(&launcher).expect("a launcher");
     let secret = gitreant::records::token(state.path(), port).expect("a record");
     assert!(html.contains(&format!("value=\"{secret}\"")), "{html}");
@@ -424,6 +446,10 @@ fn open_reopens_the_page_and_adds_no_repository() {
     };
     assert_eq!(body(&get_repos(port, state.path())), body(&before));
 
-    assert!(gitreant(elsewhere.path(), &["--port", &port_arg, "--shutdown"]).success());
+    assert!(
+        gitreant(elsewhere.path(), &["--port", &port_arg, "--shutdown"])
+            .status
+            .success()
+    );
     assert!(wait_until(|| !ping(port), Duration::from_secs(10)));
 }

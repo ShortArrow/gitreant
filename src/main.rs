@@ -732,7 +732,13 @@ fn open_browser(cli: &Cli, port: u16, token: &str) -> bool {
     if cli.app && open_app_window(&target) {
         return true;
     }
-    open::that(&target).is_ok()
+    match open::that(&target) {
+        Ok(()) => true,
+        Err(e) => {
+            eprintln!("could not start the browser: {e}");
+            false
+        }
+    }
 }
 
 /// The address of a launcher file that posts `token` to the page, opened in
@@ -781,17 +787,18 @@ fn open_app_window(url: &str) -> bool {
 
 /// Termux has no desktop opener, and its browser cannot read a launcher
 /// file: try its own URL handler with the address holding the secret, and
-/// always print that address so the user can tap or paste it (ADR 0076).
+/// always print that address so the user can tap or paste it, which hands
+/// the page over even where the handler does not start (ADR 0076).
 #[cfg(target_os = "android")]
 fn open_browser(cli: &Cli, port: u16, token: &str) -> bool {
     let address = launch::address_with_secret(port, token);
-    let opened = !cli.no_open
-        && std::process::Command::new("termux-open-url")
+    if !cli.no_open {
+        let _ = std::process::Command::new("termux-open-url")
             .arg(&address)
-            .spawn()
-            .is_ok();
+            .spawn();
+    }
     println!("open the page with its secret at {address}");
-    opened
+    true
 }
 
 fn unix_now() -> i64 {
