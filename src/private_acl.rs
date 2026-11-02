@@ -165,6 +165,16 @@ mod tests {
         super::user_sid().unwrap()
     }
 
+    /// How SDDL names the user `sid`: the built-in Administrator account,
+    /// RID 500, by its alias, as a CI runner's account may be.
+    fn sddl_name(sid: &str) -> String {
+        if sid.ends_with("-500") {
+            "LA".to_string()
+        } else {
+            sid.to_string()
+        }
+    }
+
     /// The trustees an SDDL access list grants anything to.
     fn trustees(sddl: &str) -> Vec<String> {
         let dacl = sddl.split("D:").nth(1).unwrap_or_default();
@@ -203,7 +213,7 @@ mod tests {
             let mut granted = trustees(&sddl);
             granted.sort();
             granted.dedup();
-            let mut expected = vec!["BA".to_string(), "SY".to_string(), user.clone()];
+            let mut expected = vec!["BA".to_string(), "SY".to_string(), sddl_name(&user)];
             expected.sort();
             assert_eq!(granted, expected, "{}: {sddl}", path.display());
         }
