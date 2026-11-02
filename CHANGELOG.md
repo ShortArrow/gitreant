@@ -159,6 +159,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- A changed file's menu shows the file in the file manager instead of
+  handing it to the default handler, which on Windows ran a `.cmd`, `.exe`
+  or similar in a repository. The entry now reads "Reveal in file manager"
+  ([ADR 0078](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0078-show-a-file-run-nothing.md)).
 - On Windows the directory holding each server's record and its secret
   gets an access list of its own, granting only the user, SYSTEM and
   Administrators; it inherited whatever the profile granted, which on one
