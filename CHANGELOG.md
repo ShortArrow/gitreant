@@ -165,21 +165,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([ADR 0038](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0038-loopback-request-guard.md)).
 - Every API request carries a secret the server makes at each start, so
   another account on the same machine can no longer reach the server
-  without one. `gitreant` opens the page with it in the address, and
-  `gitreant list` prints each server's address with it; a bookmark of the
-  bare address says how to open the page instead. On Linux and macOS the
-  browser is handed a launcher file that is its owner's alone, so the
-  secret stays off its command line
-  ([ADR 0063](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0063-request-token.md));
-  in WSL, or where that file cannot be written, the browser is not opened
-  unless `--no-launcher` is given
+  without one
+  ([ADR 0063](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0063-request-token.md)).
+  The page stays at `http://127.0.0.1:<port>/`, which is what `gitreant`
+  and `gitreant list` print, with no secret in it. `gitreant` opens the
+  page through a launcher file, its owner's alone, that posts the secret
+  to it, so the secret stays off the browser's command line, its address
+  bar and its history, and a response another program cached at the
+  address does not answer the post; a page opened without the secret says
+  how to open one that has it
+  ([ADR 0076](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0076-post-the-secret.md)).
+  With `--no-launcher` the browser is handed the address with the secret
+  in it instead; in WSL, or where the launcher file cannot be written, the
+  browser is not opened without it
   ([ADR 0072](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0072-no-browser-showing-the-secret.md)).
-  The page opens under a path new at each start and clears the browser's
-  cache for its origin, so a response another program left there while
-  holding the port cannot read the secret. A service worker it left still
-  can, as can a window of its page when gitreant's page opens in a tab
-  that window holds; both are accepted. The page keeps the secret for its
-  own tab, so a page opened from a bookmark no longer has it
+  The page clears the browser's cache for its origin and keeps the secret
+  for its own tab. A service worker another program left on the port
+  still reads the secret, as can a window of its page when gitreant's page
+  opens in a tab that window holds; both are accepted
   ([ADR 0073](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0073-page-under-a-path-of-each-start.md)).
 - `gitreant` forwards repositories to a running server, reads its list to
   restart it, opens its page, stops it or asks it to re-verify signatures,
