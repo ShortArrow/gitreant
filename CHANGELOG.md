@@ -161,7 +161,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A changed file's menu shows the file in the file manager instead of
   handing it to the default handler, which on Windows ran a `.cmd`, `.exe`
-  or similar in a repository. The entry now reads "Reveal in file manager"
+  or similar in a repository. The entry now reads "Reveal in file manager".
+  Revealing a repository no longer goes through the default handler either,
+  which on macOS ran a folder named like an app, and gitreant no longer
+  runs a `gpg.program` named by the repository it was started in
   ([ADR 0078](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0078-show-a-file-run-nothing.md)).
 - On Windows the directory holding each server's record and its secret
   gets an access list of its own, granting only the user, SYSTEM and
