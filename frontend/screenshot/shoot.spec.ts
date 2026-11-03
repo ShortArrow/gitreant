@@ -66,8 +66,11 @@ for (const theme of ["dark", "light"] as const) {
     ).toBeGreaterThanOrEqual(2);
     await expect(page.getByTestId("commit-avatar").first()).toBeAttached();
     await expect(page.getByTestId("stat-dirty")).toBeVisible();
+    // A pointer left on a row shows that commit's body over the rows below it.
+    await page.mouse.move(0, 0);
     // Let the avatar images finish painting.
     await page.waitForTimeout(800);
+    await expect(page.getByTestId("body-tip")).toBeHidden();
 
     await page.screenshot({
       path: path.join(outDir, `screenshot-${theme}.png`),
