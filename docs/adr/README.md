@@ -88,3 +88,4 @@ are canonical; the files below are their English translations.
 | [0078](0078-show-a-file-run-nothing.md) | Show a changed file in the file manager, and run nothing | Accepted |
 | [0079](0079-accept-the-cache-with-the-service-worker.md) | Accept what another account's page leaves in the cache, as its service worker is | Accepted |
 | [0080](0080-prove-once-before-forwarding.md) | Prove the server once when forwarding to it | Accepted |
+| [0081](0081-a-person-accepts-each-release.md) | A person accepts each release | Accepted |
