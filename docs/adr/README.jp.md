@@ -78,8 +78,9 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0072](0072-no-browser-showing-the-secret.jp.md) | ほかのアカウントに秘密を見せるブラウザは開かない | Accepted |
 | [0073](0073-page-under-a-path-of-each-start.jp.md) | ページを起動ごとのパスの下で開き、ページが動かし続けるものは受け入れる | Accepted |
 | [0074](0074-prove-before-stopping.jp.md) | サーバの停止と署名の再検証の前にも秘密を示させる | Accepted |
-| [0075](0075-prove-before-opening.jp.md) | ページを渡す直前にもう一度サーバに秘密を示させる | Accepted |
+| [0075](0075-prove-before-opening.jp.md) | ページを渡す直前にもう一度サーバに秘密を示させる | 0080 に置き換え |
 | [0076](0076-post-the-secret.jp.md) | 秘密は POST で渡し、アドレスは固定する | Accepted |
 | [0077](0077-private-records-on-windows.jp.md) | Windows ではサーバの記録に専用のアクセス権を付ける | Accepted |
 | [0078](0078-show-a-file-run-nothing.jp.md) | 変更ファイルはファイルマネージャで表示し、何も実行しない | Accepted |
 | [0079](0079-accept-the-cache-with-the-service-worker.jp.md) | ほかのアカウントのページがキャッシュに残したものも、service worker と同じく受け入れる | Accepted |
+| [0080](0080-prove-once-before-forwarding.jp.md) | 転送するときにサーバに秘密を示させるのは 1 回にする | Accepted |

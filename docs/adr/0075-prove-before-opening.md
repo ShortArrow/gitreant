@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-11-01).
+Superseded by [ADR 0080](0080-prove-once-before-forwarding.md) (2026-11-03).
 
 ## Context
 

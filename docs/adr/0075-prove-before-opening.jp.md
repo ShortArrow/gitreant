@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-11-01)。
+[ADR 0080](0080-prove-once-before-forwarding.jp.md) に置き換えられた（2026-11-03）。
 
 ## Context
 

@@ -38,8 +38,8 @@ is weighed.
   ([ADR 0077](adr/0077-private-records-on-windows.md)). The one exception
   accepted: a page one of them served on a port gitreant left, once the
   user's browser opened it there, from a stale tab, a bookmark or the
-  history, or from gitreant itself when the server left between its last
-  proof and the browser's connection ([ADR 0075](adr/0075-prove-before-opening.md)), can leave a
+  history, or from gitreant itself when the server left between its
+  proof and the browser's connection ([ADR 0080](adr/0080-prove-once-before-forwarding.md)), can leave a
   service worker that reads the
   secret of a gitreant whose page later opens on that port in the same
   browser, or a window that reads it when the page opens in a tab that

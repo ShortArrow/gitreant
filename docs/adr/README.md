@@ -82,8 +82,9 @@ are canonical; the files below are their English translations.
 | [0072](0072-no-browser-showing-the-secret.md) | Open no browser that would show the secret to other accounts | Accepted |
 | [0073](0073-page-under-a-path-of-each-start.md) | Open the page under a path of each start, and accept what a page left running | Accepted |
 | [0074](0074-prove-before-stopping.md) | Prove the secret before stopping a server or re-verifying its signatures | Accepted |
-| [0075](0075-prove-before-opening.md) | Prove the server again just before handing out its page | Accepted |
+| [0075](0075-prove-before-opening.md) | Prove the server again just before handing out its page | Superseded by 0080 |
 | [0076](0076-post-the-secret.md) | Hand the secret over in a POST, at a fixed address | Accepted |
 | [0077](0077-private-records-on-windows.md) | Give the server records an access list of their own on Windows | Accepted |
 | [0078](0078-show-a-file-run-nothing.md) | Show a changed file in the file manager, and run nothing | Accepted |
 | [0079](0079-accept-the-cache-with-the-service-worker.md) | Accept what another account's page leaves in the cache, as its service worker is | Accepted |
+| [0080](0080-prove-once-before-forwarding.md) | Prove the server once when forwarding to it | Accepted |
