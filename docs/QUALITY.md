@@ -78,7 +78,7 @@ is weighed.
 |---|---|
 | Every push | `cargo test` (unit + integration) and the frontend's `tsc -b` / `vitest run` / `vite build`. A bug fix writes its reproducing test first (Red→Green). |
 | Each feature milestone | The full E2E suite. Run it when a batch of UI work lands, or once several features have piled up without an E2E run. |
-| Before a release / tag | The full E2E suite plus the `pnpm screenshot` assertions (a visual regression of the features the README advertises). |
+| Before a release / tag | The full E2E suite plus the `pnpm screenshot` assertions (a visual regression of the features the README advertises), and a person passing [ACCEPTANCE](ACCEPTANCE.md). |
 
 E2E operational constraint: the suite runs serially. While it runs, do not
 overwrite `frontend/dist` or build the binary — the running tests are using

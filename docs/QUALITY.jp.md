@@ -29,7 +29,7 @@ gitreant のセキュリティの前提、品質ゲート、提供するサー�
 |---|---|
 | 毎 push | `cargo test`（unit＋統合）、frontend の `tsc -b` / `vitest run` / `vite build` がすべて green。バグ修正は再現テストを先に書く（Red→Green） |
 | 機能マイルストーン毎 | E2E フルスイート green。UI 機能のまとまりが完了した時点、または E2E 未実行の機能が複数溜まった時点で実行する |
-| リリース/タグ前 | E2E フルに加え `pnpm screenshot` のアサーション green（README 掲載機能の可視回帰） |
+| リリース/タグ前 | E2E フルに加え `pnpm screenshot` のアサーション green（README 掲載機能の可視回帰）、および人が [ACCEPTANCE](ACCEPTANCE.jp.md) に合格すること |
 
 E2E の運用制約: スイートは直列1本で走る。実行中のテストが参照しているため、スイートの実行中は `frontend/dist` の上書きとバイナリのビルドを行わないこと。
 

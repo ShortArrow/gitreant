@@ -161,8 +161,9 @@ executable's icon resource through `winresource`.
 
 How a release is guarded is [ADR 0030](adr/0030-release-safeguards.md).
 
-1. Pass the release gate in [QUALITY.md](QUALITY.md): the full E2E suite
-   and the `pnpm screenshot` assertions.
+1. Pass the release gate in [QUALITY.md](QUALITY.md): the full E2E suite,
+   the `pnpm screenshot` assertions, and a person passing
+   [ACCEPTANCE.md](ACCEPTANCE.md).
 2. Move the `[Unreleased]` entries of [CHANGELOG.md](../CHANGELOG.md) under
    a `## [X.Y.Z] - YYYY-MM-DD` heading and add its compare link. The
    section becomes the GitHub Release notes as written, so links in it are
@@ -221,7 +222,7 @@ gitreant is developed in public, so what goes to GitHub is in English:
 commit messages, pull request descriptions, issues and comments.
 
 The documents with a Japanese version (the README, FEATURES, ROADMAP,
-QUALITY and every ADR) are kept in both languages, and a change to one
+QUALITY, ACCEPTANCE and every ADR) are kept in both languages, and a change to one
 changes the other in the same push, which CI checks (see `docs-tandem`
 under [CI](#ci)). The README's Japanese version,
 [README.jp.md](README.jp.md), lives in this folder rather than beside the
