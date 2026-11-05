@@ -580,6 +580,17 @@ body {
 }
 
 /* ---- Info dialog ---- */
+.info-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-icon {
+  width: 20px;
+  height: 20px;
+}
+
 .info-list {
   margin: 0 0 12px;
   display: flex;

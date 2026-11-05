@@ -2426,6 +2426,15 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("log-toggle").click();
   });
 
+  test("the info dialog shows the app's icon", async ({ page }) => {
+    await page.getByTestId("info-toggle").click();
+    const icon = page.getByTestId("info-icon");
+    await expect(icon).toHaveAttribute("src", /favicon\.svg$/);
+    await expect
+      .poll(() => icon.evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0);
+  });
+
   test("the info dialog lists environment details for copying", async ({
     page,
   }) => {

@@ -83,7 +83,15 @@ export function InfoPanel({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <header className="modal-head">
-          <h3>{t("infoTitle")}</h3>
+          <h3 className="info-title">
+            <img
+              className="info-icon"
+              data-testid="info-icon"
+              src={`${import.meta.env.BASE_URL}favicon.svg`}
+              alt=""
+            />
+            {t("infoTitle")}
+          </h3>
           <button
             className="icon-btn"
             title={t("closeInfo")}
