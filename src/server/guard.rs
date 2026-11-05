@@ -38,25 +38,13 @@ impl Secret {
     }
 }
 
-/// Whether a request to `path` carries `secret` where it must (ADR 0063):
-/// in its header, or for the event stream, which a browser opens without
-/// headers, also in its `token` query parameter. `/api/ping` and everything
-/// outside `/api/` need none.
-pub fn carries_secret(path: &str, query: Option<&str>, header: Option<&str>, secret: &str) -> bool {
+/// Whether a request to `path` carries `secret` in its header (ADR 0063,
+/// ADR 0082). `/api/ping` and everything outside `/api/` need none.
+pub fn carries_secret(path: &str, header: Option<&str>, secret: &str) -> bool {
     if path != "/api" && !path.starts_with("/api/") || path == "/api/ping" {
         return true;
     }
-    let in_query = (path == "/api/events")
-        .then(|| {
-            query?
-                .split('&')
-                .find_map(|pair| pair.strip_prefix("token="))
-        })
-        .flatten();
-    [header, in_query]
-        .into_iter()
-        .flatten()
-        .any(|offered| same(offered.as_bytes(), secret.as_bytes()))
+    header.is_some_and(|offered| same(offered.as_bytes(), secret.as_bytes()))
 }
 
 /// The proof that a server holds `secret` (ADR 0064):
@@ -129,12 +117,7 @@ pub async fn guard(port: u16, secret: Secret, request: Request, next: Next) -> R
     if !allowed(request.method(), text(header::HOST), origin, port) {
         return (StatusCode::FORBIDDEN, "request refused").into_response();
     }
-    if !carries_secret(
-        request.uri().path(),
-        request.uri().query(),
-        text(TOKEN_HEADER),
-        secret.as_str(),
-    ) {
+    if !carries_secret(request.uri().path(), text(TOKEN_HEADER), secret.as_str()) {
         return (
             StatusCode::UNAUTHORIZED,
             "open the page from the command line with `gitreant`",
@@ -179,26 +162,18 @@ mod tests {
 
     #[test]
     fn an_api_request_needs_the_secret() {
-        let carries = |path: &str, query: Option<&str>, header: Option<&str>| {
-            carries_secret(path, query, header, SECRET)
-        };
-        assert!(carries("/api/list", None, Some(SECRET)));
-        assert!(!carries("/api/list", None, None));
-        assert!(!carries("/api/list", None, Some("wrong")));
-        assert!(!carries("/api/list", None, Some(&SECRET[1..])));
-        // The event stream, which a browser opens without headers.
-        let query = format!("token={SECRET}");
-        assert!(carries("/api/events", Some(&query), None));
-        assert!(!carries("/api/events", Some("token=wrong"), None));
-        assert!(
-            !carries("/api/list", Some(&query), None),
-            "only the stream reads the query"
-        );
+        let carries = |path: &str, header: Option<&str>| carries_secret(path, header, SECRET);
+        assert!(carries("/api/list", Some(SECRET)));
+        assert!(!carries("/api/list", None));
+        assert!(!carries("/api/list", Some("wrong")));
+        assert!(!carries("/api/list", Some(&SECRET[1..])));
+        assert!(carries("/api/events", Some(SECRET)));
+        assert!(!carries("/api/events", None));
         // What needs none: telling a gitreant answers, and the page.
-        assert!(carries("/api/ping", None, None));
-        assert!(carries("/", None, None));
-        assert!(carries("/assets/index.js", None, None));
-        assert!(!carries("/api", None, None));
+        assert!(carries("/api/ping", None));
+        assert!(carries("/", None));
+        assert!(carries("/assets/index.js", None));
+        assert!(!carries("/api", None));
     }
 
     #[test]

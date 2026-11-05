@@ -196,6 +196,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   holds; all are accepted
   ([ADR 0073](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0073-page-under-a-path-of-each-start.md),
   [ADR 0079](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0079-accept-the-cache-with-the-service-worker.md)).
+- The page reads the event stream with the secret in its header, and the
+  server no longer takes the secret from that stream's address, so records of
+  the page's requests no longer hold it in an address
+  ([ADR 0082](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0082-the-event-stream-carries-the-secret-in-its-header.md)).
 - `gitreant` forwards repositories to a running server, reads its list to
   restart it, opens its page, stops it or asks it to re-verify signatures,
   and `gitreant list` or a list of servers to pick from asks a server for

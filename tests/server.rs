@@ -1715,6 +1715,20 @@ async fn line_counts_arrive_after_the_view_answers() {
 
 /// Send `head` (request line and headers, no blank line) with an empty
 /// body and return the raw response.
+/// The status line of the answer to `head`, read without waiting for the
+/// answer to end, which an event stream's never does.
+fn http_first_line(port: u16, head: &str) -> String {
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+        .unwrap();
+    write!(stream, "{head}\r\nHost: 127.0.0.1:{port}\r\n\r\n").unwrap();
+    let mut buf = [0u8; 256];
+    let read = stream.read(&mut buf).unwrap();
+    let text = String::from_utf8_lossy(&buf[..read]);
+    text.lines().next().unwrap_or_default().to_string()
+}
+
 fn http_raw(port: u16, head: &str) -> String {
     let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
     write!(
@@ -2031,6 +2045,8 @@ async fn api_requests_need_the_servers_secret() {
         ))
         .contains("200"));
         assert!(status("POST /api/shutdown HTTP/1.1").contains("401"));
+        let in_query = format!("GET /api/events?token={SECRET} HTTP/1.1");
+        assert!(http_first_line(port, &in_query).contains("401"));
         assert!(status("GET /api/ping HTTP/1.1").contains("200"));
         assert!(status("GET / HTTP/1.1").contains("200"));
     })
