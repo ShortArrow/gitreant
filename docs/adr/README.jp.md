@@ -85,3 +85,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0079](0079-accept-the-cache-with-the-service-worker.jp.md) | ほかのアカウントのページがキャッシュに残したものも、service worker と同じく受け入れる | Accepted |
 | [0080](0080-prove-once-before-forwarding.jp.md) | 転送するときにサーバに秘密を示させるのは 1 回にする | Accepted |
 | [0081](0081-a-person-accepts-each-release.jp.md) | リリースごとに人が受け入れ確認をする | Accepted |
+| [0082](0082-the-event-stream-carries-the-secret-in-its-header.jp.md) | イベントのストリームも秘密をヘッダで持つ | Accepted |
