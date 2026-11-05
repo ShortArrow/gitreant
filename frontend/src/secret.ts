@@ -74,11 +74,3 @@ export async function apiFetch(
   if (response.status === 401) unauthorized.forEach((listener) => listener());
   return response;
 }
-
-/** The event stream's address: a browser opens it without headers, so the
- * secret rides in its query. */
-export function eventsUrl(): string {
-  return secret
-    ? `/api/events?token=${encodeURIComponent(secret)}`
-    : "/api/events";
-}

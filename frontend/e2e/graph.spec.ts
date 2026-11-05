@@ -94,6 +94,18 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-repo-name="repoA"]')).toHaveCount(0);
   });
 
+  test("the event stream carries the secret in its header, not its address", async ({
+    page,
+  }) => {
+    const opened = page.waitForRequest(
+      (request) => new URL(request.url()).pathname === "/api/events",
+    );
+    await page.reload();
+    const request = await opened;
+    expect(new URL(request.url()).search).toBe("");
+    expect(await request.headerValue("x-gitreant-token")).toBe(fixtures.secret);
+  });
+
   test("the page opens with the secret a launcher posts to it", async ({
     page,
     baseURL,
@@ -1752,7 +1764,7 @@ test.describe.serial("gitreant UI", () => {
   }) => {
     // Hold the event stream back, so the view is read, counted and
     // announced before the page is listening (ADR 0041).
-    await page.route("**/api/events?*", async (route) => {
+    await page.route("**/api/events", async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 1500));
       await route.continue();
     });
@@ -1761,7 +1773,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.locator('[data-tab-name="repoU"]')).toBeVisible();
     await expect(page.getByTestId("commit-stat")).toHaveText("+3 −0");
 
-    await page.unroute("**/api/events?*");
+    await page.unroute("**/api/events");
     const repoU = page.locator('[data-repo-name="repoU"]');
     await repoU.hover();
     await repoU.getByTestId("repo-remove").click();
@@ -2091,7 +2103,7 @@ test.describe.serial("gitreant UI", () => {
       id: string;
     }[];
     const progress = { id: repos[0].id, commits: 1500 };
-    await page.route("**/api/events?*", (route) =>
+    await page.route("**/api/events", (route) =>
       route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
@@ -2120,13 +2132,13 @@ test.describe.serial("gitreant UI", () => {
       id: string;
     }[];
     const progress = JSON.stringify({ id: repos[0].id, commits: 900 });
-    // retry: 100 keeps the EventSource reconnecting quickly after each
+    // retry: 100 keeps the event stream reconnecting quickly after each
     // fulfilled (and therefore closed) synthetic stream. One permanent
     // route switches its answer via the flag — re-routing would leave a
     // gap in which the reconnect could reach the real, never-ending SSE
     // stream and stick there.
     let finished = false;
-    await page.route("**/api/events?*", (route) =>
+    await page.route("**/api/events", (route) =>
       route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
@@ -2155,7 +2167,7 @@ test.describe.serial("gitreant UI", () => {
     const progress = JSON.stringify({ id: repos[0].id, commits: 0 });
     // Analyzing and analyzed arrive back to back, like any routine
     // millisecond read: the 300ms debounce must swallow the pair.
-    await page.route("**/api/events?*", (route) =>
+    await page.route("**/api/events", (route) =>
       route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },
@@ -2199,7 +2211,7 @@ test.describe.serial("gitreant UI", () => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await route.continue();
     });
-    await page.route("**/api/events?*", (route) =>
+    await page.route("**/api/events", (route) =>
       route.fulfill({
         status: 200,
         headers: { "content-type": "text/event-stream" },

@@ -39,7 +39,8 @@ import { mergeLog, type UserAction } from "./logModel";
 import { RepoCard } from "./RepoCard";
 import { EditorsSetting } from "./EditorsSetting";
 import { Segmented } from "./Segmented";
-import { eventsUrl, onUnauthorized } from "./secret";
+import { openEventStream } from "./eventStream";
+import { onUnauthorized } from "./secret";
 import {
   countKey,
   resolveLang,
@@ -201,7 +202,7 @@ export function App() {
     // Subscribe before the first list request: a server still reading its
     // startup repositories answers that request late, and the progress
     // events streamed meanwhile must not be missed.
-    const events = new EventSource(eventsUrl());
+    const events = openEventStream();
     reload();
     // The stream connects some time after it is created, and again after
     // a drop: whatever was announced before then, such as a batch of counts
