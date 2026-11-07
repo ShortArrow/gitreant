@@ -217,7 +217,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a junction to `.git` for one, showed `.git/config` with any credentials
   in its remote URLs
   ([ADR 0068](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0068-read-only-changed-paths.md)).
-
 - A file opens with the default handler or an editor only when it lies in
   the working tree: one reached through a directory link or junction, a
   link out of the tree, or a path into `.git` no longer opens. The check
