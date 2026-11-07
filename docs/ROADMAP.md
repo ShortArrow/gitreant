@@ -48,7 +48,9 @@ Released on 2026-10-21. The node features planned as its theme moved to
   binary that starts on glibc 2.35
   ([ADR 0034](adr/0034-debian-packages.md))
 
-## 0.4.0 — more from graph nodes
+## 0.4.0 — more from graph nodes (released)
+
+Released on 2026-11-07.
 
 Build on the node interactions 0.2.0 introduced (`nodeProps` in
 `RepoCard.tsx`, and the `CommitMenu` shared with rows) to let a node do

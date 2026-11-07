@@ -36,7 +36,9 @@
 - `.gitattributes` の `diff` 属性に従う（[ADR 0033](adr/0033-diff-attribute.jp.md)）
 - 各リリースに Debian パッケージと `SHA256SUMS` を付け、arm64 の Linux バイナリを glibc 2.35 で起動できるようにする（[ADR 0034](adr/0034-debian-packages.jp.md)）
 
-## 0.4.0 — グラフのノード機能を広げる
+## 0.4.0 — グラフのノード機能を広げる（リリース済み）
+
+2026-11-07 にリリースした。
 
 0.2.0 で入れたノードの操作（`RepoCard.tsx` の `nodeProps` と、行と共用の `CommitMenu`）を土台に、ノードからできることを増やす。
 
