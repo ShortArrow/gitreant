@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   commit with the selected one, and checks it out with a detached HEAD
   after a confirmation. A comparison lists both commits and the files
   between them beside the diff.
+- `gitreant open` opens the running server's page with its secret,
+  adding no repository.
 - `gitreant list` shows the running servers, and `--shutdown`, `restart`
   and `refresh` find the only one without `--port`; `--shutdown --all`
   stops every one. A server records how each repository came, at startup,
