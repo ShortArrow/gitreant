@@ -538,3 +538,67 @@ fn revealing_a_program_hands_over_its_folder() {
     assert!(gitreant(&["--port", &port_arg, "--shutdown"]).success());
     assert!(wait_until(|| !ping(port), Duration::from_secs(10)));
 }
+
+/// `gitreant open --ticket` prints a link to the running server's page whose
+/// ticket the server trades for its secret once (ADR 0083).
+#[test]
+fn a_printed_ticket_link_trades_for_the_secret_once() {
+    use std::io::{Read, Write};
+    let port = free_port();
+    let state = tempfile::tempdir().unwrap();
+    let exe = env!("CARGO_BIN_EXE_gitreant");
+    let mut launcher = Command::new(exe)
+        .env("GITREANT_STATE_DIR", state.path())
+        .args(["--port", &port.to_string(), "--no-open"])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    let status = wait_exit(&mut launcher, Duration::from_secs(60));
+    assert!(status.is_some_and(|s| s.success()), "start failed");
+    assert!(ping(port));
+
+    let printed = Command::new(exe)
+        .env("GITREANT_STATE_DIR", state.path())
+        .args(["open", "--ticket", "--port", &port.to_string()])
+        .output()
+        .unwrap();
+    assert!(printed.status.success(), "{printed:?}");
+    let link = String::from_utf8_lossy(&printed.stdout).trim().to_string();
+    let prefix = format!("http://127.0.0.1:{port}/#ticket=");
+    let ticket = link
+        .strip_prefix(&prefix)
+        .unwrap_or_else(|| panic!("{link}"));
+    assert_eq!(ticket.len(), 64, "{link}");
+    assert!(ticket.bytes().all(|b| b.is_ascii_hexdigit()), "{link}");
+    let secret = gitreant::records::token(&state.path().join("servers"), port).unwrap();
+    assert!(!link.contains(&secret), "{link}");
+
+    let redeem = || {
+        let body = format!("{{\"ticket\":\"{ticket}\"}}");
+        let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+        write!(
+            stream,
+            "POST /api/tickets/redeem HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\
+             Content-Type: application/json\r\nContent-Length: {}\r\n\
+             Connection: close\r\n\r\n{body}",
+            body.len()
+        )
+        .unwrap();
+        let mut resp = String::new();
+        stream.read_to_string(&mut resp).unwrap();
+        resp
+    };
+    let traded = redeem();
+    assert!(traded.starts_with("HTTP/1.1 200"), "{traded}");
+    assert!(traded.contains(&secret), "{traded}");
+    let again = redeem();
+    assert!(again.starts_with("HTTP/1.1 403"), "{again}");
+
+    let shutdown = Command::new(exe)
+        .env("GITREANT_STATE_DIR", state.path())
+        .args(["--port", &port.to_string(), "--shutdown"])
+        .status()
+        .unwrap();
+    assert!(shutdown.success());
+}
