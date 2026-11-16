@@ -39,9 +39,10 @@ pub fn random_hex() -> String {
 }
 
 /// Whether a request to `path` carries `secret` in its header (ADR 0063,
-/// ADR 0082). `/api/ping` and everything outside `/api/` need none.
+/// ADR 0082). `/api/ping`, trading a ticket for the secret (ADR 0083)
+/// and everything outside `/api/` need none.
 pub fn carries_secret(path: &str, header: Option<&str>, secret: &str) -> bool {
-    if path != "/api" && !path.starts_with("/api/") || path == "/api/ping" {
+    if path != "/api" && !path.starts_with("/api/") || OPEN_API.contains(&path) {
         return true;
     }
     header.is_some_and(|offered| same(offered.as_bytes(), secret.as_bytes()))
@@ -127,6 +128,9 @@ pub async fn guard(port: u16, secret: Secret, request: Request, next: Next) -> R
     next.run(request).await
 }
 
+/// The API paths a request reaches without the secret.
+const OPEN_API: [&str; 2] = ["/api/ping", "/api/tickets/redeem"];
+
 /// The header an API request carries the secret in.
 const TOKEN_HEADER: header::HeaderName = header::HeaderName::from_static("x-gitreant-token");
 
@@ -174,6 +178,10 @@ mod tests {
         assert!(carries("/", None));
         assert!(carries("/assets/index.js", None));
         assert!(!carries("/api", None));
+        // Trading a ticket for the secret needs none; issuing one does.
+        assert!(carries("/api/tickets/redeem", None));
+        assert!(!carries("/api/tickets", None));
+        assert!(!carries("/api/tickets/redeem/", None));
     }
 
     #[test]

@@ -5,10 +5,12 @@ mod api;
 mod assets;
 mod client;
 mod guard;
+mod ticket;
 
 pub use api::{router, AppState};
 pub use client::{
-    get_repo_list, get_repo_paths, ping, post_refresh, post_repo, post_shutdown, proves_secret,
+    get_repo_list, get_repo_paths, ping, post_refresh, post_repo, post_shutdown, post_ticket,
+    proves_secret,
 };
 pub use guard::Secret;
 

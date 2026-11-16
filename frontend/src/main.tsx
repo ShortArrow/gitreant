@@ -4,10 +4,10 @@ import { App } from "./App";
 import { initSecret } from "./secret";
 import "./styles.css";
 
-initSecret();
-
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+void initSecret().then(() =>
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  ),
 );

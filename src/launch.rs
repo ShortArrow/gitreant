@@ -21,6 +21,12 @@ pub fn address_with_secret(port: u16, token: &str) -> String {
     format!("http://127.0.0.1:{port}/#token={token}")
 }
 
+/// The page's address with a `ticket` in its fragment, which the page
+/// trades once for the secret (ADR 0083).
+pub fn address_with_ticket(port: u16, ticket: &str) -> String {
+    format!("http://127.0.0.1:{port}/#ticket={ticket}")
+}
+
 /// A page that posts `token` to the page at `url`, for the browser to open
 /// in its place: the secret then stays off the browser's command line, its
 /// address bar and its history, and a post is never answered from the
@@ -349,6 +355,14 @@ mod tests {
         assert_eq!(
             address_with_secret(4000, "5ec2e7"),
             "http://127.0.0.1:4000/#token=5ec2e7"
+        );
+    }
+
+    #[test]
+    fn a_link_with_a_ticket_carries_it_in_its_fragment() {
+        assert_eq!(
+            address_with_ticket(4000, "7ic4e7"),
+            "http://127.0.0.1:4000/#ticket=7ic4e7"
         );
     }
 

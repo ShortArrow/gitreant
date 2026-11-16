@@ -21,7 +21,7 @@ use gitreant::doctor;
 use gitreant::git::discover_repo;
 use gitreant::records::{self, Record, Target};
 use gitreant::server::{
-    bind, get_repo_list, get_repo_paths, ping, post_refresh, post_repo, post_shutdown,
+    bind, get_repo_list, get_repo_paths, ping, post_refresh, post_repo, post_shutdown, post_ticket,
     proves_secret, serve, AppState,
 };
 
@@ -104,7 +104,12 @@ enum Command {
     /// Re-verify commit signatures in place, without restarting.
     Refresh,
     /// Open the running server's page with its secret, adding no repository.
-    Open,
+    Open {
+        /// Print a link that opens the page once, within 60 seconds,
+        /// instead of opening the browser.
+        #[arg(long)]
+        ticket: bool,
+    },
     /// List the running gitreant servers, one line each.
     List {
         /// Also list each server's repositories, with how and when each came.
@@ -146,7 +151,8 @@ fn main() -> ExitCode {
         Some(Command::Doctor) => return run_doctor(&cli),
         Some(Command::Restart) => return restart(&cli),
         Some(Command::Refresh) => return refresh(&cli),
-        Some(Command::Open) => return open_page(&cli),
+        Some(Command::Open { ticket: true }) => return print_ticket(&cli),
+        Some(Command::Open { ticket: false }) => return open_page(&cli),
         Some(Command::List { verbose, json }) => return list(verbose, json),
         Some(Command::Editor { ref action }) => return editor(action),
         None => {}
@@ -326,6 +332,40 @@ fn open_page(cli: &Cli) -> ExitCode {
     }
     println!("opened {}", launch::page_url(port));
     ExitCode::SUCCESS
+}
+
+/// Print a link to the running server's page holding a ticket it issued,
+/// once the server proves it holds the secret: opened within the ticket's
+/// lifetime, the page trades the ticket for the secret (ADR 0083).
+fn print_ticket(cli: &Cli) -> ExitCode {
+    let port = match cli.running_port() {
+        Ok(port) => port,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if !ping(port) {
+        eprintln!("no gitreant running on port {port}");
+        return ExitCode::FAILURE;
+    }
+    let token = match trusted(port) {
+        Ok(token) => token,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    match post_ticket(port, Some(&token)) {
+        Ok(ticket) => {
+            println!("{}", launch::address_with_ticket(port, &ticket));
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("no ticket issued: {e}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 /// Ask the running server to stop, mirroring `mo --shutdown`.

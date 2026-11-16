@@ -126,6 +126,27 @@ test.describe.serial("gitreant UI", () => {
     await expect(opened.locator('[data-repo-name="repoA"]')).toBeVisible();
   });
 
+  test("the page trades a ticket in its address for the secret, once", async ({
+    page,
+  }) => {
+    const issued = await api(page).post("/api/tickets");
+    const { ticket } = (await issued.json()) as { ticket: string };
+
+    const opened = await page.context().newPage();
+    await opened.goto(`/#ticket=${ticket}`);
+    await expect(opened.locator('[data-repo-name="repoA"]')).toBeVisible();
+    expect(opened.url()).not.toContain("ticket");
+    await expect(opened.getByTestId("secret-missing")).toHaveCount(0);
+
+    // The same link opened again gets no secret.
+    const again = await page.context().newPage();
+    await again.goto(`/#ticket=${ticket}`);
+    await expect(
+      again.getByTestId("secret-missing").locator("code"),
+    ).toHaveText("gitreant open");
+    expect(again.url()).not.toContain("ticket");
+  });
+
   test("drawer lists the served repositories", async ({ page }) => {
     await expect(page.getByTestId("repo-item")).toHaveCount(2);
     await expect(page.locator('[data-repo-name="repoA"]')).toBeVisible();

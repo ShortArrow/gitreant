@@ -172,6 +172,7 @@ fn refreshing_and_stopping_show_an_impostor_nothing_of_the_secret() {
         &["--port", &port, "--shutdown"],
         &["--shutdown", "--all"],
         &["--port", &port, "open"],
+        &["--port", &port, "open", "--ticket"],
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_gitreant"))
             .env("GITREANT_STATE_DIR", state.path())
@@ -205,6 +206,7 @@ fn stopping_where_nothing_answers_says_so() {
         &["--port", &port, "--shutdown"],
         &["--port", &port, "open"],
         &["open", "--no-launcher", "--port", &port],
+        &["open", "--ticket", "--port", &port],
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_gitreant"))
             .env("GITREANT_STATE_DIR", state.path())

@@ -225,7 +225,9 @@ Git for Windows' own, which cannot see a GnuPG or Gpg4win keyring.
   `http://127.0.0.1:<port>/` at every start and carries no secret;
   `gitreant` opens the page through a launcher file that posts the secret
   to it, and a page opened without the secret names `gitreant open`, which
-  opens it again. `gitreant` forwards to a running server, opens its page,
+  opens it again. `gitreant open --ticket` prints a link that opens the
+  page once, within 60 seconds, holding a ticket the page trades for the
+  secret rather than the secret itself. `gitreant` forwards to a running server, opens its page,
   stops it or asks it to re-verify signatures only once it proves it holds
   the secret. The page keeps the
   secret for its own tab.

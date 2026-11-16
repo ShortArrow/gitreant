@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `gitreant open --ticket` prints a link to the running server's page
+  that opens it once, within 60 seconds, for a program that can only show
+  the user a link. The link holds a ticket the page trades for the secret,
+  never the secret itself
+  ([ADR 0083](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0083-a-ticket-opens-the-page-once.md)).
+
 ## [0.4.0] - 2026-11-07
 
 ### Added

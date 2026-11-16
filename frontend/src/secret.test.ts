@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import { apiFetch, initSecret, secretFrom } from "./secret";
+import { apiFetch, initSecret, secretFrom, ticketFrom } from "./secret";
 
 test("secretFrom reads the secret the address hands over", () => {
   expect(secretFrom("#token=5ec2e7")).toBe("5ec2e7");
@@ -104,4 +104,67 @@ test("the page takes the secret posted or handed to it, and keeps it out of the 
     ),
   ).toBe("f00d");
   expect(addresses).toEqual(["/", "/"]);
+});
+
+test("ticketFrom reads the ticket the address hands over", () => {
+  expect(ticketFrom("#ticket=7ic4e7")).toBe("7ic4e7");
+  expect(ticketFrom("#token=5ec2e7")).toBeNull();
+  expect(ticketFrom("#ticket=")).toBeNull();
+  expect(ticketFrom("")).toBeNull();
+});
+
+/** Open the page at `hash` while the server answers a trade with
+ * `answer`, and return the addresses the page set, the requests it made,
+ * and the secret its next API request carries. */
+async function tradedAt(hash: string, answer: Response) {
+  const addresses: string[] = [];
+  const requests: [string, RequestInit][] = [];
+  const fetch = vi.fn(async (input: string, init: RequestInit = {}) => {
+    requests.push([input, init]);
+    expect(addresses).toEqual(["/"]);
+    return input === "/api/tickets/redeem" ? answer : new Response("{}");
+  });
+  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal("localStorage", memoryStorage());
+  vi.stubGlobal("sessionStorage", memoryStorage());
+  vi.stubGlobal("document", { querySelector: () => null });
+  vi.stubGlobal("window", {
+    location: { hash, pathname: "/" },
+    history: {
+      replaceState: (_state: unknown, _title: string, url: string) =>
+        addresses.push(url),
+    },
+  });
+  try {
+    await initSecret();
+    await apiFetch("/api/repos");
+    const sent = new Headers(requests.at(-1)![1].headers).get(
+      "X-Gitreant-Token",
+    );
+    return { addresses, requests, sent };
+  } finally {
+    vi.unstubAllGlobals();
+  }
+}
+
+test("the page trades a ticket for the secret, taking it out of the address first", async () => {
+  const { addresses, requests, sent } = await tradedAt(
+    "#ticket=7ic4e7",
+    new Response(JSON.stringify({ secret: "5ec2e7" })),
+  );
+  expect(addresses).toEqual(["/"]);
+  expect(requests[0][0]).toBe("/api/tickets/redeem");
+  expect(requests[0][1].method).toBe("POST");
+  expect(JSON.parse(String(requests[0][1].body))).toEqual({
+    ticket: "7ic4e7",
+  });
+  expect(sent).toBe("5ec2e7");
+});
+
+test("a ticket the server refuses leaves the page without a secret", async () => {
+  const { sent } = await tradedAt(
+    "#ticket=7ic4e7",
+    new Response("refused", { status: 403 }),
+  );
+  expect(sent).toBeNull();
 });

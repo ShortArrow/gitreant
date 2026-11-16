@@ -2119,3 +2119,79 @@ async fn opening_refuses_a_path_into_git() {
     .await
     .unwrap();
 }
+
+/// A ticket issued to a holder of the secret is traded for it once, from
+/// the page's own origin and without the secret; a second trade, or a
+/// ticket never issued, gets nothing of it (ADR 0083).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_ticket_is_traded_for_the_secret_once() {
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    tokio::spawn(async move {
+        serve(
+            listener,
+            AppState::new(Session::new()).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
+    });
+    tokio::task::spawn_blocking(move || {
+        assert!((0..50).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            ping(port)
+        }));
+        let local = format!("127.0.0.1:{port}");
+        let unissued = http_raw(
+            port,
+            &format!("POST /api/tickets HTTP/1.1\r\nHost: {local}"),
+        );
+        assert!(unissued.starts_with("HTTP/1.1 401"), "{unissued}");
+
+        let issued = http_post_json(port, "/api/tickets", "");
+        assert!(issued.starts_with("HTTP/1.1 200"), "{issued}");
+        assert!(!issued.contains(SECRET), "{issued}");
+        let body = issued.split("\r\n\r\n").nth(1).unwrap();
+        let ticket = serde_json::from_str::<serde_json::Value>(body).unwrap()["ticket"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let redeem = |ticket: &str| {
+            let body = serde_json::json!({ "ticket": ticket }).to_string();
+            let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+            write!(
+                stream,
+                "POST /api/tickets/redeem HTTP/1.1\r\nHost: {local}\r\n\
+                 Origin: http://{local}\r\nContent-Type: application/json\r\n\
+                 Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
+            let mut resp = String::new();
+            stream.read_to_string(&mut resp).unwrap();
+            resp
+        };
+        let traded = redeem(&ticket);
+        assert!(traded.starts_with("HTTP/1.1 200"), "{traded}");
+        assert!(
+            traded.contains(&format!("\"secret\":\"{SECRET}\"")),
+            "{traded}"
+        );
+        assert!(
+            traded
+                .to_ascii_lowercase()
+                .contains("cache-control: no-store"),
+            "{traded}"
+        );
+
+        let again = redeem(&ticket);
+        assert!(again.starts_with("HTTP/1.1 403"), "{again}");
+        assert!(!again.contains(SECRET), "{again}");
+
+        let unknown = redeem(&"0".repeat(64));
+        assert!(unknown.starts_with("HTTP/1.1 403"), "{unknown}");
+        assert!(!unknown.contains(SECRET), "{unknown}");
+    })
+    .await
+    .unwrap();
+}

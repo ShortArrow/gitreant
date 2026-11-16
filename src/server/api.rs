@@ -108,6 +108,8 @@ fn background_batches<T>(pending: &[T]) -> Vec<&[T]> {
 pub struct AppState {
     /// The secret every API request carries (ADR 0063).
     secret: super::guard::Secret,
+    /// Tickets that each trade once for the secret (ADR 0083).
+    tickets: Arc<super::ticket::Tickets>,
     session: Arc<Mutex<Session>>,
     updates: broadcast::Sender<ServerEvent>,
     shutdown: watch::Sender<bool>,
@@ -139,6 +141,7 @@ impl AppState {
         let (shutdown, _) = watch::channel(false);
         Self {
             secret: super::guard::Secret::generate(),
+            tickets: Arc::default(),
             session: Arc::new(Mutex::new(session)),
             updates,
             shutdown,
@@ -466,6 +469,8 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/ping", get(ping))
         .route("/", get(assets::static_handler).post(assets::open_page))
+        .route("/api/tickets", post(issue_ticket))
+        .route("/api/tickets/redeem", post(redeem_ticket))
         .route("/api/about", get(about))
         .route("/api/repos", post(add_repo).delete(remove_repo))
         .route("/api/list", get(list_light))
@@ -516,6 +521,52 @@ async fn ping(
         ),
         None => PING_MARKER.to_string(),
     }
+}
+
+#[derive(Serialize)]
+struct IssuedTicket {
+    ticket: String,
+}
+
+/// A ticket that trades once for the secret within its lifetime, for a
+/// holder of the secret to hand on in a link (ADR 0083).
+async fn issue_ticket(State(state): State<AppState>) -> Json<IssuedTicket> {
+    Json(IssuedTicket {
+        ticket: state.tickets.issue(Instant::now()),
+    })
+}
+
+#[derive(Deserialize)]
+struct Redemption {
+    ticket: String,
+}
+
+#[derive(Serialize)]
+struct Traded {
+    secret: String,
+}
+
+/// The secret, for a ticket issued, unexpired and not yet traded; nothing
+/// of it otherwise. Never kept by a cache (ADR 0083).
+async fn redeem_ticket(
+    State(state): State<AppState>,
+    Json(redemption): Json<Redemption>,
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if !state.tickets.redeem(&redemption.ticket, Instant::now()) {
+        return (
+            StatusCode::FORBIDDEN,
+            "the ticket is spent, expired or unknown",
+        )
+            .into_response();
+    }
+    (
+        [(axum::http::header::CACHE_CONTROL, "no-store")],
+        Json(Traded {
+            secret: state.secret().as_str().to_string(),
+        }),
+    )
+        .into_response()
 }
 
 /// What this server was built from and the tools it runs, for the info

@@ -125,6 +125,8 @@ gitreant refresh      re-verify commit signatures in place, without restarting
                       (use after adding a key to your gpg keyring)
 gitreant open         open the running server's page again, with its secret,
                       adding no repository
+  --ticket            print a link that opens the page once, within 60
+                      seconds, instead of opening the browser
 gitreant list         list the running servers, one line each: URL, pid,
                       start time, version and how many repositories each
                       shows

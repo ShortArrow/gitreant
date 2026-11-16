@@ -80,6 +80,18 @@ pub fn post_refresh(port: u16, token: Option<&str>) -> Result<(), String> {
     }
 }
 
+/// A ticket the server on `port` issues, which its page trades once for
+/// the secret (ADR 0083).
+pub fn post_ticket(port: u16, token: Option<&str>) -> Result<String, String> {
+    match request(port, token, "POST", "/api/tickets", None, REQUEST_TIMEOUT)? {
+        (200, body) => serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|issued| Some(issued.get("ticket")?.as_str()?.to_string()))
+            .ok_or_else(|| "the server issued no ticket".to_string()),
+        (status, body) => Err(format!("server returned {status}: {body}")),
+    }
+}
+
 /// The repository paths a running server currently displays, so a restart
 /// can bring the same set back up.
 pub fn get_repo_paths(port: u16, token: Option<&str>) -> Result<Vec<String>, String> {
