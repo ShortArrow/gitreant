@@ -22,7 +22,9 @@ is weighed.
   ([ADR 0076](adr/0076-post-the-secret.md)).
 - Every request under `/api/` carries a secret the server draws from the
   operating system's random source at each start; only `/api/ping`, which
-  says a gitreant answers, needs none. The CLI trusts a running server only
+  says a gitreant answers, and `/api/tickets/redeem`, which trades a ticket
+  issued to a holder of the secret for it once
+  ([ADR 0083](adr/0083-a-ticket-opens-the-page-once.md)), need none. The CLI trusts a running server only
   once it proves it holds the secret
   ([ADR 0063](adr/0063-request-token.md),
   [ADR 0064](adr/0064-prove-the-secret.md)).

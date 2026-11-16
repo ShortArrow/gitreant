@@ -34,6 +34,8 @@ and the browser for [the record](#record-the-result).
 | Reload the page | The graph comes back, with no prompt to resend a form |
 | Open `http://127.0.0.1:4700/` in a new tab | The tab says the page lacks the server's secret, and names `gitreant open` |
 | Run `gitreant open -p 4700` | It prints `opened http://127.0.0.1:4700/`, and a tab opens with the graph |
+| Run `gitreant open --ticket -p 4700`, and within 60 seconds paste the link it prints into a new tab | The link starts `http://127.0.0.1:4700/#ticket=`, opens no browser by itself, and the tab shows the graph with `http://127.0.0.1:4700/` in the address bar |
+| Paste the same link into another new tab | The tab says the page lacks the server's secret, and names `gitreant open` |
 | Run `gitreant -p 4700 frontend/screenshot/.tmp/notes` | It prints `added` and `already serving`, a tab opens, and `notes` is in the list of repositories |
 | Run `gitreant list --verbose` | The line for port 4700 has this build's version, `aurora` reads `given at startup` and `notes` reads `added by the CLI` |
 

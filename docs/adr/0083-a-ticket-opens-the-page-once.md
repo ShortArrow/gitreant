@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-11-16)
+Accepted (2026-11-16). Amends [ADR 0063](0063-request-token.md).
 
 ## Context
 
@@ -35,7 +35,8 @@ secret away from.
 - **A ticket trades for the secret once, within 60 seconds.** A
   `POST /api/tickets/redeem` needs no secret, but still passes the request
   guard of [ADR 0038](0038-loopback-request-guard.md): a loopback name, and
-  the page's own origin. It is answered with the secret, never cached, when
+  the page's own origin or none, as a client that is not a page sends. It
+  is answered with the secret, never cached, when
   its ticket was issued less than 60 seconds before and was not traded yet.
   The ticket is removed at that trade, so the next try with it fails. A
   ticket that is spent, expired or never issued gets 403 and nothing of the

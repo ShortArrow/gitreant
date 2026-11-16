@@ -25,6 +25,8 @@ $ make build
 | ページを再読み込みする | フォームの再送信の確認なしで、グラフが表示される |
 | `http://127.0.0.1:4700/` を新しいタブで開く | ページにサーバの秘密がないと表示され、`gitreant open` が示される |
 | `gitreant open -p 4700` を実行する | `opened http://127.0.0.1:4700/` と表示され、グラフのタブが開く |
+| `gitreant open --ticket -p 4700` を実行し、表示されたリンクを 60 秒以内に新しいタブに貼り付ける | リンクは `http://127.0.0.1:4700/#ticket=` で始まり、ブラウザは自分では開かない。タブにはグラフが表示され、アドレスバーは `http://127.0.0.1:4700/` になる |
+| 同じリンクを別の新しいタブに貼り付ける | ページにサーバの秘密がないと表示され、`gitreant open` が示される |
 | `gitreant -p 4700 frontend/screenshot/.tmp/notes` を実行する | `added` と `already serving` が表示され、タブが開き、リポジトリの一覧に `notes` が加わる |
 | `gitreant list --verbose` を実行する | ポート 4700 の行にこのビルドのバージョンがあり、`aurora` は `given at startup`、`notes` は `added by the CLI` と表示される |
 
