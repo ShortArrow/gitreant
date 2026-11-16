@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- A large repository no longer slows the server and the page while its
+  signatures are checked and its commits counted in the background. Each
+  batch used to make every open page read the whole history again; the
+  batch now carries its results, which the page fills in
+  ([ADR 0083](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0083-batches-carry-what-they-settled.md)).
+
 ## [0.4.0] - 2026-11-07
 
 ### Added

@@ -36,6 +36,7 @@ const fixtures = JSON.parse(
   repoU: string;
   repoV: string;
   repoW: string;
+  repoX: string;
   repoY: string;
   repoZ: string;
   /** The test server's secret (ADR 0063), from the record it wrote. */
@@ -1757,6 +1758,36 @@ test.describe.serial("gitreant UI", () => {
     await repoW.hover();
     await repoW.getByTestId("repo-remove").click();
     await expect(repoW).toHaveCount(0);
+  });
+
+  test("a batch counted fills in the rows without reading the history again", async ({
+    page,
+  }) => {
+    // Each batch the server counts used to read the whole view again, from
+    // every open page (ADR 0083).
+    const reads: string[] = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname !== "/api/view") return;
+      if (String(request.postDataJSON()?.repo ?? "").endsWith("repoX")) {
+        reads.push(request.url());
+      }
+    });
+    await addRepo(page, fixtures.repoX);
+    await page.locator('[data-repo-name="repoX"]').click();
+    const stat = (summary: RegExp) =>
+      page
+        .getByTestId("commit-row")
+        .filter({ has: page.locator(".commit-summary", { hasText: summary }) })
+        .getByTestId("commit-stat");
+    await expect(stat(/^x-150$/)).toHaveText("+1 −0");
+    await expect(stat(/^x-1$/)).toHaveText("+1 −0");
+    await page.waitForTimeout(1000);
+    expect(reads.length).toBeLessThanOrEqual(2);
+
+    const repoX = page.locator('[data-repo-name="repoX"]');
+    await repoX.hover();
+    await repoX.getByTestId("repo-remove").click();
+    await expect(repoX).toHaveCount(0);
   });
 
   test("counts finished before the event stream connects still show", async ({

@@ -42,6 +42,12 @@ import { Segmented } from "./Segmented";
 import { openEventStream } from "./eventStream";
 import { onUnauthorized } from "./secret";
 import {
+  Settled,
+  type CountedCommit,
+  type SettledBatch,
+  type VerifiedCommit,
+} from "./settled";
+import {
   countKey,
   resolveLang,
   MESSAGES,
@@ -121,13 +127,19 @@ export function App() {
   // overtaken on the way, would undo what a newer one brought, such as a
   // batch of counts.
   const viewReads = useRef(new Map<string, number>());
+  // What the background batches settled since the last update, laid over
+  // every view read, including one read before a batch and answered after
+  // it (ADR 0083).
+  const settled = useRef(new Settled());
   const loadView = useCallback((id: string, seq: number) => {
     const read = (viewReads.current.get(id) ?? 0) + 1;
     viewReads.current.set(id, read);
     fetchRepoView(id, limitsRef.current.get(id) ?? pageSize())
       .then((view) => {
         if (seq === fetchSeq.current && read === viewReads.current.get(id)) {
-          setViews((prev) => new Map(prev).set(id, view));
+          setViews((prev) =>
+            new Map(prev).set(id, settled.current.applyTo(view)),
+          );
         }
       })
       .catch(() => {});
@@ -208,15 +220,34 @@ export function App() {
     // a drop: whatever was announced before then, such as a batch of counts
     // finished meanwhile, is read again once it listens.
     events.addEventListener("open", () => reload());
-    events.addEventListener("update", () => reload());
-    // A batch of signatures was checked (ADR 0037): read that one
-    // repository again for its verdicts.
-    events.addEventListener("verified", (e) => {
-      loadView((e as MessageEvent<string>).data, fetchSeq.current);
+    events.addEventListener("update", () => {
+      settled.current.forget();
+      reload();
     });
-    // A batch of commits was counted (ADR 0041), likewise.
+    // A batch of signatures was checked (ADR 0037) or of commits counted
+    // (ADR 0041): fill in what it settled, without reading the repository
+    // again (ADR 0083).
+    const fillIn = (repo: string) =>
+      setViews((prev) => {
+        const view = prev.get(repo);
+        const filled = view && settled.current.applyTo(view);
+        return filled && filled !== view
+          ? new Map(prev).set(repo, filled)
+          : prev;
+      });
+    events.addEventListener("verified", (e) => {
+      const batch = JSON.parse(
+        (e as MessageEvent<string>).data,
+      ) as SettledBatch<VerifiedCommit>;
+      settled.current.verified(batch.repo, batch.commits);
+      fillIn(batch.repo);
+    });
     events.addEventListener("counted", (e) => {
-      loadView((e as MessageEvent<string>).data, fetchSeq.current);
+      const batch = JSON.parse(
+        (e as MessageEvent<string>).data,
+      ) as SettledBatch<CountedCommit>;
+      settled.current.counted(batch.repo, batch.commits);
+      fillIn(batch.repo);
     });
     // Routine reads finish in milliseconds; a read only surfaces after
     // 300ms so the indicator never flickers. Parallel reads each keep
@@ -259,7 +290,7 @@ export function App() {
       timers.forEach((timer) => window.clearTimeout(timer));
       events.close();
     };
-  }, [reload, loadView]);
+  }, [reload]);
 
   // Keep tabs/selection consistent when the repo set changes.
   useEffect(() => {

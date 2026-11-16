@@ -90,3 +90,4 @@ are canonical; the files below are their English translations.
 | [0080](0080-prove-once-before-forwarding.md) | Prove the server once when forwarding to it | Accepted |
 | [0081](0081-a-person-accepts-each-release.md) | A person accepts each release | Accepted |
 | [0082](0082-the-event-stream-carries-the-secret-in-its-header.md) | The event stream carries the secret in its header | Accepted |
+| [0083](0083-batches-carry-what-they-settled.md) | A background batch carries what it settled | Accepted |

@@ -67,12 +67,19 @@ enum ServerEvent {
     Analyzing(AnalyzeProgress),
     /// This repository's read finished; its indicator can clear.
     Analyzed(String),
-    /// A batch of this repository's signatures was checked (ADR 0037);
-    /// clients read its view again.
-    Verified(String),
-    /// A batch of this repository's commits was counted (ADR 0041);
-    /// clients read its view again.
-    Counted(String),
+    /// A batch of this repository's signatures was checked (ADR 0037),
+    /// with the verdicts it settled for clients to fill in (ADR 0083).
+    Verified(Settled<crate::app::VerifiedCommit>),
+    /// A batch of this repository's commits was counted (ADR 0041), with
+    /// the counts it settled for clients to fill in (ADR 0083).
+    Counted(Settled<crate::app::CountedCommit>),
+}
+
+/// What one background batch settled for a repository's commits.
+#[derive(Clone, Debug, Serialize)]
+struct Settled<T> {
+    repo: String,
+    commits: Vec<T>,
 }
 
 /// How often per-repository read progress is streamed at most.
@@ -167,9 +174,10 @@ impl AppState {
     /// Work through what a read of the repository at `path` left
     /// `pending` in the background, a batch at a time with `run`, unless a
     /// run of the same kind (`running`) already goes through it (ADR 0037,
-    /// ADR 0041). Each batch is logged and announced with `event`; the run
-    /// leaves the running set before its last announcement, so the read
-    /// that follows starts a new run for anything it did not cover.
+    /// ADR 0041). Each batch is logged and announced with `event`, which
+    /// carries what the batch settled; the run leaves the running set
+    /// before its last announcement, so the read that follows starts a new
+    /// run for anything it did not cover.
     fn ensure_background<T: Send + 'static>(
         &self,
         running: &Arc<Mutex<std::collections::HashSet<String>>>,
@@ -177,7 +185,7 @@ impl AppState {
         path: PathBuf,
         pending: Vec<T>,
         run: fn(&Mutex<Session>, &std::path::Path, &[T]) -> crate::app::ExecutedCommand,
-        event: fn(String) -> ServerEvent,
+        event: fn(&Mutex<Session>, String, &[T]) -> ServerEvent,
     ) {
         if pending.is_empty() {
             return;
@@ -201,7 +209,7 @@ impl AppState {
                 if index + 1 == batches.len() {
                     running.lock().expect("running mutex").remove(&id);
                 }
-                let _ = state.updates.send(event(id.clone()));
+                let _ = state.updates.send(event(&state.session, id.clone(), batch));
             }
         });
     }
@@ -356,7 +364,12 @@ impl AppState {
             path.to_path_buf(),
             pending.signatures,
             crate::app::verify_batch,
-            ServerEvent::Verified,
+            |session, repo, ids| {
+                ServerEvent::Verified(Settled {
+                    repo,
+                    commits: crate::app::verified(session, ids),
+                })
+            },
         );
         self.ensure_background(
             &self.counting,
@@ -364,7 +377,12 @@ impl AppState {
             path.to_path_buf(),
             pending.counts,
             crate::app::count_batch,
-            ServerEvent::Counted,
+            |session, repo, commits| {
+                ServerEvent::Counted(Settled {
+                    repo,
+                    commits: crate::app::counted(session, commits),
+                })
+            },
         );
         {
             let remote_tags = self.remote_tags.lock().expect("remote tags mutex");
@@ -1668,11 +1686,18 @@ async fn events(
                 .event("analyzing")
                 .data(serde_json::to_string(&progress).unwrap_or_default()),
             Ok(ServerEvent::Analyzed(id)) => Event::default().event("analyzed").data(id),
-            Ok(ServerEvent::Verified(id)) => Event::default().event("verified").data(id),
-            Ok(ServerEvent::Counted(id)) => Event::default().event("counted").data(id),
+            Ok(ServerEvent::Verified(batch)) => settled_event("verified", &batch),
+            Ok(ServerEvent::Counted(batch)) => settled_event("counted", &batch),
         })
     });
     Sse::new(stream).keep_alive(KeepAlive::default())
+}
+
+/// The event `name` carrying what one batch settled, as JSON.
+fn settled_event<T: Serialize>(name: &str, batch: &Settled<T>) -> Event {
+    Event::default()
+        .event(name)
+        .data(serde_json::to_string(batch).unwrap_or_default())
 }
 
 #[cfg(test)]

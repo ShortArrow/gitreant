@@ -452,6 +452,11 @@ function makeRepoW(): string {
   return makeLinearRepo("repoW", "w");
 }
 
+/** repoX: a history counted in several batches, no other test reads. */
+function makeRepoX(): string {
+  return makeLinearRepo("repoX", "x");
+}
+
 /** A repository `name` of 150 commits summarised `<prefix>-1` and on,
  * each adding one line, built in one fast-import so they stay quick to
  * make. */
@@ -542,6 +547,7 @@ export default async function globalSetup(_config: FullConfig) {
   const repoU = makeRepoU();
   const repoV = makeRepoV();
   const repoW = makeRepoW();
+  const repoX = makeRepoX();
   const repoY = makeRepoY();
   const repoZ = makeRepoZ();
 
@@ -578,6 +584,7 @@ export default async function globalSetup(_config: FullConfig) {
         repoU,
         repoV,
         repoW,
+        repoX,
         repoY,
         repoZ,
         secret,

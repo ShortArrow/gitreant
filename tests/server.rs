@@ -1626,11 +1626,19 @@ async fn signatures_are_checked_after_the_view_answers() {
         .split("event: verified")
         .nth(1)
         .unwrap_or_else(|| panic!("no verified event in {stream_text:?}"));
-    let id = after
+    let data = after
         .lines()
         .find_map(|line| line.strip_prefix("data: "))
         .expect("verified data line");
+    let batch: serde_json::Value = serde_json::from_str(data).expect("verified payload is JSON");
+    let id = batch["repo"].as_str().expect("the batch's repository");
     assert!(first.contains(&serde_json::to_string(id).unwrap()), "{id}");
+    let checked = batch["commits"].as_array().expect("the batch's commits");
+    assert!(!checked.is_empty(), "{batch}");
+    for commit in checked {
+        let commit_id = commit["id"].as_str().expect("a commit id");
+        assert!(first.contains(commit_id), "{commit_id}");
+    }
     assert!(!second.contains("\"verifying\""), "{second}");
 }
 
@@ -2118,4 +2126,89 @@ async fn opening_refuses_a_path_into_git() {
     })
     .await
     .unwrap();
+}
+
+/// A batch of counts tells listeners what it found for each commit, so a
+/// page fills them in without reading the whole history again (ADR 0083).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_counted_batch_carries_its_counts() {
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+    let head = String::from_utf8(
+        Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(tmp.path())
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap()
+    .trim()
+    .to_string();
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    let mut session = Session::new();
+    session.add(tmp.path()).unwrap();
+    tokio::spawn(async move {
+        serve(
+            listener,
+            AppState::new(session).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
+    });
+    let stream_text = tokio::task::spawn_blocking(move || {
+        assert!((0..50).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            ping(port)
+        }));
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_millis(200)))
+            .unwrap();
+        write!(
+            stream,
+            "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Gitreant-Token: {SECRET}\r\nAccept: text/event-stream\r\n\r\n"
+        )
+        .unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        http_first_view(port);
+        let mut buf = Vec::new();
+        let mut chunk = [0u8; 4096];
+        let start = std::time::Instant::now();
+        while start.elapsed() < std::time::Duration::from_secs(10) {
+            match stream.read(&mut chunk) {
+                Ok(0) => break,
+                Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                Err(_) => {}
+            }
+            let text = String::from_utf8_lossy(&buf);
+            if let Some(at) = text.find("event: counted") {
+                if text[at..].contains("\n\n") {
+                    break;
+                }
+            }
+        }
+        String::from_utf8_lossy(&buf).into_owned()
+    })
+    .await
+    .unwrap();
+
+    let at = stream_text
+        .find("event: counted")
+        .unwrap_or_else(|| panic!("no counted event in {stream_text:?}"));
+    let data = stream_text[at..]
+        .lines()
+        .find_map(|line| line.strip_prefix("data: "))
+        .expect("counted data line");
+    let batch: serde_json::Value = serde_json::from_str(data).expect("counted payload is JSON");
+    assert!(
+        batch["repo"].as_str().is_some_and(|repo| !repo.is_empty()),
+        "{batch}"
+    );
+    let commits = batch["commits"].as_array().expect("the batch's commits");
+    assert_eq!(commits.len(), 1, "{batch}");
+    assert_eq!(commits[0]["id"], head.as_str(), "{batch}");
+    assert!(commits[0]["stat"]["added"].is_u64(), "{batch}");
 }

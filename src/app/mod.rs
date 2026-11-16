@@ -5,7 +5,8 @@ mod session;
 mod view;
 
 pub use session::{
-    canonical, count_batch, read_view, verify_batch, Added, ExecutedCommand, Pending, Session, Via,
+    canonical, count_batch, counted, read_view, verified, verify_batch, Added, CountedCommit,
+    ExecutedCommand, Pending, Session, VerifiedCommit, Via,
 };
 pub use view::{
     build_view, CommitDetailView, CommitStat, CommitView, FileChangeView, FileDiffView, RefView,

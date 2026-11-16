@@ -328,6 +328,56 @@ pub fn count_batch(
     }
 }
 
+/// What a count settled for one commit, as a read would stamp it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CountedCommit {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stat: Option<CommitStat>,
+}
+
+/// What a check settled for one signed commit, as a read would stamp it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct VerifiedCommit {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature_key: Option<String>,
+}
+
+/// The counts kept for `commits`, in their order; a commit not counted yet
+/// is left out.
+pub fn counted(session: &Mutex<Session>, commits: &[CountTarget]) -> Vec<CountedCommit> {
+    let session = session.lock().expect("session mutex");
+    commits
+        .iter()
+        .filter_map(|(id, _)| {
+            let count = session.line_counts.get(id)?;
+            Some(CountedCommit {
+                id: id.clone(),
+                stat: count.map(|(added, deleted)| CommitStat { added, deleted }),
+            })
+        })
+        .collect()
+}
+
+/// The verdicts cached for `ids`, in their order; a commit not checked yet,
+/// or checked before the cache was cleared, is left out.
+pub fn verified(session: &Mutex<Session>, ids: &[String]) -> Vec<VerifiedCommit> {
+    let session = session.lock().expect("session mutex");
+    ids.iter()
+        .filter_map(|id| {
+            let (status, key) = session.verify_cache.get(id)?;
+            Some(VerifiedCommit {
+                id: id.clone(),
+                verified: verification_state(*status),
+                signature_key: key.clone(),
+            })
+        })
+        .collect()
+}
+
 /// Best-effort canonical form for de-duplication and display; falls back to
 /// the input when the path cannot be canonicalized.
 pub fn canonical(path: &Path) -> PathBuf {
@@ -593,6 +643,66 @@ mod tests {
         assert_eq!(commit.verified, Some(true));
         assert_eq!(commit.signature_key.as_deref(), Some("ABCD1234"));
         assert!(!commit.verifying);
+    }
+
+    #[test]
+    fn a_counted_batch_tells_what_a_read_would_show() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (path, _) = fake_signed_repo(tmp.path());
+        let session = Mutex::new(Session::new());
+        let (_, pending) = read_view_with(&session, &path, false, |_| {});
+        assert!(counted(&session, &pending.counts).is_empty());
+
+        count_batch(&session, &path, &pending.counts);
+        let (view, _) = read_view_with(&session, &path, false, |_| {});
+        let shown: Vec<CountedCommit> = view
+            .commits
+            .iter()
+            .filter(|c| c.uncommitted.is_none())
+            .map(|c| CountedCommit {
+                id: c.id.clone(),
+                stat: c.stat,
+            })
+            .collect();
+        assert_eq!(shown.len(), 2);
+        assert_eq!(counted(&session, &pending.counts), shown);
+    }
+
+    #[test]
+    fn a_checked_batch_tells_each_verdict_it_cached() {
+        let session = Mutex::new(Session::new());
+        let [good, bad, unknown, unchecked] = ["a", "b", "c", "d"].map(|c| c.repeat(40));
+        {
+            let mut session = session.lock().unwrap();
+            let generation = session.verify_generation();
+            let verdicts = HashMap::from([
+                (good.clone(), ('G', Some("ABCD1234".to_string()))),
+                (bad.clone(), ('B', None)),
+            ]);
+            let ids = [good.clone(), bad.clone(), unknown.clone()];
+            assert!(session.store_verdicts(generation, &ids, verdicts));
+        }
+        let ids = [good.clone(), bad.clone(), unknown.clone(), unchecked];
+        assert_eq!(
+            verified(&session, &ids),
+            vec![
+                VerifiedCommit {
+                    id: good,
+                    verified: Some(true),
+                    signature_key: Some("ABCD1234".to_string()),
+                },
+                VerifiedCommit {
+                    id: bad,
+                    verified: Some(false),
+                    signature_key: None,
+                },
+                VerifiedCommit {
+                    id: unknown,
+                    verified: None,
+                    signature_key: None,
+                },
+            ]
+        );
     }
 
     #[test]
