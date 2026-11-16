@@ -447,10 +447,16 @@ function makeRepoV(): string {
   return dir;
 }
 
-/** repoW: a history longer than the pane, each commit adding one line,
- * built in one fast-import so 150 commits stay quick to make. */
+/** repoW: a history longer than the pane, each commit adding one line. */
 function makeRepoW(): string {
-  const dir = initRepo("repoW");
+  return makeLinearRepo("repoW", "w");
+}
+
+/** A repository `name` of 150 commits summarised `<prefix>-1` and on,
+ * each adding one line, built in one fast-import so they stay quick to
+ * make. */
+function makeLinearRepo(name: string, prefix: string): string {
+  const dir = initRepo(name);
   const data = (text: string) => `data ${Buffer.byteLength(text)}\n${text}\n`;
   let stream = "";
   let content = "";
@@ -459,8 +465,8 @@ function makeRepoW(): string {
     stream +=
       "commit refs/heads/main\n" +
       `committer Tester <tester@example.com> ${1_700_000_000 + i} +0000\n` +
-      data(`w-${i}`) +
-      "M 100644 inline w.txt\n" +
+      data(`${prefix}-${i}`) +
+      `M 100644 inline ${prefix}.txt\n` +
       data(content);
   }
   execFileSync("git", ["fast-import", "--quiet"], { cwd: dir, input: stream });
