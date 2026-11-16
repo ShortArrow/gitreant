@@ -99,3 +99,17 @@ test("forgetting drops what was settled", () => {
     settled.applyTo(view("r", [commit("a")])).commits[0].stat,
   ).toBeUndefined();
 });
+
+test("a view already holding what was settled is kept as it is", () => {
+  const settled = new Settled();
+  settled.counted("r", [{ id: "a", stat: { added: 1, deleted: 0 } }]);
+  const filled = settled.applyTo(view("r", [commit("a"), commit("b")]));
+  settled.counted("r", [{ id: "z", stat: { added: 2, deleted: 0 } }]);
+  expect(settled.applyTo(filled)).toBe(filled);
+
+  settled.counted("r", [{ id: "b", stat: { added: 3, deleted: 0 } }]);
+  const again = settled.applyTo(filled);
+  expect(again).not.toBe(filled);
+  expect(again.commits[0]).toBe(filled.commits[0]);
+  expect(again.commits[1].stat).toEqual({ added: 3, deleted: 0 });
+});

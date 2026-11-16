@@ -45,20 +45,23 @@ export class Settled {
     this.patches.clear();
   }
 
-  /** `view` with what was settled for its commits; `view` itself when
-   * nothing was. */
+  /** `view` with what was settled for its commits; `view` itself, and
+   * each commit itself, where that changes nothing, so a batch for rows
+   * not loaded redraws nothing. */
   applyTo(view: RepoView): RepoView {
     const patches = this.patches.get(view.id);
-    if (!patches || !view.commits.some((c) => patches.has(c.id))) return view;
-    return {
-      ...view,
-      commits: view.commits.map((c) => {
-        const patch = patches.get(c.id);
-        return patch ? { ...c, ...patch } : c;
-      }),
-    };
+    if (!patches) return view;
+    let changed = false;
+    const commits = view.commits.map((c) => {
+      const patch = patches.get(c.id);
+      if (!patch || !differs(c, patch)) return c;
+      changed = true;
+      return { ...c, ...patch };
+    });
+    return changed ? { ...view, commits } : view;
   }
 
+  /** Keep `patch` for commit `id` of `repo`, over what was kept for it. */
   private patch(repo: string, id: string, patch: Patch): void {
     let patches = this.patches.get(repo);
     if (!patches) {
@@ -67,4 +70,11 @@ export class Settled {
     }
     patches.set(id, { ...patches.get(id), ...patch });
   }
+}
+
+/** Whether laying `patch` over `commit` changes any of its fields. */
+function differs(commit: CommitView, patch: Patch): boolean {
+  return (Object.keys(patch) as (keyof Patch)[]).some(
+    (key) => JSON.stringify(commit[key]) !== JSON.stringify(patch[key]),
+  );
 }

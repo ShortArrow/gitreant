@@ -49,6 +49,9 @@ read took 11.6 seconds instead of 0.55. Each figure is from one run.
 - A batch costs no read. A page reads a repository's view when it opens
   it, when it scrolls for more rows, and on `update`.
 - An event is larger: up to 256 commits of a batch, each with its id.
+- A page keeps one entry per settled commit of each repository until the
+  next `update`, about 395,000 for a history the size of winget-pkgs. That
+  size was not tried.
 - A page that misses events is resynced by `update`, which the server
   sends to a listener that fell behind.
 - Tests cover what a batch reports for counts and for verdicts, the event

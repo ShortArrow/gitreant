@@ -1812,8 +1812,8 @@ test.describe.serial("gitreant UI", () => {
   });
 
   test("a view answered late does not undo a newer one", async ({ page }) => {
-    // Hold back the answer to the read that starts the count, until the
-    // read its `counted` event brings has answered (ADR 0041).
+    // Hold back the answer to the read that starts the count, until its
+    // `counted` event has filled the count in (ADR 0041, ADR 0083).
     let held = false;
     await page.route("**/api/view", async (route) => {
       const response = await route.fetch();

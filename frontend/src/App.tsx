@@ -124,8 +124,8 @@ export function App() {
   // How many rows each repository has asked for so far (ADR 0023 paging).
   const limitsRef = useRef(new Map<string, number>());
   // The latest read of each repository's view: an answer to an older read,
-  // overtaken on the way, would undo what a newer one brought, such as a
-  // batch of counts.
+  // overtaken on the way, would undo what a newer one brought, such as
+  // the rows a scroll asked for.
   const viewReads = useRef(new Map<string, number>());
   // What the background batches settled since the last update, laid over
   // every view read, including one read before a batch and answered after
