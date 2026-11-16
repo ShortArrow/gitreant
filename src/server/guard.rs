@@ -17,15 +17,7 @@ impl Secret {
     /// 64 hexadecimal digits. Panics when the source fails, so a server
     /// never starts with a weaker secret.
     pub fn generate() -> Self {
-        let mut bytes = [0u8; 32];
-        getrandom::fill(&mut bytes).expect("the operating system's random source");
-        Self(
-            bytes
-                .iter()
-                .map(|b| format!("{b:02x}"))
-                .collect::<String>()
-                .into(),
-        )
+        Self(random_hex().into())
     }
 
     /// A secret given outright, for a server whose caller already holds one.
@@ -36,6 +28,14 @@ impl Secret {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+}
+
+/// 32 bytes from the operating system's cryptographic random source, as 64
+/// hexadecimal digits. Panics when the source fails.
+pub fn random_hex() -> String {
+    let mut bytes = [0u8; 32];
+    getrandom::fill(&mut bytes).expect("the operating system's random source");
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// Whether a request to `path` carries `secret` in its header (ADR 0063,
