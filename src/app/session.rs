@@ -8,9 +8,9 @@ use std::sync::Mutex;
 use serde::Serialize;
 
 use crate::git::{
-    count_command, count_lines, discover_repo, gpg_available, read_repo_with_progress,
-    uncommitted_paths, verification_state, verify_command, verify_signatures, LineCount, RepoData,
-    SignatureCheck,
+    count_command, count_lines, discover_repo, git_available, gpg_available,
+    read_repo_with_progress, uncommitted_paths, verification_state, verify_command,
+    verify_signatures, LineCount, RepoData, SignatureCheck,
 };
 
 use super::view::{build_view, CommitStat, RepoView};
@@ -218,15 +218,24 @@ pub enum ExternalTools {
     All,
     /// No gpg answers; signatures are only shown as present.
     NoGpg,
+    /// No `git` answers, so neither signatures nor line counts can be had
+    /// (ADR 0084).
+    NoGit,
 }
 
 impl ExternalTools {
     /// The tools this process finds, looked up once per process.
     pub fn detect() -> Self {
-        if gpg_available() {
-            ExternalTools::All
-        } else {
-            ExternalTools::NoGpg
+        let git = git_available();
+        Self::from_found(git, git && gpg_available())
+    }
+
+    /// The state for `git` found or not and gpg answering or not.
+    fn from_found(git: bool, gpg: bool) -> Self {
+        match (git, gpg) {
+            (false, _) => ExternalTools::NoGit,
+            (true, false) => ExternalTools::NoGpg,
+            (true, true) => ExternalTools::All,
         }
     }
 }
@@ -260,7 +269,11 @@ fn read_view_with(
             for commit in &mut view.commits {
                 commit.verifying = waiting.contains(commit.id.as_str());
             }
-            let counts = stamp_counts(session, &mut view);
+            let mut counts = stamp_counts(session, &mut view);
+            if tools == ExternalTools::NoGit {
+                counts.clear();
+                view.git_missing = true;
+            }
             (view, Pending { signatures, counts })
         }
         Err(message) => (RepoView::error(path, message), Pending::default()),
@@ -664,6 +677,36 @@ mod tests {
         assert_eq!(commit.verified, Some(true));
         assert_eq!(commit.signature_key.as_deref(), Some("ABCD1234"));
         assert!(!commit.verifying);
+    }
+
+    #[test]
+    fn without_git_nothing_else_counts() {
+        assert_eq!(ExternalTools::from_found(false, true), ExternalTools::NoGit);
+        assert_eq!(
+            ExternalTools::from_found(false, false),
+            ExternalTools::NoGit
+        );
+        assert_eq!(ExternalTools::from_found(true, false), ExternalTools::NoGpg);
+        assert_eq!(ExternalTools::from_found(true, true), ExternalTools::All);
+    }
+
+    #[test]
+    fn without_git_a_read_leaves_nothing_pending_and_says_why() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (path, tip) = fake_signed_repo(tmp.path());
+        let session = Mutex::new(Session::new());
+
+        let (view, pending) = read_view_with(&session, &path, ExternalTools::NoGit, |_| {});
+        assert!(pending.signatures.is_empty());
+        assert!(pending.counts.is_empty());
+        assert!(view.git_missing);
+        assert!(!view.commits.iter().find(|c| c.id == tip).unwrap().verifying);
+
+        for tools in [ExternalTools::NoGpg, ExternalTools::All] {
+            let (view, pending) = read_view_with(&session, &path, tools, |_| {});
+            assert!(!view.git_missing, "{tools:?}");
+            assert!(!pending.counts.is_empty(), "{tools:?}");
+        }
     }
 
     #[test]

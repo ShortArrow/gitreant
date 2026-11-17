@@ -49,6 +49,7 @@ pub use uncommitted::{
     uncommitted_paths, UncommittedPath, UNCOMMITTED_ID,
 };
 pub use verify::{
-    gpg_available, verification_state, verify_command, verify_signatures, SignatureCheck,
+    git_available, gpg_available, verification_state, verify_command, verify_signatures,
+    SignatureCheck,
 };
 pub use worktrees::{read_worktrees, Worktree};

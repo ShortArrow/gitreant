@@ -87,3 +87,4 @@ gitreant の設計判断の記録。各 ADR は決定時点で凍結され、変
 | [0081](0081-a-person-accepts-each-release.jp.md) | リリースごとに人が受け入れ確認をする | Accepted |
 | [0082](0082-the-event-stream-carries-the-secret-in-its-header.jp.md) | イベントのストリームも秘密をヘッダで持つ | Accepted |
 | [0083](0083-batches-carry-what-they-settled.jp.md) | 裏の作業の区切りは、確定した結果を通知に載せる | Accepted |
+| [0084](0084-say-when-the-server-finds-no-git.jp.md) | サーバが git を見つけられないときは、そう示す | Accepted |
