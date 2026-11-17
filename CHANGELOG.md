@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A branch badge's menu opens the branch's pull request on GitHub, as the
+  badge's PR button does, where the branch has one.
+
 ### Fixed
 
 - A large repository no longer slows the server and the page while its
