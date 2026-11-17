@@ -2212,3 +2212,64 @@ async fn a_counted_batch_carries_its_counts() {
     assert_eq!(commits[0]["id"], head.as_str(), "{batch}");
     assert!(commits[0]["stat"]["added"].is_u64(), "{batch}");
 }
+
+/// The page asks where a commit parts from a branch, to diff it as
+/// `base...commit` the way a pull request does.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn the_server_tells_where_a_commit_parts_from_a_branch() {
+    let tmp = tempfile::tempdir().unwrap();
+    init_repo_with_commit(tmp.path());
+    let git = |args: &[&str]| {
+        let output = Command::new("git")
+            .current_dir(tmp.path())
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "git {args:?} failed");
+        String::from_utf8(output.stdout).unwrap().trim().to_string()
+    };
+    let root = git(&["rev-parse", "HEAD"]);
+    git(&["switch", "-q", "-c", "topic"]);
+    git(&["commit", "-q", "--allow-empty", "-m", "topic-1"]);
+    let topic = git(&["rev-parse", "HEAD"]);
+    git(&["switch", "-q", "main"]);
+    git(&["commit", "-q", "--allow-empty", "-m", "main-1"]);
+
+    let (listener, addr) = bind(0).await.unwrap();
+    let port = addr.port();
+    let mut session = Session::new();
+    session.add(tmp.path()).unwrap();
+    tokio::spawn(async move {
+        serve(
+            listener,
+            AppState::new(session).with_secret(Secret::from_text(SECRET)),
+        )
+        .await
+        .unwrap();
+    });
+    tokio::task::spawn_blocking(move || {
+        assert!((0..50).any(|_| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            ping(port)
+        }));
+        let list = http_get(port, "/api/list");
+        let entries: serde_json::Value =
+            serde_json::from_str(list.lines().find(|line| line.starts_with('[')).unwrap()).unwrap();
+        let repo = entries[0]["id"].as_str().unwrap().to_string();
+        let ask = |base: &str| {
+            let body = serde_json::json!({ "repo": repo, "base": base, "target": topic });
+            http_post_json(port, "/api/merge-base", &body.to_string())
+        };
+        let found = ask("main");
+        assert!(found.starts_with("HTTP/1.1 200"), "{found}");
+        let point: serde_json::Value =
+            serde_json::from_str(found.split("\r\n\r\n").nth(1).unwrap()).unwrap();
+        assert_eq!(point["id"], root.as_str());
+        assert_eq!(point["summary"], "root");
+
+        let missing = ask("no-such-branch");
+        assert!(missing.starts_with("HTTP/1.1 400"), "{missing}");
+    })
+    .await
+    .unwrap();
+}

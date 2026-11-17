@@ -7,10 +7,10 @@ use std::process::Command;
 
 use gitreant::domain::layout;
 use gitreant::git::{
-    gitlink_updates, opens_in_working_tree, read_commit, read_commit_body, read_commit_diff,
-    read_file, read_file_diff, read_range_diff, read_repo, read_repo_with_progress, read_status,
-    read_submodules, read_uncommitted, read_uncommitted_diff, read_uncommitted_diffs,
-    read_worktrees, uncommitted_paths, FileChange, UNCOMMITTED_ID,
+    gitlink_updates, merge_base, opens_in_working_tree, read_commit, read_commit_body,
+    read_commit_diff, read_file, read_file_diff, read_range_diff, read_repo,
+    read_repo_with_progress, read_status, read_submodules, read_uncommitted, read_uncommitted_diff,
+    read_uncommitted_diffs, read_worktrees, uncommitted_paths, FileChange, UNCOMMITTED_ID,
 };
 
 fn git(dir: &Path, args: &[&str]) {
@@ -57,6 +57,63 @@ fn reading_reports_a_running_commit_count() {
     let repo = read_repo_with_progress(dir, |n| counts.push(n)).expect("read repo");
     assert_eq!(counts, vec![1, 2, 3]);
     assert_eq!(repo.commits.len(), 3);
+}
+
+#[test]
+fn the_default_branch_is_the_one_origin_head_names() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    commit(dir, "root", 1000);
+    assert_eq!(read_repo(dir).unwrap().default_branch, None);
+
+    git(dir, &["update-ref", "refs/remotes/origin/trunk", "HEAD"]);
+    git(
+        dir,
+        &[
+            "symbolic-ref",
+            "refs/remotes/origin/HEAD",
+            "refs/remotes/origin/trunk",
+        ],
+    );
+    assert_eq!(
+        read_repo(dir).unwrap().default_branch.as_deref(),
+        Some("trunk")
+    );
+}
+
+#[test]
+fn the_branch_point_of_a_commit_and_a_branch() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path();
+    git(dir, &["init", "-q", "-b", "main"]);
+    git(dir, &["config", "commit.gpgsign", "false"]);
+    commit(dir, "root", 1000);
+    git(dir, &["switch", "-q", "-c", "topic"]);
+    commit(dir, "topic-1", 1005);
+    git(dir, &["switch", "-q", "main"]);
+    commit(dir, "main-1", 1010);
+    let id = |rev: &str| {
+        String::from_utf8(
+            Command::new("git")
+                .current_dir(dir)
+                .args(["rev-parse", rev])
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap()
+        .trim()
+        .to_string()
+    };
+
+    let point = merge_base(dir, "main", &id("topic")).expect("a branch point");
+    assert_eq!(point.id, id("main~1"));
+    assert_eq!(point.summary, "root");
+    assert_eq!(point.author, "Tester");
+    assert_eq!(point.time, 1000);
+    assert!(merge_base(dir, "no-such-branch", &id("topic")).is_err());
 }
 
 #[test]

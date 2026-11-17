@@ -311,6 +311,8 @@ export interface PullRequestView {
   url: string;
   /** Head branch name the PR belongs to. */
   branch: string;
+  /** The branch it goes into. */
+  base?: string;
 }
 
 export interface MergedPullRequestView {
@@ -399,6 +401,34 @@ export async function fetchRangeDiff(
   if (!response.ok) {
     throw new Error(
       (await response.text()) || `range diff failed: ${response.status}`,
+    );
+  }
+  return response.json();
+}
+
+/** Where a history parts from another: the commit a pull request's diff
+ * starts at. */
+export interface BranchPoint {
+  id: string;
+  summary: string;
+  author: string;
+  time: number;
+}
+
+/** Where commit `target` parts from the branch or revision `base`. */
+export async function fetchMergeBase(
+  repoId: string,
+  base: string,
+  target: string,
+): Promise<BranchPoint> {
+  const response = await apiFetch("/api/merge-base", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ repo: repoId, base, target }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      (await response.text()) || `merge base failed: ${response.status}`,
     );
   }
   return response.json();

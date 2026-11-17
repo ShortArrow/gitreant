@@ -22,6 +22,7 @@ export function CommitMenu({
   onGoTo,
   onShowInRows,
   onCompare,
+  compareBase,
   onCheckoutDetached,
   onClose,
 }: {
@@ -46,6 +47,9 @@ export function CommitMenu({
   /** Compares this commit with the selected one; absent when there is no
    * other commit selected. */
   onCompare?: () => void;
+  /** Compares this commit with its base branch from where it parts from
+   * it; absent when it has no base to compare with. */
+  compareBase?: { branch: string; pr?: number; onCompare: () => void };
   /** Checks the commit out detached, after an inline confirmation. */
   onCheckoutDetached?: () => void;
   onClose: () => void;
@@ -160,6 +164,23 @@ export function CommitMenu({
               }}
             >
               {t("compareWithSelected")}
+            </button>
+          )}
+          {compareBase && (
+            <button
+              type="button"
+              data-testid="commit-menu-compare-base"
+              onClick={() => {
+                compareBase.onCompare();
+                onClose();
+              }}
+            >
+              {compareBase.pr === undefined
+                ? t("compareWithBase", { branch: compareBase.branch })
+                : t("compareWithBasePr", {
+                    branch: compareBase.branch,
+                    number: compareBase.pr,
+                  })}
             </button>
           )}
           {onGoTo &&
