@@ -169,7 +169,7 @@ function history(times: number[]) {
       stat: { added: 1, deleted: 0 },
     }))
     .reverse() as CommitView[];
-  const sums = cumulative(commits, String(times.length - 1));
+  const sums = cumulative(commits);
   return {
     points: sums.points,
     layout: chartLayout(sums, { width: 400, height: 200 }),

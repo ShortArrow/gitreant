@@ -78,9 +78,13 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   thickness to show that order, its two sides as one shape whose border
   takes each side's color. A graph setting turns it off.
 - **Lines over time.** A button in the pane's header shows, in place of
-  the rows, the lines added (up) and deleted (down) along HEAD's first
-  parents summed over the commit time, with their net change between
-  them, from the oldest loaded commit. A legend names each line; hovering
+  the rows, the lines added (up) and deleted (down) by the commits of a
+  branch summed over the commit time, with their net change between
+  them, from the oldest loaded commit. The commits are those the branch
+  reaches, merges aside, each against its first parent; a merge brings in
+  work its own commits already count. A list beside the buttons picks the
+  branch, HEAD's by default, or every branch, and the calendar counts the
+  same commits. A legend names each line; hovering
   names the nearest commit and its sums. Candles of the net change and
   bars of the lines each period added and deleted sit on the same axes; a
   timeframe beside the legend cuts them by commit, day, week, month,
@@ -92,7 +96,7 @@ see the [README](../README.md); design decisions live in [adr/](adr/).
   commits under the cursor beside it; right-clicking one offers "Show in
   rows".
 - **Calendar.** Another button in the header shows a calendar of the
-  loaded commits as a strip under the rows, a column per week from
+  loaded commits of the branch the chart counts as a strip under the rows, a column per week from
   Monday, or from Sunday by a setting the chart's weeks follow too. Each
   day is shaded more strongly the more lines its commits changed, green
   when they added and red when they deleted; merges are left out; buttons
