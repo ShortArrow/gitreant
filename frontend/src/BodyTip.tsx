@@ -17,7 +17,8 @@ interface Shown {
 
 /** A popup with the message body of the row the pointer rests on. Rows
  *  spread `rowProps(id)`; `tip` is rendered once. A commit without a body
- *  shows nothing, and each body is asked for once per card (ADR 0067). */
+ *  shows nothing, and each body is asked for once per card (ADR 0067). A
+ *  menu opened anywhere hides it until the pointer enters a row again. */
 export function useBodyTip(load: (commitId: string) => Promise<string>) {
   const latestLoad = useRef(load);
   latestLoad.current = load;
@@ -27,13 +28,19 @@ export function useBodyTip(load: (commitId: string) => Promise<string>) {
   const timer = useRef<number | undefined>(undefined);
   const [shown, setShown] = useState<Shown | null>(null);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    const hide = () => {
       rest.current += 1;
       window.clearTimeout(timer.current);
-    },
-    [],
-  );
+      setShown(null);
+    };
+    window.addEventListener("contextmenu", hide, true);
+    return () => {
+      window.removeEventListener("contextmenu", hide, true);
+      rest.current += 1;
+      window.clearTimeout(timer.current);
+    };
+  }, []);
 
   const rowProps = (id: string) => ({
     onMouseEnter: (e: React.MouseEvent) => {

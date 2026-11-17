@@ -578,6 +578,12 @@ export function RepoCard({
     onMouseLeave: () => setHoverNode(null),
   });
   const bodyTip = useBodyTip((commitId) => loadBody(repo.id, commitId));
+  // A menu opened anywhere hides a node's name, as it does a row's body.
+  useEffect(() => {
+    const hide = () => setHoverNode(null);
+    window.addEventListener("contextmenu", hide, true);
+    return () => window.removeEventListener("contextmenu", hide, true);
+  }, []);
   const [detail, setDetail] = useState<CommitDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [diffTarget, setDiffTarget] = useState<DiffTarget | null>(null);
