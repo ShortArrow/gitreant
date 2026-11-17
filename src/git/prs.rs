@@ -20,6 +20,13 @@ pub struct PullRequest {
     pub url: String,
     #[serde(alias = "headRefName")]
     pub branch: String,
+    /// The branch it goes into.
+    #[serde(
+        alias = "baseRefName",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub base: Option<String>,
 }
 
 const PR_ARGS: [&str; 6] = [
@@ -28,7 +35,7 @@ const PR_ARGS: [&str; 6] = [
     "--state",
     "open",
     "--json",
-    "number,url,headRefName",
+    "number,url,headRefName,baseRefName",
 ];
 
 /// Whether a `gh` binary is on the PATH. Checked once per process.
@@ -189,9 +196,20 @@ mod tests {
                 number: 7,
                 url: "https://github.com/o/r/pull/7".to_string(),
                 branch: "feature".to_string(),
+                base: None,
             }]
         );
         assert_eq!(parse_prs("[]").unwrap(), vec![]);
+    }
+
+    #[test]
+    fn a_pull_request_names_the_branch_it_goes_into() {
+        let prs = parse_prs(
+            r#"[{"headRefName":"feature","baseRefName":"develop","number":7,"url":"u"}]"#,
+        )
+        .unwrap();
+        assert_eq!(prs[0].base.as_deref(), Some("develop"));
+        assert!(pr_command().contains("baseRefName"));
     }
 
     #[test]

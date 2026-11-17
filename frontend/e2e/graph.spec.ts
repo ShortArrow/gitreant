@@ -393,6 +393,34 @@ test.describe.serial("gitreant UI", () => {
     await expect(tip).toHaveCount(0);
   });
 
+  test("a commit compares with its base from where it parts from it", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoB"]').click();
+    const row = (summary: string) =>
+      page.getByTestId("commit-row").filter({ hasText: summary });
+    const item = page.getByTestId("commit-menu-compare-base");
+
+    // main already holds main-1: comparing it with main is empty.
+    await row("main-1").click({ button: "right" });
+    await expect(page.getByTestId("commit-menu")).toBeVisible();
+    await expect(item).toHaveCount(0);
+    await page.keyboard.press("Escape");
+
+    await row("topic-1").click({ button: "right" });
+    await expect(item).toHaveText("Compare with base main");
+    await item.click();
+    const panel = page.getByTestId("compare-detail");
+    await expect(panel).toBeVisible();
+    await expect(panel.getByTestId("compare-base")).toContainText(
+      "Branch point with main",
+    );
+    await expect(panel.getByTestId("compare-base")).toContainText("init");
+    await expect(panel.getByTestId("compare-target")).toContainText("topic-1");
+    await page.getByTestId("compare-close").click();
+    await expect(panel).toHaveCount(0);
+  });
+
   test("the detail pane holds still when the selection changes", async ({
     page,
   }) => {

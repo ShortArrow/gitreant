@@ -13,13 +13,16 @@ import { absoluteTime } from "./time";
  */
 export function CompareDetailPanel({
   base,
+  baseLabel,
   target,
   files,
   error,
   onSelectFile,
   onClose,
 }: {
-  base: CommitView;
+  base: Pick<CommitView, "id" | "summary" | "author" | "time">;
+  /** What the base is, where it is not one of the two commits picked. */
+  baseLabel?: string;
   target: CommitView;
   /** null while loading. */
   files: FileDiff[] | null;
@@ -58,7 +61,11 @@ export function CompareDetailPanel({
             ×
           </button>
         </header>
-        <CompareCommit label={t("compareBase")} commit={base} testId="compare-base" />
+        <CompareCommit
+          label={baseLabel ?? t("compareBase")}
+          commit={base}
+          testId="compare-base"
+        />
         <CompareCommit
           label={t("compareTarget")}
           commit={target}
@@ -105,7 +112,7 @@ function CompareCommit({
   testId,
 }: {
   label: string;
-  commit: CommitView;
+  commit: Pick<CommitView, "id" | "summary" | "author" | "time">;
   testId: string;
 }) {
   const time = useTime();
