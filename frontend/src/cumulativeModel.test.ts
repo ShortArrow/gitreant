@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { UNCOMMITTED_ID, type CommitView } from "./api";
 import {
+  branchCommits,
   chartLayout,
   cumulative,
   nearest,
@@ -41,9 +42,27 @@ const history = [
   commit("root", [], 100, { added: 20, deleted: 0 }),
 ];
 
-test("sums HEAD's first-parent chain, oldest first", () => {
-  const sums = cumulative(history, "merge");
-  expect(sums.points.map((p) => p.commit.id)).toEqual(["root", "m1", "merge"]);
+test("a branch's commits are those it reaches, less merges, stashes and the working tree", () => {
+  const ids = (tip: string | null) =>
+    branchCommits(history, tip).map((c) => c.id);
+  expect(ids("merge")).toEqual(["side", "m1", "root"]);
+  expect(ids("side")).toEqual(["side", "root"]);
+  expect(ids(null)).toEqual(["side", "m1", "root"]);
+  const stashed = [
+    commit("stash", ["m1"], 500),
+    { ...commit("helper", ["m1"], 500), stash_internal: true },
+    ...history,
+  ].map((c) => (c.id === "stash" ? { ...c, stash: true } : c));
+  expect(branchCommits(stashed, null).map((c) => c.id)).toEqual([
+    "side",
+    "m1",
+    "root",
+  ]);
+});
+
+test("sums the commits by time, oldest first, each against its first parent", () => {
+  const sums = cumulative(branchCommits(history, "merge"));
+  expect(sums.points.map((p) => p.commit.id)).toEqual(["root", "m1", "side"]);
   expect(sums.points.map((p) => [p.added, p.deleted, p.net])).toEqual([
     [20, 0, 20],
     [30, 4, 26],
@@ -56,19 +75,13 @@ test("a commit not counted yet adds nothing and is still counting", () => {
   const partly = history.map((c) =>
     c.id === "m1" ? { ...c, stat: undefined } : c,
   );
-  const sums = cumulative(partly, "merge");
+  const sums = cumulative(branchCommits(partly, "merge"));
   expect(sums.points.map((p) => p.net)).toEqual([20, 20, 24]);
   expect(sums.counting).toBe(1);
 });
 
-test("time never runs backwards along the chain", () => {
-  const skewed = history.map((c) => (c.id === "m1" ? { ...c, time: 50 } : c));
-  const sums = cumulative(skewed, "merge");
-  expect(sums.points.map((p) => p.time)).toEqual([100, 100, 400]);
-});
-
-test("no HEAD, no sums", () => {
-  expect(cumulative(history, null).points).toEqual([]);
+test("no commits, no sums", () => {
+  expect(cumulative([]).points).toEqual([]);
 });
 
 test("ticks fall on round numbers within the range", () => {
@@ -90,7 +103,7 @@ test("a step line changes only at each point", () => {
 });
 
 test("the layout spans the plot from the first time to the last", () => {
-  const sums = cumulative(history, "merge");
+  const sums = cumulative(branchCommits(history, "merge"));
   const layout = chartLayout(sums, { width: 400, height: 200 });
   const { plot } = layout;
   expect(layout.xs[0]).toBeCloseTo(plot.left);
@@ -109,7 +122,7 @@ test("the layout spans the plot from the first time to the last", () => {
 });
 
 test("a point across the plot maps back to its time", () => {
-  const sums = cumulative(history, "merge");
+  const sums = cumulative(branchCommits(history, "merge"));
   const layout = chartLayout(sums, { width: 400, height: 200 });
   const { plot } = layout;
   const first = sums.points[0].time;
@@ -125,13 +138,13 @@ test("a point across the plot maps back to its time", () => {
 });
 
 test("a single commit still lays out", () => {
-  const sums = cumulative([commit("a", [], 7, { added: 1, deleted: 0 })], "a");
+  const sums = cumulative([commit("a", [], 7, { added: 1, deleted: 0 })]);
   const layout = chartLayout(sums, { width: 400, height: 200 });
   expect(Number.isFinite(layout.xs[0])).toBe(true);
 });
 
 test("the nearest commit to a time", () => {
-  const sums = cumulative(history, "merge");
+  const sums = cumulative(branchCommits(history, "merge"));
   expect(nearest(sums.points, 0)).toBe(0);
   expect(nearest(sums.points, 160)).toBe(1);
   expect(nearest(sums.points, 310)).toBe(2);
@@ -146,7 +159,7 @@ test("the times drawn within a few pixels of an x", () => {
     commit("b", ["a"], 1, { added: 1, deleted: 0 }),
     commit("a", [], 0, { added: 1, deleted: 0 }),
   ];
-  const sums = cumulative(history, "c");
+  const sums = cumulative(branchCommits(history, "c"));
   const layout = chartLayout(sums, { width: 400, height: 200 });
   const under = timesUnder(layout, layout.xs[0]);
   expect(pointsBetween(sums.points, under).map((p) => p.commit.id)).toEqual([
@@ -160,10 +173,10 @@ test("the times drawn within a few pixels of an x", () => {
 });
 
 test("the points between two times, both included, newest first", () => {
-  const sums = cumulative(history, "merge");
+  const sums = cumulative(branchCommits(history, "merge"));
   expect(
     pointsBetween(sums.points, { from: 200, to: 400 }).map((p) => p.commit.id),
-  ).toEqual(["merge", "m1"]);
+  ).toEqual(["side", "m1"]);
 });
 
 test("the tip sits beside the cursor, toward the room the chart has", () => {
@@ -188,23 +201,23 @@ test("a range reaches back its length from the newest commit, by the calendar", 
 });
 
 test("within a range, the sums start from zero at its first commit", () => {
-  const sums = cumulative(history, "merge");
-  // root (+20 −0) at 100, m1 (+10 −4) at 200, merge (+5 −1) at 400.
+  const sums = cumulative(branchCommits(history, "merge"));
+  // root (+20 −0) at 100, m1 (+10 −4) at 200, side (+5 −1) at 300.
   const range = withinRange(sums, 150);
   expect(
     range.points.map((p) => [p.commit.id, p.added, p.deleted, p.net]),
   ).toEqual([
     ["m1", 10, 4, 6],
-    ["merge", 15, 5, 10],
+    ["side", 15, 5, 10],
   ]);
   expect(withinRange(sums, -Infinity)).toEqual(sums);
 });
 
 test("only the range's commits still being counted are counting", () => {
-  const sums = cumulative(
-    [commit("b", ["a"], 200, { added: 1, deleted: 0 }), commit("a", [], 100)],
-    "b",
-  );
+  const sums = cumulative([
+    commit("b", ["a"], 200, { added: 1, deleted: 0 }),
+    commit("a", [], 100),
+  ]);
   expect(sums.counting).toBe(1);
   expect(withinRange(sums, 150).counting).toBe(0);
 });

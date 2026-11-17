@@ -64,6 +64,7 @@ import {
   tiltBy,
 } from "./thicknessModel";
 import { createThicknessView } from "./thicknessView";
+import { branchCommits } from "./cumulativeModel";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
 import { countKey, format, MESSAGES } from "./i18n";
 import { useCommands, type PaletteCommand } from "./palette";
@@ -587,6 +588,9 @@ export function RepoCard({
   const [chart, setChart] = useState(false);
   // The calendar (ADR 0050) sits under whatever the body shows.
   const [calendar, setCalendar] = useState(false);
+  // The branch whose commits the chart and the calendar count (ADR 0086):
+  // "HEAD", "*" for every branch, or a branch's name.
+  const [chartBranch, setChartBranch] = useState("HEAD");
 
   // The focused pane's graph takes the selection keys (ADR 0035) while the
   // graph is shown and nothing else has the keyboard: no text field, no
@@ -706,6 +710,34 @@ export function RepoCard({
     uncommittedGeneration,
   ]);
 
+  // The branches the chart and the calendar may count, and the commits of
+  // the one picked; a branch gone since it was picked falls back to HEAD.
+  const branchChoices = useMemo(() => {
+    const branches = view.refs.filter((r) => r.kind === "branch");
+    const names = (remote: boolean) =>
+      branches
+        .filter((r) => !!r.remote === remote)
+        .map((r) => (r.remote ? `${r.remote}/${r.name}` : r.name))
+        .sort((a, b) => a.localeCompare(b));
+    return [...new Set([...names(false), ...names(true)])];
+  }, [view.refs]);
+  const pickedBranch =
+    chartBranch === "*" || branchChoices.includes(chartBranch)
+      ? chartBranch
+      : "HEAD";
+  const workCommits = useMemo(() => {
+    const tip =
+      pickedBranch === "HEAD"
+        ? view.head
+        : pickedBranch === "*"
+          ? null
+          : (view.refs.find(
+              (r) =>
+                (r.remote ? `${r.remote}/${r.name}` : r.name) === pickedBranch,
+            )?.target ?? view.head);
+    return branchCommits(view.commits, tip);
+  }, [view, pickedBranch]);
+
   if (repo.error) {
     return (
       <section className="repo">
@@ -766,6 +798,28 @@ export function RepoCard({
           active={chart}
           onClick={() => setChart((on) => !on)}
         />
+        {(chart || calendar) && (
+          <select
+            className="chart-branch"
+            data-testid="chart-branch"
+            aria-label={t("chartBranch")}
+            title={t("chartBranch")}
+            value={pickedBranch}
+            onChange={(e) => setChartBranch(e.target.value)}
+          >
+            <option value="HEAD">
+              {t("chartBranchHead", {
+                branch: view.head_branch ?? shortId(view.head ?? ""),
+              })}
+            </option>
+            <option value="*">{t("chartBranchAll")}</option>
+            {branchChoices.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        )}
         <LabeledButton
           icon={<CalendarIcon />}
           label={t("calendar")}
@@ -895,8 +949,7 @@ export function RepoCard({
       <div className="repo-body">
       {chart ? (
         <CumulativeChart
-          commits={view.commits}
-          head={view.head}
+          commits={workCommits}
           onCommitMenu={openChartCommitMenu}
           menuOpen={commitMenu !== null}
         />
@@ -1491,7 +1544,7 @@ export function RepoCard({
       </div>
       {calendar && (
         <Calendar
-          commits={view.commits}
+          commits={workCommits}
           selected={selected}
           hasOlder={hasMore}
           onOlder={loadNextPage}

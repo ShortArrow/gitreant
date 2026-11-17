@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The line-count chart and the calendar count the same commits: those a
+  branch reaches, merges aside, each against its first parent. A list in
+  the pane's header picks the branch, HEAD's by default, or every branch.
+  On a branch built from release merges, the chart no longer shows a few
+  huge candles while the calendar shows daily work
+  ([ADR 0086](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0086-chart-and-calendar-count-one-branch.md)).
+
 ### Fixed
 
 - A large repository no longer slows the server and the page while its

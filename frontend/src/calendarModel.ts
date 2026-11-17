@@ -1,4 +1,5 @@
-import { UNCOMMITTED_ID, type CommitView } from "./api";
+import type { CommitView } from "./api";
+import { isWork } from "./cumulativeModel";
 import { periodStart, type WeekStart } from "./candleModel";
 import { THICKNESS_REACH, thickness } from "./thicknessModel";
 
@@ -33,21 +34,10 @@ const MONTH_ROOM = 3;
 /** The faintest shade, so a one-line day still shows. */
 const MIN_STRENGTH = 0.2;
 
-/** Whether a commit counts toward its day: every loaded commit but merges,
- * stash entries and their helpers, and the uncommitted row. */
-function counts(commit: CommitView): boolean {
-  return (
-    commit.id !== UNCOMMITTED_ID &&
-    commit.parents.length <= 1 &&
-    !commit.stash &&
-    !commit.stash_internal
-  );
-}
-
 /** The days `commits` fall on, newest first, keyed by their start. */
 export function calendarDays(commits: CommitView[]): Map<number, CalendarDay> {
   const days = new Map<number, CalendarDay>();
-  for (const commit of commits.filter(counts)) {
+  for (const commit of commits.filter(isWork)) {
     const start = periodStart(commit.time, "day");
     let day = days.get(start);
     if (day === undefined) {

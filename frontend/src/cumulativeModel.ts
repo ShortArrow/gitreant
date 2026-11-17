@@ -1,6 +1,39 @@
-import type { CommitView } from "./api";
+import { UNCOMMITTED_ID, type CommitView } from "./api";
 
-/** The sums after one commit of HEAD's first-parent chain (ADR 0043). */
+/** Whether a commit is work of its own: every commit but merges, which
+ * only bring in what other commits did, stash entries and their helpers,
+ * and the uncommitted row. */
+export function isWork(commit: CommitView): boolean {
+  return (
+    commit.id !== UNCOMMITTED_ID &&
+    commit.parents.length <= 1 &&
+    !commit.stash &&
+    !commit.stash_internal
+  );
+}
+
+/** The work among `commits` that `tip` reaches, in their order; all of it
+ * when `tip` is null (ADR 0086). Only the loaded commits are walked. */
+export function branchCommits(
+  commits: CommitView[],
+  tip: string | null,
+): CommitView[] {
+  const work = commits.filter(isWork);
+  if (tip === null) return work;
+  const byId = new Map(commits.map((c) => [c.id, c]));
+  const reached = new Set<string>();
+  const stack = [tip];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    const commit = byId.get(id);
+    if (reached.has(id) || commit === undefined) continue;
+    reached.add(id);
+    stack.push(...commit.parents);
+  }
+  return work.filter((c) => reached.has(c.id));
+}
+
+/** The sums after one commit of the chosen branch (ADR 0043, ADR 0086). */
 export interface CumulativePoint {
   commit: CommitView;
   /** The commit time, held back from running earlier than the one before. */
@@ -18,23 +51,10 @@ export interface Cumulative {
   counting: number;
 }
 
-/** The lines added and deleted along HEAD's first-parent chain among
- * `commits`, summed from zero at the oldest loaded commit of the chain. A
- * merge counts against its first parent, so each change counts once. */
-export function cumulative(
-  commits: CommitView[],
-  head: string | null,
-): Cumulative {
-  const byId = new Map(commits.map((c) => [c.id, c]));
-  const chain: CommitView[] = [];
-  const seen = new Set<string>();
-  let commit = head === null ? undefined : byId.get(head);
-  while (commit && !seen.has(commit.id)) {
-    seen.add(commit.id);
-    chain.push(commit);
-    commit = byId.get(commit.parents[0]);
-  }
-  chain.reverse();
+/** The lines `commits` added and deleted, each against its first parent,
+ * summed by time from zero at the oldest. */
+export function cumulative(commits: CommitView[]): Cumulative {
+  const chain = [...commits].sort((a, b) => a.time - b.time);
 
   let added = 0;
   let deleted = 0;

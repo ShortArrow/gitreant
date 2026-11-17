@@ -393,6 +393,51 @@ test.describe.serial("gitreant UI", () => {
     await expect(tip).toHaveCount(0);
   });
 
+  test("the chart and the calendar count the branch picked above them", async ({
+    page,
+  }) => {
+    // repoB: init, then topic-1 on topic and main-1 on main (ADR 0086).
+    await page.locator('[data-repo-name="repoB"]').click();
+    await page.getByTestId("cumulative-toggle").click();
+    await page.getByTestId("calendar-toggle").click();
+    const picker = page.getByTestId("chart-branch");
+    await expect(picker).toHaveValue("HEAD");
+    await expect(picker.locator("option")).toHaveText([
+      "HEAD (main)",
+      "All branches",
+      "main",
+      "topic",
+    ]);
+
+    const chart = page.getByTestId("cumulative-chart");
+    const newest = async () => {
+      const box = (await chart.boundingBox())!;
+      await page.mouse.move(0, 0);
+      await page.mouse.move(box.x + box.width - 16, box.y + box.height / 2);
+      return page.getByTestId("chart-tip");
+    };
+    const day = page.getByTestId("calendar").getByTestId("calendar-day");
+    const onTheDay = async () => {
+      await page.mouse.move(0, 0);
+      await day.hover();
+      return page.getByTestId("calendar-tip");
+    };
+
+    await expect(await newest()).toContainText("main-1");
+    await expect(await onTheDay()).toContainText("2 commits");
+
+    await picker.selectOption("topic");
+    await expect(await newest()).toContainText("topic-1");
+    await expect(await onTheDay()).toContainText("2 commits");
+
+    await picker.selectOption("*");
+    await expect(await newest()).toContainText("main-1");
+    await expect(await onTheDay()).toContainText("3 commits");
+
+    await page.getByTestId("calendar-toggle").click();
+    await page.getByTestId("cumulative-toggle").click();
+  });
+
   test("the detail pane holds still when the selection changes", async ({
     page,
   }) => {
@@ -1207,7 +1252,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(row("main-2").getByTestId("commit-stat")).toHaveText("+2 −0");
   });
 
-  test("the cumulative chart sums the lines along HEAD's first parents", async ({
+  test("the cumulative chart sums the lines of HEAD's branch, merges aside", async ({
     page,
   }) => {
     await page.locator('[data-repo-name="repoA"]').click();
@@ -1263,11 +1308,12 @@ test.describe.serial("gitreant UI", () => {
     expect(await swatch(1)).toBe(await colorOf(".chart-deleted"));
     expect(await swatch(2)).toBe(await colorOf(".chart-net"));
 
-    // root, main-1, main-2 and the merge: feature-1 counts in the merge.
+    // root, main-1, feature-1 and main-2: the merge only brings feature-1
+    // in, which counts on its own (ADR 0086).
     const box = (await chart.boundingBox())!;
     const tip = page.getByTestId("chart-tip");
     await page.mouse.move(box.x + box.width - 16, box.y + box.height / 2);
-    await expect(tip).toContainText("merge feature");
+    await expect(tip).toContainText("main-2");
     await expect(tip).toContainText("added 4, deleted 0, net 4");
     // The tip sits beside the cursor's line: left of it near the right end,
     // right of it near the left end, never across it.

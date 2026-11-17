@@ -70,12 +70,11 @@ const LABEL = {
  */
 export function CumulativeChart({
   commits,
-  head,
   onCommitMenu,
   menuOpen,
 }: {
+  /** The commits of the branch picked above the chart (ADR 0086). */
   commits: CommitView[];
-  head: string | null;
   /** Opens the commit menu for a listed commit. */
   onCommitMenu: (e: React.MouseEvent, commit: CommitView) => void;
   /** Whether the commit menu is open, which Esc closes first. */
@@ -126,10 +125,10 @@ export function CumulativeChart({
   }, []);
 
   const sums = useMemo(() => {
-    const all = cumulative(commits, head);
+    const all = cumulative(commits);
     const end = all.points.at(-1)?.time ?? 0;
     return withinRange(all, rangeStart(end, range));
-  }, [commits, head, range]);
+  }, [commits, range]);
   const layout = useMemo(() => size && chartLayout(sums, size), [sums, size]);
   const { points } = sums;
   const boxes = useMemo(() => {

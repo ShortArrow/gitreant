@@ -231,6 +231,21 @@ body {
   border-color: var(--accent);
 }
 
+/* The branch the chart and the calendar count, as the drawer's sort. */
+.chart-branch {
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.chart-branch:focus-visible {
+  border-color: var(--accent);
+}
+
 .repo-list {
   list-style: none;
   margin: 0;
