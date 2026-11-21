@@ -2595,6 +2595,48 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("log-toggle").click();
   });
 
+  test("a branch's menu opens its PR where it has one", async ({
+    page,
+    context,
+  }) => {
+    await page.route("**/api/prs", (route) =>
+      route.fulfill({
+        json: {
+          prs: [
+            {
+              number: 7,
+              url: "https://github.com/o/r/pull/7",
+              branch: "feature",
+            },
+          ],
+          merged: [],
+        },
+      }),
+    );
+    await context.route("https://github.com/**", (route) =>
+      route.fulfill({ body: "pr" }),
+    );
+    await page.locator('[data-repo-name="repoA"]').click();
+    const badge = (name: string) =>
+      page
+        .locator(".badge-ref:not(.badge-remote)", { hasText: name })
+        .first();
+    const item = page.getByTestId("ref-menu-pr");
+
+    await badge("feature").click({ button: "right" });
+    await expect(item).toHaveText("Open pull request #7 on GitHub");
+    const opened = context.waitForEvent("page");
+    await item.click();
+    expect((await opened).url()).toBe("https://github.com/o/r/pull/7");
+    await expect(page.getByTestId("ref-menu")).toHaveCount(0);
+
+    await badge("main").click({ button: "right" });
+    await expect(page.getByTestId("ref-menu")).toBeVisible();
+    await expect(item).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await page.unroute("**/api/prs");
+  });
+
   test("a branch with an open PR links to its GitHub page", async ({
     page,
   }) => {

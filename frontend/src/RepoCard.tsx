@@ -1321,6 +1321,7 @@ export function RepoCard({
                           reference: ref.kind === "tag" ? ref.name : qualified,
                           kind: ref.kind,
                           worktreePath,
+                          pr,
                         });
                       }}
                     >
