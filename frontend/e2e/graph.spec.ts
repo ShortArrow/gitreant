@@ -393,6 +393,37 @@ test.describe.serial("gitreant UI", () => {
     await expect(tip).toHaveCount(0);
   });
 
+  test("opening a menu hides the hover tips until the pointer comes back", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const tip = page.getByTestId("body-tip");
+    const row = page.getByTestId("commit-row").filter({ hasText: "main-1" });
+
+    await row.hover();
+    await expect(tip).toBeVisible();
+    await row.click({ button: "right" });
+    await expect(page.getByTestId("commit-menu")).toBeVisible();
+    await expect(tip).toHaveCount(0);
+    await page.waitForTimeout(800);
+    await expect(tip).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("commit-menu")).toHaveCount(0);
+
+    const nodeTip = page.getByTestId("node-tip");
+    const node = page.getByTestId("graph-node").first();
+    await node.hover();
+    await expect(nodeTip).toBeVisible();
+    await node.click({ button: "right" });
+    await expect(page.getByTestId("commit-menu")).toBeVisible();
+    await expect(nodeTip).toHaveCount(0);
+    await page.keyboard.press("Escape");
+
+    await page.locator("h1, header").first().hover();
+    await row.hover();
+    await expect(tip).toBeVisible();
+  });
+
   test("the detail pane holds still when the selection changes", async ({
     page,
   }) => {
@@ -3924,6 +3955,8 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("commit-menu")).toHaveCount(0);
     await page.locator(".node-uncommitted").click({ button: "right" });
     await expect(page.getByTestId("commit-menu")).toHaveCount(0);
+    // The right-click hid the node's name until the pointer comes back.
+    await page.mouse.move(0, 0);
     await page.locator(".node-uncommitted").hover();
     await expect(page.getByTestId("node-tip")).toHaveText("Uncommitted changes");
     await page.mouse.move(0, 0);
