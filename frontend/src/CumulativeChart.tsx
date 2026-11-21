@@ -71,11 +71,14 @@ const LABEL = {
 export function CumulativeChart({
   commits,
   head,
+  gitMissing,
   onCommitMenu,
   menuOpen,
 }: {
   commits: CommitView[];
   head: string | null;
+  /** The server finds no git, so no commit is being counted (ADR 0084). */
+  gitMissing: boolean;
   /** Opens the commit menu for a listed commit. */
   onCommitMenu: (e: React.MouseEvent, commit: CommitView) => void;
   /** Whether the commit menu is open, which Esc closes first. */
@@ -324,9 +327,11 @@ export function CumulativeChart({
           />
           {sums.counting > 0 && (
             <p className="chart-counting" data-testid="chart-counting">
-              {t(countKey("chartCounting", sums.counting), {
-                n: sums.counting,
-              })}
+              {gitMissing
+                ? t("chartNoGit")
+                : t(countKey("chartCounting", sums.counting), {
+                    n: sums.counting,
+                  })}
             </p>
           )}
         </div>

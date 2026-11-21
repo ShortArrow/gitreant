@@ -1821,6 +1821,33 @@ test.describe.serial("gitreant UI", () => {
     await expect(repoX).toHaveCount(0);
   });
 
+  test("a server without git says why nothing is checked or counted", async ({
+    page,
+  }) => {
+    // The server answers as one that finds no git: nothing counted, and the
+    // view says why (ADR 0084).
+    await page.route("**/api/view", async (route) => {
+      const response = await route.fetch();
+      const view = await response.json();
+      if (view.name === "repoA") {
+        view.git_missing = true;
+        for (const commit of view.commits) delete commit.stat;
+      }
+      await route.fulfill({ response, json: view });
+    });
+    await page.reload();
+    await page.locator('[data-repo-name="repoA"]').click();
+    await expect(page.getByTestId("git-missing")).toHaveText(
+      "The server finds no git, so it checks no signature and counts no lines.",
+    );
+    await page.getByTestId("cumulative-toggle").click();
+    await expect(page.getByTestId("chart-counting")).toHaveText(
+      "Lines are not counted: the server finds no git",
+    );
+    await page.getByTestId("cumulative-toggle").click();
+    await page.unroute("**/api/view");
+  });
+
   test("counts finished before the event stream connects still show", async ({
     page,
   }) => {

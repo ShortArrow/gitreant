@@ -110,6 +110,9 @@ export interface RepoView {
   /** Total commits in the repository; `commits` may be a paged prefix. */
   total: number;
   error?: string;
+  /** The server finds no git, so it checks no signature and counts no
+   *  lines (ADR 0084). */
+  git_missing?: boolean;
 }
 
 export interface FileChange {

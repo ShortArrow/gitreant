@@ -58,6 +58,17 @@ test("signatureBadge maps the verification verdict to a label", () => {
   });
 });
 
+test("signatureBadge says a server without git cannot check the signature", () => {
+  expect(signatureBadge(undefined, false, true)).toMatchObject({
+    label: "Signed",
+    className: "badge badge-signed",
+    title: "Carries a signature the server cannot check: it finds no git",
+  });
+  expect(signatureBadge(undefined).title).toBe(
+    "Carries a signature gitreant could not check",
+  );
+});
+
 test("signatureBadge stands a pulsing skeleton in while the check runs", () => {
   // The label keeps the badge's width; the skeleton hides it.
   expect(signatureBadge(undefined, true)).toMatchObject({

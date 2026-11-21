@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   batch used to make every open page read the whole history again; the
   batch now carries its results, which the page fills in
   ([ADR 0083](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0083-batches-carry-what-they-settled.md)).
+- A server that finds no git, such as one started with a PATH whose
+  entries were left unexpanded, no longer leaves signatures shown as
+  "Signed" and line counts "still being counted" with no reason. It runs
+  neither, and the page says the server finds no git
+  ([ADR 0084](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0084-say-when-the-server-finds-no-git.md)).
 
 ## [0.4.0] - 2026-11-07
 

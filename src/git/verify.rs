@@ -11,6 +11,21 @@ use std::sync::OnceLock;
 
 use super::fetch::hide_console;
 
+/// Whether a `git` on the PATH answers, which signature checks and line
+/// counts run (ADR 0084). Checked once per process.
+pub fn git_available() -> bool {
+    static AVAILABLE: OnceLock<bool> = OnceLock::new();
+    *AVAILABLE.get_or_init(|| {
+        let mut command = Command::new("git");
+        command.arg("--version");
+        hide_console(&mut command);
+        command
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    })
+}
+
 /// Whether the gpg git runs to check signatures answers. Checked once per
 /// process.
 pub fn gpg_available() -> bool {
