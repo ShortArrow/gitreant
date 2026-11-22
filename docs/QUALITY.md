@@ -101,7 +101,7 @@ them.
 
 | Tool | Role | When missing |
 |---|---|---|
-| git | Required | Effectively unusable; `gitreant doctor` reports it |
+| git | Required | Graphs still read, but no signature is checked, no line counted and no branch or tag changed; the page says so ([ADR 0084](adr/0084-say-when-the-server-finds-no-git.md)). `gitreant doctor` reports it for the PATH it runs with |
 | gh | Optional | PR links, squash-merge dashed links, and avatar search quietly disappear |
 | gpg | Optional | Signatures show as "Signed" only, never verified |
 

@@ -12,11 +12,14 @@ export interface RefMenuTarget {
   /** The other worktree this branch is checked out in, if any: git refuses
    * to switch to it here, so the menu says so instead of trying. */
   worktreePath?: string;
+  /** The branch's open pull request, if it has one. */
+  pr?: { number: number; url: string };
 }
 
 /**
- * Context menu for a branch or tag badge: copy the name, then check out /
- * merge (branches) or delete (tags). Mutating actions ask for an inline
+ * Context menu for a branch or tag badge: copy the name, open the branch's
+ * pull request where it has one, then check out / merge (branches) or
+ * delete (tags). Mutating actions ask for an inline
  * confirmation first.
  */
 export function RefMenu({
@@ -74,6 +77,18 @@ export function RefMenu({
           >
             {t(target.kind === "tag" ? "copyTagName" : "refCopyName")}
           </button>
+          {target.pr && (
+            <button
+              type="button"
+              data-testid="ref-menu-pr"
+              onClick={() => {
+                window.open(target.pr!.url, "_blank", "noreferrer");
+                onClose();
+              }}
+            >
+              {t("openPr", { number: target.pr.number })}
+            </button>
+          )}
           {target.kind === "branch" ? (
             <>
               <button

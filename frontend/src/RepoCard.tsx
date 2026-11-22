@@ -189,11 +189,13 @@ export type DiffTarget =
 
 /** Badge for a signed commit, following GitHub's wording: "Verified" only
  * when gpg actually validated the signature, "Unverified" when it judged it
- * invalid, and a plain "Signed" when it could not be checked. While the
+ * invalid, and a plain "Signed" when it could not be checked, saying so
+ * when the server finds no git to check it with (ADR 0084). While the
  * check still runs (ADR 0037), a pulsing skeleton of the badge. */
 export function signatureBadge(
   verified?: boolean,
   verifying = false,
+  gitMissing = false,
 ): {
   label: string;
   className: string;
@@ -223,7 +225,9 @@ export function signatureBadge(
   return {
     label: "Signed",
     className: "badge badge-signed",
-    title: "Carries a signature gitreant could not check",
+    title: gitMissing
+      ? "Carries a signature the server cannot check: it finds no git"
+      : "Carries a signature gitreant could not check",
   };
 }
 
@@ -579,6 +583,12 @@ export function RepoCard({
     onMouseLeave: () => setHoverNode(null),
   });
   const bodyTip = useBodyTip((commitId) => loadBody(repo.id, commitId));
+  // A menu opened anywhere hides a node's name, as it does a row's body.
+  useEffect(() => {
+    const hide = () => setHoverNode(null);
+    window.addEventListener("contextmenu", hide, true);
+    return () => window.removeEventListener("contextmenu", hide, true);
+  }, []);
   const [detail, setDetail] = useState<CommitDetail | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [diffTarget, setDiffTarget] = useState<DiffTarget | null>(null);
@@ -836,6 +846,12 @@ export function RepoCard({
         </p>
       )}
 
+      {repo.git_missing && (
+        <p className="repo-notice" data-testid="git-missing">
+          {t("gitMissing")}
+        </p>
+      )}
+
       {refMenu && (
         <RefMenu
           target={refMenu}
@@ -950,6 +966,7 @@ export function RepoCard({
       {chart ? (
         <CumulativeChart
           commits={workCommits}
+          gitMissing={repo.git_missing ?? false}
           onCommitMenu={openChartCommitMenu}
           menuOpen={commitMenu !== null}
         />
@@ -1368,6 +1385,7 @@ export function RepoCard({
                           reference: ref.kind === "tag" ? ref.name : qualified,
                           kind: ref.kind,
                           worktreePath,
+                          pr,
                         });
                       }}
                     >
@@ -1448,7 +1466,11 @@ export function RepoCard({
                   )}
                   {commit.signature &&
                     (() => {
-                      const badge = signatureBadge(commit.verified, commit.verifying);
+                      const badge = signatureBadge(
+                        commit.verified,
+                        commit.verifying,
+                        repo.git_missing,
+                      );
                       return (
                         <span
                           className={badge.className}
@@ -1545,6 +1567,7 @@ export function RepoCard({
       {calendar && (
         <Calendar
           commits={workCommits}
+          gitMissing={repo.git_missing ?? false}
           selected={selected}
           hasOlder={hasMore}
           onOlder={loadNextPage}

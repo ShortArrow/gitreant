@@ -1005,6 +1005,11 @@ body {
   padding: 12px 14px;
 }
 
+.repo-notice {
+  color: var(--muted);
+  padding: 8px 14px;
+}
+
 /* The list and the detail panel scroll independently inside the card. */
 .repo-body {
   flex: 1 1 auto;

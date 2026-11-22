@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A branch badge's menu opens the branch's pull request on GitHub, as the
+  badge's PR button does, where the branch has one.
+
 ### Changed
 
 - The line-count chart and the calendar count the same commits: those a
@@ -19,11 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A right-click no longer leaves a commit's message popup or a graph
+  node's name over the menu it opens. Both hide until the pointer enters
+  a row or node again.
 - A large repository no longer slows the server and the page while its
   signatures are checked and its commits counted in the background. Each
   batch used to make every open page read the whole history again; the
   batch now carries its results, which the page fills in
   ([ADR 0083](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0083-batches-carry-what-they-settled.md)).
+- A server that finds no git, such as one started with a PATH whose
+  entries were left unexpanded, no longer leaves signatures shown as
+  "Signed" and line counts "still being counted" with no reason. It runs
+  neither, and the page says the server finds no git
+  ([ADR 0084](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0084-say-when-the-server-finds-no-git.md)).
 
 ## [0.4.0] - 2026-11-07
 
