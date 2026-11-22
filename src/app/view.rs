@@ -128,6 +128,10 @@ pub struct RepoView {
     /// Set when the repository could not be read; `commits`/`edges` are empty.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// The server finds no `git` to run, so no signature is checked and no
+    /// commit counted (ADR 0084).
+    #[serde(skip_serializing_if = "is_false")]
+    pub git_missing: bool,
 }
 
 impl RepoView {
@@ -152,6 +156,7 @@ impl RepoView {
             lane_count: 0,
             total: 0,
             error: Some(message),
+            git_missing: false,
         }
     }
 
@@ -381,6 +386,7 @@ pub fn build_view(id: &Path, data: &RepoData, uncommitted: usize) -> RepoView {
         edges: graph.edges,
         lane_count: graph.lane_count,
         error: None,
+        git_missing: false,
     }
 }
 

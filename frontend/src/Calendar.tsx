@@ -56,12 +56,15 @@ function fill(shade: { strength: number; added: number }): string {
  */
 export function Calendar({
   commits,
+  gitMissing,
   selected,
   onPick,
   hasOlder,
   onOlder,
 }: {
   commits: CommitView[];
+  /** The server finds no git, so no commit is being counted (ADR 0084). */
+  gitMissing: boolean;
   /** The commit selected in the rows, whose day is marked. */
   selected: string | null;
   /** Selects a commit in the rows. */
@@ -252,9 +255,11 @@ export function Calendar({
           </div>
           {hovered.counting > 0 && (
             <div>
-              {t(countKey("chartCounting", hovered.counting), {
-                n: hovered.counting,
-              })}
+              {gitMissing
+                ? t("chartNoGit")
+                : t(countKey("chartCounting", hovered.counting), {
+                    n: hovered.counting,
+                  })}
             </div>
           )}
         </div>

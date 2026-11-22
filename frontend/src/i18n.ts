@@ -155,6 +155,9 @@ const en = {
   shadingDeleted: "Deleted",
   chartCounting: "{n} commits still being counted",
   chartCountingOne: "{n} commit still being counted",
+  chartNoGit: "Lines are not counted: the server finds no git",
+  gitMissing:
+    "The server finds no git, so it checks no signature and counts no lines.",
   chartTip: "added {added}, deleted {deleted}, net {net}",
   chartAdded: "Added",
   chartDeleted: "Deleted",
@@ -409,6 +412,9 @@ const ja: Record<MsgKey, string> = {
   shadingDeleted: "削除",
   chartCounting: "{n} 件のコミットを数えています",
   chartCountingOne: "{n} 件のコミットを数えています",
+  chartNoGit: "サーバーが git を見つけられないため、行数を数えていません",
+  gitMissing:
+    "サーバーが git を見つけられないため、署名を確認せず、行数も数えていません。",
   chartTip: "追加 {added}、削除 {deleted}、増減 {net}",
   chartAdded: "追加",
   chartDeleted: "削除",
