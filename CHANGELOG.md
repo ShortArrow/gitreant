@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Escape closes a commit's, a reference's or a tab's menu every time. It
+  sometimes left the menu open when the page redrew on the same key, which
+  a busy machine made more likely.
 - A right-click no longer leaves a commit's message popup or a graph
   node's name over the menu it opens. Both hide until the pointer enters
   a row or node again.

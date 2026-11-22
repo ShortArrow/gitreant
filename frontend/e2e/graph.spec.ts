@@ -3934,6 +3934,41 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("commit-detail")).toHaveCount(0);
   });
 
+  test("Escape closes a menu even when the page redraws on that key", async ({
+    page,
+  }) => {
+    // A busy page may redraw while Escape is still being handed out;
+    // folding or unfolding the drawer on the way in stands for that redraw.
+    await page.evaluate(() => {
+      window.addEventListener("keydown", (e) => {
+        if (e.key !== "Escape") return;
+        document
+          .querySelector<HTMLElement>(
+            '[data-testid="drawer-collapse"], [data-testid="drawer-expand"]',
+          )!
+          .click();
+      });
+    });
+    await page.locator('[data-repo-name="repoA"]').click();
+    const menu = page.getByTestId("commit-menu");
+    await page
+      .getByTestId("commit-row")
+      .filter({ hasText: "main-1" })
+      .click({ button: "right" });
+    await expect(menu).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+
+    const refMenu = page.getByTestId("ref-menu");
+    await page
+      .locator(".badge-kind-branch", { hasText: "main" })
+      .first()
+      .click({ button: "right" });
+    await expect(refMenu).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(refMenu).toHaveCount(0);
+  });
+
   test("the commit menu compares another commit with the selected one", async ({
     page,
   }) => {
