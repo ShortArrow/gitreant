@@ -200,6 +200,13 @@ jobs:
       - name: Run E2E
         working-directory: frontend
         run: pnpm test:e2e
+      - name: Keep the traces of the failed E2E tests
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-traces
+          path: frontend/test-results/
+          retention-days: 14
 
   docs-tandem:
     name: Bilingual docs updated together
