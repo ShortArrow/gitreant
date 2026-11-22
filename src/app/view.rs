@@ -110,6 +110,10 @@ pub struct RepoView {
     /// less the full commit id that completes it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub commit_url_base: Option<String>,
+    /// The branch `origin/HEAD` names, which a commit is compared against
+    /// when no pull request names its base.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_branch: Option<String>,
     /// The repository's other worktrees, so branch badges can say where a
     /// branch is checked out (a branch cannot be switched to twice).
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -144,6 +148,7 @@ impl RepoView {
             head_branch: None,
             github_url: None,
             commit_url_base: None,
+            default_branch: None,
             worktrees: Vec::new(),
             refs: Vec::new(),
             commits: Vec::new(),
@@ -373,6 +378,7 @@ pub fn build_view(id: &Path, data: &RepoData, uncommitted: usize) -> RepoView {
         head_branch: data.head_branch.clone(),
         github_url: data.github_url.clone(),
         commit_url_base: data.commit_url_base.clone(),
+        default_branch: data.default_branch.clone(),
         worktrees,
         refs,
         total: data.commits.len(),
@@ -427,6 +433,7 @@ mod tests {
             head_branch: None,
             github_url: None,
             commit_url_base: None,
+            default_branch: None,
             worktrees: vec![],
         };
 
@@ -472,6 +479,7 @@ mod tests {
             head_branch: head.map(|_| "main".to_string()),
             github_url: None,
             commit_url_base: None,
+            default_branch: None,
             worktrees: vec![],
         }
     }
@@ -543,6 +551,7 @@ mod tests {
             head_branch: Some("main".to_string()),
             github_url: None,
             commit_url_base: None,
+            default_branch: None,
             worktrees: vec![],
         };
 

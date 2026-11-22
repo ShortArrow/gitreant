@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A branch badge's menu opens the branch's pull request on GitHub, as the
   badge's PR button does, where the branch has one.
+- The commit menu compares a commit with its base branch from where it
+  parts from it, as its pull request would: the base its branch's pull
+  request names, else the default branch
+  ([ADR 0085](https://github.com/ShortArrow/gitreant/blob/main/docs/adr/0085-compare-a-commit-with-its-base.md)).
 
 ### Changed
 

@@ -146,6 +146,40 @@ pub fn read_commit_diff(path: &Path, id: &str) -> Result<Vec<FileDiff>, String> 
     diff_trees(&repo, &parent_tree, &tree)
 }
 
+/// The commit two histories part at, summed up for showing.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct BranchPoint {
+    pub id: String,
+    pub summary: String,
+    pub author: String,
+    pub time: i64,
+}
+
+/// Where `target` parts from the branch or other revision `base`, as
+/// `git merge-base` finds it, so `base...target` diffs from there.
+pub fn merge_base(path: &Path, base: &str, target: &str) -> Result<BranchPoint, String> {
+    let repo = gix::discover(path).map_err(|e| format!("open {path:?}: {e}"))?;
+    let base_id = repo
+        .rev_parse_single(base)
+        .map_err(|e| format!("{base}: {e}"))?
+        .detach();
+    let target_id = find_commit(&repo, target)?.id;
+    let point = repo
+        .merge_base(base_id, target_id)
+        .map_err(|e| format!("no branch point of {base} and {target}: {e}"))?;
+    let commit = find_commit(&repo, &point.to_string())?;
+    let author = commit.author().map_err(|e| format!("author: {e}"))?;
+    Ok(BranchPoint {
+        id: point.to_string(),
+        summary: commit
+            .message()
+            .map(|m| m.summary().to_string())
+            .unwrap_or_default(),
+        author: author.name.to_string(),
+        time: author.time().map(|t| t.seconds).unwrap_or(0),
+    })
+}
+
 /// Diff every file that differs between commits `base` and `target`, as
 /// changes from `base` to `target` (ADR 0035).
 pub fn read_range_diff(path: &Path, base: &str, target: &str) -> Result<Vec<FileDiff>, String> {

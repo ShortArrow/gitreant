@@ -21,6 +21,8 @@ import {
   fetchCommitDiff,
   fetchFileContent,
   fetchRangeDiff,
+  fetchMergeBase,
+  type BranchPoint,
   fetchFileDiff,
   fetchPrs,
   fetchSubmoduleGraphs,
@@ -64,6 +66,7 @@ import {
   tiltBy,
 } from "./thicknessModel";
 import { createThicknessView } from "./thicknessView";
+import { baseFor } from "./baseModel";
 import { branchCommits } from "./cumulativeModel";
 import { RefMenu, type RefMenuTarget } from "./RefMenu";
 import { countKey, format, MESSAGES } from "./i18n";
@@ -184,8 +187,15 @@ function webUrlOf(view: RepoView, commit: string): string | undefined {
 export type DiffTarget =
   | { kind: "file"; path: string }
   | { kind: "all" }
-  /** Two commits compared from the selection's menu (ADR 0035). */
-  | { kind: "range"; base: string; target: string };
+  /** Two commits compared from the selection's menu (ADR 0035), or a
+   * commit and where it parts from its base branch, which may not be
+   * loaded (ADR 0085). */
+  | {
+      kind: "range";
+      base: string;
+      target: string;
+      branchPoint?: { branch: string; commit: BranchPoint };
+    };
 
 /** Badge for a signed commit, following GitHub's wording: "Verified" only
  * when gpg actually validated the signature, "Unverified" when it judged it
@@ -787,8 +797,14 @@ export function RepoCard({
     ? repo.commits.find((c) => c.id === selected)
     : undefined;
   const commitOf = (id: string) => view.commits.find((c) => c.id === id);
+  // The branch the commit under the menu is compared against (ADR 0085).
+  const commitBase = commitMenu?.refs
+    ? baseFor(commitMenu.commit, repo, prByBranch)
+    : null;
   const compareBase =
-    diffTarget?.kind === "range" ? commitOf(diffTarget.base) : undefined;
+    diffTarget?.kind === "range"
+      ? (commitOf(diffTarget.base) ?? diffTarget.branchPoint?.commit)
+      : undefined;
   const compareTarget =
     diffTarget?.kind === "range" ? commitOf(diffTarget.target) : undefined;
 
@@ -956,6 +972,30 @@ export function RepoCard({
                     kind: "range",
                     ...compareRange(view.commits, selected, commitMenu.commit),
                   })
+              : undefined
+          }
+          compareBase={
+            commitBase
+              ? {
+                  ...commitBase,
+                  onCompare: () => {
+                    const target = commitMenu.commit;
+                    fetchMergeBase(repo.id, commitBase.revision, target)
+                      .then((point) => {
+                        select(target);
+                        setDiffTarget({
+                          kind: "range",
+                          base: point.id,
+                          target,
+                          branchPoint: {
+                            branch: commitBase.branch,
+                            commit: point,
+                          },
+                        });
+                      })
+                      .catch((e) => setOpError(String(e)));
+                  },
+                }
               : undefined
           }
           onClose={() => setCommitMenu(null)}
@@ -1518,6 +1558,11 @@ export function RepoCard({
       {compareBase && compareTarget ? (
         <CompareDetailPanel
           base={compareBase}
+          baseLabel={
+            diffTarget?.kind === "range" && diffTarget.branchPoint
+              ? t("branchPointWith", { branch: diffTarget.branchPoint.branch })
+              : undefined
+          }
           target={compareTarget}
           files={diffFiles}
           error={diffError}

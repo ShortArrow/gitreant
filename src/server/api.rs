@@ -496,6 +496,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/file", post(file_content))
         .route("/api/commit-diff", post(commit_diff))
         .route("/api/range-diff", post(range_diff))
+        .route("/api/merge-base", post(merge_base))
         .route("/api/fetch", post(fetch_remotes))
         .route("/api/checkout", post(checkout))
         .route("/api/checkout-detached", post(checkout_detached))
@@ -1281,6 +1282,35 @@ async fn range_diff(
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     .map_err(|message| (StatusCode::NOT_FOUND, message))?;
     Ok(Json(diffs.into_iter().map(Into::into).collect()))
+}
+
+#[derive(Deserialize)]
+struct MergeBaseRequest {
+    /// The repository id (its canonical path).
+    repo: String,
+    /// The branch, or any revision, to part from.
+    base: String,
+    /// The full commit id.
+    target: String,
+}
+
+/// Where a commit parts from a branch, for diffing `base...target` as a
+/// pull request does.
+async fn merge_base(
+    State(state): State<AppState>,
+    Json(req): Json<MergeBaseRequest>,
+) -> Result<Json<crate::git::BranchPoint>, (StatusCode, String)> {
+    let Some(repo) = state.repo_path(&req.repo) else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("unknown repository: {}", req.repo),
+        ));
+    };
+    tokio::task::spawn_blocking(move || crate::git::merge_base(&repo, &req.base, &req.target))
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .map(Json)
+        .map_err(|message| (StatusCode::BAD_REQUEST, message))
 }
 
 #[derive(Serialize)]

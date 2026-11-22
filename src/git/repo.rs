@@ -59,6 +59,8 @@ pub struct RepoData {
     /// A commit's web page on the origin's host, less the full commit id
     /// (`commit_url_base`).
     pub commit_url_base: Option<String>,
+    /// The branch `origin/HEAD` names: the remote's default branch.
+    pub default_branch: Option<String>,
     /// The repository's other worktrees (`git worktree`): the main one when
     /// this is a linked worktree, and every linked one otherwise.
     pub worktrees: Vec<Worktree>,
@@ -145,8 +147,19 @@ pub fn read_repo_with_progress(
         head_branch,
         github_url,
         commit_url_base,
+        default_branch: default_branch(&repo),
         worktrees: read_worktrees(path),
     })
+}
+
+/// The branch `refs/remotes/origin/HEAD` points at, without the remote's
+/// name; none when origin has no HEAD.
+fn default_branch(repo: &gix::Repository) -> Option<String> {
+    let head = repo.find_reference("refs/remotes/origin/HEAD").ok()?;
+    let target = head.target().try_name()?.as_bstr().to_string();
+    target
+        .strip_prefix("refs/remotes/origin/")
+        .map(str::to_string)
 }
 
 fn collect_refs(repo: &gix::Repository) -> Vec<RefInfo> {

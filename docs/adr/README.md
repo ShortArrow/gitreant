@@ -92,4 +92,5 @@ are canonical; the files below are their English translations.
 | [0082](0082-the-event-stream-carries-the-secret-in-its-header.md) | The event stream carries the secret in its header | Accepted |
 | [0083](0083-batches-carry-what-they-settled.md) | A background batch carries what it settled | Accepted |
 | [0084](0084-say-when-the-server-finds-no-git.md) | Say when the server finds no git | Accepted |
+| [0085](0085-compare-a-commit-with-its-base.md) | Compare a commit with its base from where it parts from it | Accepted |
 | [0086](0086-chart-and-calendar-count-one-branch.md) | The chart and the calendar count one branch's commits | Accepted |
