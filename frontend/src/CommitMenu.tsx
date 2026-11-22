@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { CommitView } from "./api";
 import { shortId } from "./graph";
 import { useT } from "./settings";
+import { useDismiss } from "./dismiss";
 
 /**
  * Context menu on a commit row or node: a list of actions first (copy the
@@ -64,18 +65,7 @@ export function CommitMenu({
     onClose();
   };
 
-  useEffect(() => {
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      onClose();
-    };
-    window.addEventListener("mousedown", close);
-    window.addEventListener("keydown", close);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("keydown", close);
-    };
-  }, [onClose]);
+  useDismiss(onClose);
 
   return (
     <div

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useT } from "./settings";
+import { useDismiss } from "./dismiss";
 
 /** Where and for which reference the context menu is open. */
 export interface RefMenuTarget {
@@ -43,18 +44,7 @@ export function RefMenu({
     "checkout" | "merge" | "delete-tag" | null
   >(null);
 
-  useEffect(() => {
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      onClose();
-    };
-    window.addEventListener("mousedown", close);
-    window.addEventListener("keydown", close);
-    return () => {
-      window.removeEventListener("mousedown", close);
-      window.removeEventListener("keydown", close);
-    };
-  }, [onClose]);
+  useDismiss(onClose);
 
   const canMerge = headBranch !== undefined && headBranch !== target.reference;
 
