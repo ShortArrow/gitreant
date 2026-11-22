@@ -435,6 +435,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("commit-menu")).toBeVisible();
     await expect(nodeTip).toHaveCount(0);
     await page.keyboard.press("Escape");
+    await expect(page.getByTestId("commit-menu")).toHaveCount(0);
 
     await page.locator("h1, header").first().hover();
     await row.hover();
@@ -454,6 +455,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("commit-menu")).toBeVisible();
     await expect(item).toHaveCount(0);
     await page.keyboard.press("Escape");
+    await expect(page.getByTestId("commit-menu")).toHaveCount(0);
 
     await row("topic-1").click({ button: "right" });
     await expect(item).toHaveText("Compare with base main");
@@ -2763,6 +2765,7 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("ref-menu")).toBeVisible();
     await expect(item).toHaveCount(0);
     await page.keyboard.press("Escape");
+    await expect(page.getByTestId("ref-menu")).toHaveCount(0);
     await page.unroute("**/api/prs");
   });
 
@@ -3529,6 +3532,7 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("region-expand").click({ button: "right" });
     await expect(page.getByTestId("region-open")).toBeVisible();
     await page.keyboard.press("Escape");
+    await expect(page.getByTestId("region-open")).toHaveCount(0);
     await page.getByTestId("region-expand").click();
 
     // Restore the served set: the superproject, then the submodule it
@@ -3943,12 +3947,16 @@ test.describe.serial("gitreant UI", () => {
 
     // Nothing selected, or the selected commit's own menu: nothing to compare.
     await row("merge feature").click({ button: "right" });
+    await expect(menu).toBeVisible();
     await expect(menu.getByTestId("commit-menu-compare")).toHaveCount(0);
     await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
     await row("main-1").click();
     await row("main-1").click({ button: "right" });
+    await expect(menu).toBeVisible();
     await expect(menu.getByTestId("commit-menu-compare")).toHaveCount(0);
     await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
 
     // From the merge's menu: main-1 is its ancestor, so it is the base.
     const range = `${await hash("main-1")}..${await hash("merge feature")}`;
@@ -4143,6 +4151,7 @@ test.describe.serial("gitreant UI", () => {
     await topic.click({ button: "right" });
     await expect(page.getByTestId("ref-menu-checkout")).toBeDisabled();
     await page.keyboard.press("Escape");
+    await expect(page.getByTestId("ref-menu")).toHaveCount(0);
 
     // The drawer nests the worktree under its repository, naming its branch;
     // opening it attaches it as a view of its own, on that branch.
@@ -4381,6 +4390,7 @@ test.describe.serial("gitreant UI", () => {
       await main.click({ button: "right" });
       await expect(page.getByTestId("ref-menu-checkout")).toBeDisabled();
       await page.keyboard.press("Escape");
+      await expect(page.getByTestId("ref-menu")).toHaveCount(0);
 
       const repoQ = page.locator('[data-repo-name="repoQ"]');
       await repoQ.getByTestId("repo-disclosure").click();
