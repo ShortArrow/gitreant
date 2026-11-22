@@ -73,6 +73,23 @@ async function addRepo(page: Page, repoPath: string) {
   await input.press("Enter");
 }
 
+/** Reload the page with every ResizeObserver reporting half a second late,
+ * as a busy machine may, so a test sees an element still drawn at the size
+ * it had before its box changed. */
+async function resizesLate(page: Page) {
+  await page.addInitScript(() => {
+    const Observer = window.ResizeObserver;
+    window.ResizeObserver = class extends Observer {
+      constructor(report: ResizeObserverCallback) {
+        super((entries, observer) =>
+          window.setTimeout(() => report(entries, observer), 500),
+        );
+      }
+    };
+  });
+  await page.goto(`/#token=${fixtures.secret}`);
+}
+
 test.describe.serial("gitreant UI", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(`/#token=${fixtures.secret}`);
@@ -1692,6 +1709,7 @@ test.describe.serial("gitreant UI", () => {
     // Narrow enough that the list leaves the chart less room than its head
     // takes on one line.
     await page.setViewportSize({ width: 820, height: 720 });
+    await resizesLate(page);
     await page.locator('[data-repo-name="repoA"]').click();
     await expect(
       page
@@ -1708,7 +1726,17 @@ test.describe.serial("gitreant UI", () => {
     // repoA's first parents are root, main-1, main-2 and the merge, at 0,
     // 10, 30 and 40 seconds: main-1 is drawn a quarter across the plot,
     // whose margins are 56 and 16 pixels.
+    const unfilled = () =>
+      page.evaluate(() => {
+        const area = document.querySelector(".cumulative-area")!;
+        const drawn = area.querySelector('[data-testid="cumulative-chart"]');
+        return Math.round(
+          area.getBoundingClientRect().width -
+            (drawn?.getBoundingClientRect().width ?? 0),
+        );
+      });
     const clickMain1 = async () => {
+      await expect.poll(unfilled).toBe(0);
       const box = (await chart.boundingBox())!;
       const x = box.x + 56 + (box.width - 72) / 4;
       await page.mouse.click(x, box.y + box.height / 2);
