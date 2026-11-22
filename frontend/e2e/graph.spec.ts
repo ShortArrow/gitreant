@@ -393,6 +393,37 @@ test.describe.serial("gitreant UI", () => {
     await expect(tip).toHaveCount(0);
   });
 
+  test("opening a menu hides the hover tips until the pointer comes back", async ({
+    page,
+  }) => {
+    await page.locator('[data-repo-name="repoA"]').click();
+    const tip = page.getByTestId("body-tip");
+    const row = page.getByTestId("commit-row").filter({ hasText: "main-1" });
+
+    await row.hover();
+    await expect(tip).toBeVisible();
+    await row.click({ button: "right" });
+    await expect(page.getByTestId("commit-menu")).toBeVisible();
+    await expect(tip).toHaveCount(0);
+    await page.waitForTimeout(800);
+    await expect(tip).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("commit-menu")).toHaveCount(0);
+
+    const nodeTip = page.getByTestId("node-tip");
+    const node = page.getByTestId("graph-node").first();
+    await node.hover();
+    await expect(nodeTip).toBeVisible();
+    await node.click({ button: "right" });
+    await expect(page.getByTestId("commit-menu")).toBeVisible();
+    await expect(nodeTip).toHaveCount(0);
+    await page.keyboard.press("Escape");
+
+    await page.locator("h1, header").first().hover();
+    await row.hover();
+    await expect(tip).toBeVisible();
+  });
+
   test("the detail pane holds still when the selection changes", async ({
     page,
   }) => {
@@ -2591,6 +2622,48 @@ test.describe.serial("gitreant UI", () => {
     await page.getByTestId("log-toggle").click();
   });
 
+  test("a branch's menu opens its PR where it has one", async ({
+    page,
+    context,
+  }) => {
+    await page.route("**/api/prs", (route) =>
+      route.fulfill({
+        json: {
+          prs: [
+            {
+              number: 7,
+              url: "https://github.com/o/r/pull/7",
+              branch: "feature",
+            },
+          ],
+          merged: [],
+        },
+      }),
+    );
+    await context.route("https://github.com/**", (route) =>
+      route.fulfill({ body: "pr" }),
+    );
+    await page.locator('[data-repo-name="repoA"]').click();
+    const badge = (name: string) =>
+      page
+        .locator(".badge-ref:not(.badge-remote)", { hasText: name })
+        .first();
+    const item = page.getByTestId("ref-menu-pr");
+
+    await badge("feature").click({ button: "right" });
+    await expect(item).toHaveText("Open pull request #7 on GitHub");
+    const opened = context.waitForEvent("page");
+    await item.click();
+    expect((await opened).url()).toBe("https://github.com/o/r/pull/7");
+    await expect(page.getByTestId("ref-menu")).toHaveCount(0);
+
+    await badge("main").click({ button: "right" });
+    await expect(page.getByTestId("ref-menu")).toBeVisible();
+    await expect(item).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await page.unroute("**/api/prs");
+  });
+
   test("a branch with an open PR links to its GitHub page", async ({
     page,
   }) => {
@@ -3909,6 +3982,8 @@ test.describe.serial("gitreant UI", () => {
     await expect(page.getByTestId("commit-menu")).toHaveCount(0);
     await page.locator(".node-uncommitted").click({ button: "right" });
     await expect(page.getByTestId("commit-menu")).toHaveCount(0);
+    // The right-click hid the node's name until the pointer comes back.
+    await page.mouse.move(0, 0);
     await page.locator(".node-uncommitted").hover();
     await expect(page.getByTestId("node-tip")).toHaveText("Uncommitted changes");
     await page.mouse.move(0, 0);

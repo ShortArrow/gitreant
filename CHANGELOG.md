@@ -8,8 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A branch badge's menu opens the branch's pull request on GitHub, as the
+  badge's PR button does, where the branch has one.
+
 ### Fixed
 
+- A right-click no longer leaves a commit's message popup or a graph
+  node's name over the menu it opens. Both hide until the pointer enters
+  a row or node again.
 - A large repository no longer slows the server and the page while its
   signatures are checked and its commits counted in the background. Each
   batch used to make every open page read the whole history again; the
